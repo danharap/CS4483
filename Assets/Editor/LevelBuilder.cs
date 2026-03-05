@@ -33,9 +33,7 @@ public static class LevelBuilder
         CreateFloor();
         CreateBoundaryWalls();
         CreateCentralHub();
-        CreateNorthPocket();
-        CreateEastPocket();
-        CreateWestPocket();
+        // Removed colored pocket zones (green/yellow/red) - simplified open field design
         CreateBossArena();
         CreateRaisedPlatforms();
         CreateOcclusionWalls();
