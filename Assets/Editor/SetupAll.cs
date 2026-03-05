@@ -248,7 +248,8 @@ public static class SetupAll
         MakeUpgradeCard(upgradePanel.transform, "Card2", new Vector2(380, 0),
             out card2Btn, out card2Name, out card2Desc, out card2Bg);
         upgradeUIComp = upgradePanel.AddComponent<UpgradeUI>();
-        upgradePanel.SetActive(false);
+        // Panel starts active so Unity initializes it properly - UpgradeUI.Awake() will set it to false
+        upgradePanel.SetActive(true);
 
         // ── Game over panel ───────────────────────────────────────────────
         gameOverPanel = MakePanel(root, "GameOverPanel", new Color(0f, 0f, 0f, 0.85f));
