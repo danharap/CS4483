@@ -52,14 +52,32 @@ public static class SetupAll
     [MenuItem("CS4483/▶  SETUP EVERYTHING  (Run This First!)")]
     public static void SetupEverything()
     {
-        // Safety check
-        if (!EditorSceneManager.GetActiveScene().isLoaded)
+        // Create or load MainScene (not MainMenu!)
+        Scene mainScene;
+        string mainScenePath = "Assets/Scenes/MainScene.unity";
+        
+        // Ensure Scenes folder exists
+        if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
+            AssetDatabase.CreateFolder("Assets", "Scenes");
+        
+        // Check if MainScene exists
+        Scene existingScene = EditorSceneManager.GetSceneByPath(mainScenePath);
+        if (existingScene.IsValid() && existingScene.isLoaded)
         {
-            Debug.LogError("[SetupAll] Open or create a scene first.");
-            return;
+            mainScene = existingScene;
+            EditorSceneManager.SetActiveScene(mainScene);
+        }
+        else if (System.IO.File.Exists(mainScenePath))
+        {
+            mainScene = EditorSceneManager.OpenScene(mainScenePath, OpenSceneMode.Single);
+        }
+        else
+        {
+            mainScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            EditorSceneManager.SaveScene(mainScene, mainScenePath);
         }
 
-        Debug.Log("[SetupAll] Starting full setup...");
+        Debug.Log($"[SetupAll] Starting full setup in scene: {mainScene.name}");
 
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
