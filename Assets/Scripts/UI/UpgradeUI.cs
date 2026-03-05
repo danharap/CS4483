@@ -40,6 +40,10 @@ public class UpgradeUI : MonoBehaviour
 
     void Awake()
     {
+        Debug.Log("[UpgradeUI] Awake called!");
+        Debug.Log($"[UpgradeUI] upgradePanel: {(upgradePanel != null ? "OK" : "NULL")}");
+        Debug.Log($"[UpgradeUI] card0Button: {(card0Button != null ? "OK" : "NULL")}");
+        
         if (upgradePanel) upgradePanel.SetActive(false);
 
         card0Button?.onClick.AddListener(() => SelectUpgrade(0));

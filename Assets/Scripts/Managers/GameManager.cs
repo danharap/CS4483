@@ -68,9 +68,18 @@ public class GameManager : MonoBehaviour
 
     public void PauseForUpgrade(bool forceBossRare = false)
     {
+        Debug.Log($"[GameManager] PauseForUpgrade called! State: {State}");
         if (State != GameState.Playing) return;
+        
+        if (upgradeUI == null)
+        {
+            Debug.LogError("[GameManager] upgradeUI is NULL! Cannot show upgrade panel!");
+            return;
+        }
+        
         State = GameState.PausedForUpgrade;
         Time.timeScale = 0f;
+        Debug.Log("[GameManager] Game paused, calling upgradeUI.Show()...");
         upgradeUI.Show(forceBossRare);
     }
 
