@@ -274,8 +274,7 @@ public static class SceneSetup
 
         panel.SetActive(false); // UpgradeUI.Show() activates it
 
-        // Add UpgradeUI script to this panel
-        panel.AddComponent<UpgradeUI>();
+        // UpgradeUI component is added by SetupAll.cs which also wires all references
     }
 
     static void CreateUpgradeCard(Transform parent, string name, Vector2 pos)

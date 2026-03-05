@@ -36,10 +36,12 @@ public static class PrefabBuilder
         go.name = "Projectile";
         go.transform.localScale = Vector3.one * 0.25f;
         
-        // Create and save yellow material
+        // Create and save yellow material (delete first if exists)
+        string matPath = "Assets/Materials/M_Projectile.mat";
+        AssetDatabase.DeleteAsset(matPath);
         Material mat = new Material(Shader.Find("Standard"));
         mat.color = new Color(1f, 0.85f, 0.1f);
-        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Projectile.mat");
+        AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
         // Remove mesh collider, add sphere trigger
@@ -68,10 +70,12 @@ public static class PrefabBuilder
         go.name = "XPOrb";
         go.transform.localScale = Vector3.one * 0.3f;
         
-        // Create and save cyan material
+        // Create and save cyan material (delete first if exists)
+        string matPath = "Assets/Materials/M_XPOrb.mat";
+        AssetDatabase.DeleteAsset(matPath);
         Material mat = new Material(Shader.Find("Standard"));
         mat.color = new Color(0.0f, 0.9f, 0.9f);
-        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_XPOrb.mat");
+        AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
         Object.DestroyImmediate(go.GetComponent<SphereCollider>());
@@ -93,10 +97,12 @@ public static class PrefabBuilder
         go.name = "Enemy_Chaser";
         go.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
         
-        // Bright red material for basic enemy
+        // Bright red material for basic enemy (delete first if exists)
+        string matPath = "Assets/Materials/M_Enemy_Chaser.mat";
+        AssetDatabase.DeleteAsset(matPath);
         Material mat = new Material(Shader.Find("Standard"));
         mat.color = new Color(1f, 0.1f, 0.1f);
-        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Enemy_Chaser.mat");
+        AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
         SetupEnemyPhysics(go);
@@ -118,10 +124,12 @@ public static class PrefabBuilder
         go.name = "Enemy_Fast";
         go.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
         
-        // Bright orange material for fast enemy
+        // Bright orange material for fast enemy (delete first if exists)
+        string matPath = "Assets/Materials/M_Enemy_Fast.mat";
+        AssetDatabase.DeleteAsset(matPath);
         Material mat = new Material(Shader.Find("Standard"));
         mat.color = new Color(1f, 0.6f, 0f);
-        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Enemy_Fast.mat");
+        AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
         SetupEnemyPhysics(go);
@@ -143,10 +151,12 @@ public static class PrefabBuilder
         go.name = "Enemy_Boss";
         go.transform.localScale = new Vector3(3.5f, 3.5f, 3.5f);
         
-        // Dark purple material for boss
+        // Dark purple material for boss (delete first if exists)
+        string matPath = "Assets/Materials/M_Enemy_Boss.mat";
+        AssetDatabase.DeleteAsset(matPath);
         Material mat = new Material(Shader.Find("Standard"));
         mat.color = new Color(0.6f, 0f, 0.7f);
-        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Enemy_Boss.mat");
+        AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
         SetupEnemyPhysics(go);
@@ -162,11 +172,13 @@ public static class PrefabBuilder
         top.transform.SetParent(go.transform);
         top.transform.localPosition = new Vector3(0f, 0.6f, 0f);
         top.transform.localScale    = new Vector3(0.4f, 0.4f, 0.4f);
+        string crownMatPath = "Assets/Materials/M_BossCrown.mat";
+        AssetDatabase.DeleteAsset(crownMatPath);
         Material crownMat = new Material(Shader.Find("Standard"));
         crownMat.color = new Color(1f, 0f, 0f);
         crownMat.EnableKeyword("_EMISSION");
         crownMat.SetColor("_EmissionColor", new Color(1f, 0f, 0f) * 0.5f);
-        AssetDatabase.CreateAsset(crownMat, "Assets/Materials/M_BossCrown.mat");
+        AssetDatabase.CreateAsset(crownMat, crownMatPath);
         top.GetComponent<Renderer>().sharedMaterial = crownMat;
         Object.DestroyImmediate(top.GetComponent<SphereCollider>());
 
