@@ -62,7 +62,7 @@ public static class PrefabBuilder
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "XPOrb";
         go.transform.localScale = Vector3.one * 0.3f;
-        SetColor(go, new Color(0.1f, 0.9f, 0.4f));
+        SetColor(go, new Color(0.0f, 0.9f, 0.9f));
 
         Object.DestroyImmediate(go.GetComponent<SphereCollider>());
         SphereCollider col = go.AddComponent<SphereCollider>();

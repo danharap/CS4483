@@ -98,8 +98,8 @@ public static class LevelBuilder
     static void CreateCentralHub()
     {
         Transform p = Child("CentralHub");
-        // Central area marker (flush with ground)
-        Box("Hub_Floor",  new Vector3(0, 0, 0), new Vector3(9, 0.4f, 9), matHub, p);
+        // Central area marker (slightly raised to prevent z-fighting)
+        Box("Hub_Floor",  new Vector3(0, 0.01f, 0), new Vector3(9, 0.4f, 9), matHub, p);
         // Landmark pillar (BLUE = main wayfinding beacon)
         GameObject pillar = Box("Hub_Pillar", new Vector3(0, 4f, 0), new Vector3(1, 8, 1), null, p);
         pillar.GetComponent<Renderer>().material = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
@@ -110,7 +110,7 @@ public static class LevelBuilder
     static void CreateNorthPocket()
     {
         Transform p = Child("Pocket_North_Green");
-        Box("Pocket_N_Floor",  new Vector3(0, 0, 15),   new Vector3(12, 0.4f, 9),  matGreen, p);
+        Box("Pocket_N_Floor",  new Vector3(0, 0.01f, 15),   new Vector3(12, 0.4f, 9),  matGreen, p);
         // Landmark (GREEN pillar)
         GameObject pillar = Box("Green_Pillar", new Vector3(0, 3, 17), new Vector3(0.6f, 6, 0.6f), matGreen, p);
         // Healing shrine marker
@@ -126,7 +126,7 @@ public static class LevelBuilder
     static void CreateEastPocket()
     {
         Transform p = Child("Pocket_East_Yellow");
-        Box("Pocket_E_Floor",  new Vector3(16, 0, 0),  new Vector3(9, 0.4f, 12), matYellow, p);
+        Box("Pocket_E_Floor",  new Vector3(16, 0.01f, 0),  new Vector3(9, 0.4f, 12), matYellow, p);
         Box("Yellow_Pillar",   new Vector3(18, 3, 0),  new Vector3(0.6f, 6, 0.6f), matYellow, p);
     }
 
@@ -135,7 +135,7 @@ public static class LevelBuilder
     static void CreateWestPocket()
     {
         Transform p = Child("Pocket_West_Red");
-        Box("Pocket_W_Floor",  new Vector3(-16, 0, 0),  new Vector3(9, 0.4f, 12), matRed, p);
+        Box("Pocket_W_Floor",  new Vector3(-16, 0.01f, 0),  new Vector3(9, 0.4f, 12), matRed, p);
         Box("Red_Pillar",      new Vector3(-18, 3, 0),  new Vector3(0.6f, 6, 0.6f), matRed, p);
     }
 
@@ -144,7 +144,7 @@ public static class LevelBuilder
     static void CreateBossArena()
     {
         Transform p = Child("BossArena");
-        Box("Boss_Floor",    new Vector3(0, 0, -17),   new Vector3(14, 0.4f, 8), matBoss, p);
+        Box("Boss_Floor",    new Vector3(0, 0.01f, -17),   new Vector3(14, 0.4f, 8), matBoss, p);
         // Boss landmark (Red pillar)
         Box("Boss_Pillar",   new Vector3(0, 3, -19),   new Vector3(1, 6, 1), matBoss, p);
         // Gate door (GateDoor component added by SceneSetup)

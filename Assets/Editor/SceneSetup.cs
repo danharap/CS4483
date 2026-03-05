@@ -131,12 +131,12 @@ public static class SceneSetup
 
         // -- HP Bar --
         CreateSliderInCanvas(canvasGO.transform, "HP_Slider",
-            new Vector2(-300f, -160f), new Vector2(250f, 20f),
-            new Color(0.9f, 0.1f, 0.1f));
+            new Vector2(-350f, -450f), new Vector2(350f, 35f),
+            new Color(1f, 0.2f, 0.2f));
 
         // HP text
         CreateTMPText(canvasGO.transform, "HP_Text",
-            new Vector2(-300f, -140f), new Vector2(100f, 20f), "100 / 100");
+            new Vector2(-350f, -420f), new Vector2(150f, 30f), "100 / 100");
 
         // -- XP Bar --
         CreateSliderInCanvas(canvasGO.transform, "XP_Slider",
