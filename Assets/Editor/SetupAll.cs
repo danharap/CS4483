@@ -171,7 +171,8 @@ public static class SetupAll
         playerGO = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         playerGO.name = "Player";
         playerGO.tag  = "Player";
-        playerGO.transform.position = new Vector3(0, 1.1f, 0);
+        // Spawn away from center pillar to avoid collision on start
+        playerGO.transform.position = new Vector3(3f, 1.1f, 3f);
 
         Object.DestroyImmediate(playerGO.GetComponent<CapsuleCollider>());
         CharacterController cc = playerGO.AddComponent<CharacterController>();
