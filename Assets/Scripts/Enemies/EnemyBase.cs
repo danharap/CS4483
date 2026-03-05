@@ -22,6 +22,8 @@ public abstract class EnemyBase : MonoBehaviour
 
     [Header("Prefab References")]
     [SerializeField] protected GameObject xpOrbPrefab;
+    [SerializeField] protected GameObject healthPackPrefab;
+    [SerializeField] [Range(0f, 1f)] private float healthPackDropChance = 0.1f; // 10% chance
 
     // ── State ─────────────────────────────────────────────────────────────
     public float CurrentHP { get; protected set; }
@@ -132,6 +134,13 @@ public abstract class EnemyBase : MonoBehaviour
         // Drop XP orb
         if (xpOrbPrefab != null)
             Instantiate(xpOrbPrefab, transform.position + Vector3.up * 0.3f, Quaternion.identity);
+
+        // 10% chance to drop health pack
+        if (healthPackPrefab != null && Random.value < healthPackDropChance)
+        {
+            Instantiate(healthPackPrefab, transform.position + Vector3.up * 0.5f, Quaternion.identity);
+            Debug.Log("[Enemy] Dropped health pack!");
+        }
 
         GameManager.Instance?.Logger?.RecordFirstKill();
         GameManager.Instance?.WaveManager?.NotifyEnemyDied(gameObject);

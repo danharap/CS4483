@@ -390,7 +390,10 @@ public static class SetupAll
     static void Step10_WireEnemyPrefabOrbs()
     {
         GameObject xpOrbPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/XPOrb.prefab");
+        GameObject healthPackPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/HealthPack.prefab");
+        
         if (xpOrbPrefab == null) { Debug.LogWarning("[SetupAll] XPOrb prefab not found."); return; }
+        if (healthPackPrefab == null) { Debug.LogWarning("[SetupAll] HealthPack prefab not found."); }
 
         string[] enemyPaths = {
             "Assets/Prefabs/Enemy_Chaser.prefab",
@@ -406,12 +409,14 @@ public static class SetupAll
                 {
                     var so = new SerializedObject(eb);
                     so.FindProperty("xpOrbPrefab").objectReferenceValue = xpOrbPrefab;
+                    if (healthPackPrefab != null)
+                        so.FindProperty("healthPackPrefab").objectReferenceValue = healthPackPrefab;
                     so.ApplyModifiedProperties();
                 }
             }
         }
         AssetDatabase.SaveAssets();
-        Debug.Log("[SetupAll] XPOrb prefab wired to all enemy prefabs.");
+        Debug.Log("[SetupAll] XPOrb and HealthPack prefabs wired to all enemy prefabs.");
     }
 
     // ── Step 11: NavMesh bake ─────────────────────────────────────────────

@@ -19,6 +19,7 @@ public static class PrefabBuilder
 
         CreateProjectilePrefab();
         CreateXPOrbPrefab();
+        CreateHealthPackPrefab();
         CreateChaserPrefab();
         CreateFastEnemyPrefab();
         CreateBossPrefab();
@@ -86,6 +87,35 @@ public static class PrefabBuilder
         go.AddComponent<XPOrb>();
 
         SavePrefab(go, "XPOrb");
+        Object.DestroyImmediate(go);
+    }
+
+    // ── Health Pack ───────────────────────────────────────────────────────
+
+    static void CreateHealthPackPrefab()
+    {
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "HealthPack";
+        go.transform.localScale = Vector3.one * 0.5f;
+        
+        // Create and save green material (delete first if exists)
+        string matPath = "Assets/Materials/M_HealthPack.mat";
+        AssetDatabase.DeleteAsset(matPath);
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.color = new Color(0.1f, 1f, 0.1f); // Bright green
+        mat.EnableKeyword("_EMISSION");
+        mat.SetColor("_EmissionColor", new Color(0.1f, 0.5f, 0.1f));
+        AssetDatabase.CreateAsset(mat, matPath);
+        go.GetComponent<Renderer>().sharedMaterial = mat;
+
+        Object.DestroyImmediate(go.GetComponent<BoxCollider>());
+        BoxCollider col = go.AddComponent<BoxCollider>();
+        col.isTrigger = true;
+        col.size = new Vector3(0.5f, 0.5f, 0.5f);
+
+        go.AddComponent<HealthPack>();
+
+        SavePrefab(go, "HealthPack");
         Object.DestroyImmediate(go);
     }
 
