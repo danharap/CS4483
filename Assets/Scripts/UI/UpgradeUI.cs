@@ -82,7 +82,16 @@ public class UpgradeUI : MonoBehaviour
                 Debug.Log($"[UpgradeUI] Panel Image color set to BRIGHT MAGENTA for visibility test, Canvas: {img.canvas}");
             }
             
-            Debug.Log($"[UpgradeUI] Panel active: {upgradePanel.activeSelf}, Position: {upgradePanel.transform.position}, Options: {currentOptions.Count}");
+            // Check RectTransform
+            var rt = upgradePanel.GetComponent<RectTransform>();
+            if (rt)
+            {
+                Debug.Log($"[UpgradeUI] RectTransform - AnchorMin: {rt.anchorMin}, AnchorMax: {rt.anchorMax}, SizeDelta: {rt.sizeDelta}");
+                Debug.Log($"[UpgradeUI] RectTransform - AnchoredPosition: {rt.anchoredPosition}, LocalPosition: {rt.localPosition}");
+            }
+            
+            Debug.Log($"[UpgradeUI] Panel active: {upgradePanel.activeSelf}, WorldPosition: {upgradePanel.transform.position}, Options: {currentOptions.Count}");
+            Debug.Log($"[UpgradeUI] Panel parent: {upgradePanel.transform.parent?.name}, Sibling index: {upgradePanel.transform.GetSiblingIndex()}");
         }
         else
         {
