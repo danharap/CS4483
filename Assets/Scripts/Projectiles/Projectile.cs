@@ -37,10 +37,14 @@ public class Projectile : MonoBehaviour
     {
         EnemyBase enemy = other.GetComponent<EnemyBase>();
         if (enemy == null) return;
-        if (!enemy.IsAlive) return;
+        
+        // Only deal damage if enemy is still alive
+        if (enemy.IsAlive)
+        {
+            enemy.TakeDamage(damage);
+        }
 
-        enemy.TakeDamage(damage);
-
+        // Always destroy projectile when hitting enemy if no pierce remaining
         if (pierceLeft <= 0)
             Destroy(gameObject);
         else

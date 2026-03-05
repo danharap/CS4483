@@ -93,9 +93,10 @@ This makes the UI text work. You only need to do it once.
 
 ## What You Should See When You Press Play
 
-- Blue player capsule in a colored arena
+- Blue player capsule in an open arena with colored floor zones
 - Red enemy capsules spawning from edges after ~2 seconds and chasing you
-- Yellow projectiles auto-firing toward enemies
+- Yellow projectiles auto-firing toward enemies (projectiles disappear after hitting targets)
+- Small rock obstacles scattered across the field for tactical navigation
 - HP bar (red, bottom-left) drops when enemies touch you
 - XP bar (green, bottom-right) fills as enemies drop green orbs
 - Wave number + countdown timer at top-center
@@ -140,7 +141,7 @@ Take these while in **Play mode** (or temporarily stop play for screenshot 1):
 | # | What | How |
 |---|------|-----|
 | 1 | Top-down map view | Stop play → set Camera Rotation to (90, 0, 0), Y position to 40 → screenshot → restore to (60, 0, 0) and Y=16 |
-| 2 | Player in corridor with occlusion | Walk into a corridor between zones, enemies visible behind a wall |
+| 2 | Gameplay with enemies and obstacles | Play the game, show player fighting enemies with rock obstacles in view |
 | 3 | Upgrade UI | Kill ~5 enemies to level up → screenshot the 3-card panel |
 
 ---
@@ -149,7 +150,7 @@ Take these while in **Play mode** (or temporarily stop play for screenshot 1):
 
 - [ ] All team members have cloned the repository and can run the project
 - [ ] Game runs without errors and is fully playable
-- [ ] Level shows wayfinding (colored pillars + lights), verticality (ramps + platforms), occlusion (walls)  
+- [ ] Level shows wayfinding (colored floor zones + pillars), open field design with rock obstacles for navigation
 - [ ] Waves, upgrades, boss, and game over all work correctly
 - [ ] 3+ screenshots saved to a `/Screenshots` folder in the project
 - [ ] `LDD.md` converted to PDF (open in browser and print → Save as PDF, or use any Markdown→PDF tool)
