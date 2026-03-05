@@ -71,7 +71,19 @@ public class UpgradeUI : MonoBehaviour
         
         if (upgradePanel)
         {
+            Debug.Log($"[UpgradeUI] BEFORE SetActive - Panel state: {upgradePanel.activeSelf}");
             upgradePanel.SetActive(true);
+            Debug.Log($"[UpgradeUI] IMMEDIATELY AFTER SetActive(true) - Panel state: {upgradePanel.activeSelf}");
+            
+            if (!upgradePanel.activeSelf)
+            {
+                Debug.LogError("[UpgradeUI] CRITICAL: Panel did not activate! Checking parent...");
+                if (upgradePanel.transform.parent != null)
+                {
+                    Debug.LogError($"[UpgradeUI] Parent is: {upgradePanel.transform.parent.name}, Parent active: {upgradePanel.transform.parent.gameObject.activeSelf}");
+                }
+            }
+            
             upgradePanel.transform.SetAsLastSibling();
             
             // DEBUG: Make panel bright magenta so we can see if it renders at all
@@ -90,7 +102,7 @@ public class UpgradeUI : MonoBehaviour
                 Debug.Log($"[UpgradeUI] RectTransform - AnchoredPosition: {rt.anchoredPosition}, LocalPosition: {rt.localPosition}");
             }
             
-            Debug.Log($"[UpgradeUI] Panel active: {upgradePanel.activeSelf}, WorldPosition: {upgradePanel.transform.position}, Options: {currentOptions.Count}");
+            Debug.Log($"[UpgradeUI] FINAL CHECK - Panel active: {upgradePanel.activeSelf}, WorldPosition: {upgradePanel.transform.position}, Options: {currentOptions.Count}");
             Debug.Log($"[UpgradeUI] Panel parent: {upgradePanel.transform.parent?.name}, Sibling index: {upgradePanel.transform.GetSiblingIndex()}");
         }
         else
