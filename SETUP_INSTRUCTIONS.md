@@ -52,7 +52,9 @@ Before starting, make sure you have:
 2. Click **Open** (top right) → **Add project from disk**
 3. Browse to wherever you cloned the repository and select the `CS4483` folder (the root folder containing the Unity project)
 4. Click **Add Project**
-5. If Unity prompts **"This project was made with a different version"** → select **Open with 2022.3.x** (whichever LTS version you installed)
+5. If Unity shows a dialog about version differences or missing packages:
+   - **"This project was made with a different version"** → Click **Continue** or select **Open with 2022.3.x** (any 2022.3 LTS version works)
+   - **"Project has invalid dependencies"** → Click **Continue** (the obsolete packages will be ignored)
 6. Wait for Unity to import everything (first open takes 2–5 minutes depending on your computer)
 
 > **Tip:** You'll know Unity is done importing when the progress bar at the bottom-right disappears and you see the project files in the Project window.
