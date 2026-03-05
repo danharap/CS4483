@@ -9,9 +9,9 @@ public class BossEnemy : EnemyBase
 {
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Boss Behaviour")]
-    [SerializeField] private float chargeSpeed     = 14f;
+    [SerializeField] private float chargeSpeed     = 10f;
     [SerializeField] private float chargeCooldown  = 5f;
-    [SerializeField] private float chargeDuration  = 0.8f;
+    [SerializeField] private float chargeDuration  = 1.4f;
     [SerializeField] private float chargeWindup    = 0.5f;   // pause before charge
 
     // ── State ─────────────────────────────────────────────────────────────
