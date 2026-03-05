@@ -169,13 +169,9 @@ public static class SceneSetup
         rt.anchorMax = Vector2.one;
         rt.sizeDelta = Vector2.zero;
 
-        // -- Upgrade Panel --
-        CreateUpgradePanel(canvasGO.transform);
+        // Note: UpgradePanel and GameOverPanel are created by SetupAll.cs (Step 7) with full wiring
 
-        // -- Game Over Panel --
-        CreateGameOverPanel(canvasGO.transform);
-
-        Debug.Log("[SceneSetup] Canvas created. Wire TMP_Text and Slider fields in HUDManager/UpgradeUI/GameOverUI.");
+        Debug.Log("[SceneSetup] Canvas created. Wire TMP_Text and Slider fields in HUDManager.");
     }
 
     static Slider CreateSliderInCanvas(Transform parent, string name, Vector2 anchoredPos,
@@ -250,92 +246,7 @@ public static class SceneSetup
         return txt;
     }
 
-    static void CreateUpgradePanel(Transform parent)
-    {
-        GameObject panel = new GameObject("UpgradePanel");
-        panel.transform.SetParent(parent, false);
-        Image panelBg = panel.AddComponent<Image>();
-        panelBg.color = new Color(0f, 0f, 0f, 0.75f);
-        RectTransform pRt = panel.GetComponent<RectTransform>();
-        pRt.anchorMin = Vector2.zero;
-        pRt.anchorMax = Vector2.one;
-        pRt.sizeDelta = Vector2.zero;
-
-        CreateTMPText(panel.transform, "UpgradeTitle",
-            new Vector2(0, 80), new Vector2(600, 40), "Level Up! Choose an Upgrade");
-
-        // 3 upgrade card buttons
-        Vector2[] cardPositions = {
-            new Vector2(-230, -20), new Vector2(0, -20), new Vector2(230, -20)
-        };
-        string[] cardNames = { "Card0", "Card1", "Card2" };
-        for (int i = 0; i < 3; i++)
-            CreateUpgradeCard(panel.transform, cardNames[i], cardPositions[i]);
-
-        panel.SetActive(false); // UpgradeUI.Show() activates it
-
-        // UpgradeUI component is added by SetupAll.cs which also wires all references
-    }
-
-    static void CreateUpgradeCard(Transform parent, string name, Vector2 pos)
-    {
-        GameObject card = new GameObject(name);
-        card.transform.SetParent(parent, false);
-        Image bg = card.AddComponent<Image>();
-        bg.color = new Color(0.3f, 0.3f, 0.3f);
-        Button btn = card.AddComponent<Button>();
-
-        RectTransform rt = card.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(200, 120);
-
-        CreateTMPText(card.transform, "CardName",
-            new Vector2(0, 30), new Vector2(190, 30), "Upgrade Name").fontSize = 16;
-        CreateTMPText(card.transform, "CardDesc",
-            new Vector2(0, -10), new Vector2(190, 50), "Description text").fontSize = 13;
-    }
-
-    static void CreateGameOverPanel(Transform parent)
-    {
-        GameObject panel = new GameObject("GameOverPanel");
-        panel.transform.SetParent(parent, false);
-        Image bg = panel.AddComponent<Image>();
-        bg.color = new Color(0f, 0f, 0f, 0.85f);
-        RectTransform rt = panel.GetComponent<RectTransform>();
-        rt.anchorMin = Vector2.zero;
-        rt.anchorMax = Vector2.one;
-        rt.sizeDelta = Vector2.zero;
-
-        TMP_Text title = CreateTMPText(panel.transform, "GameOver_Title",
-            new Vector2(0, 80), new Vector2(400, 50), "GAME OVER");
-        title.fontSize = 42;
-        title.color    = new Color(0.9f, 0.2f, 0.2f);
-
-        CreateTMPText(panel.transform, "Stats_Time",   new Vector2(0,  20), new Vector2(350, 30), "Time Survived: 00:00");
-        CreateTMPText(panel.transform, "Stats_Waves",  new Vector2(0, -10), new Vector2(350, 30), "Waves Cleared: 0");
-        CreateTMPText(panel.transform, "Stats_Kills",  new Vector2(0, -40), new Vector2(350, 30), "Total Kills: 0");
-
-        // Restart button
-        GameObject btnGO = new GameObject("RestartButton");
-        btnGO.transform.SetParent(panel.transform, false);
-        Image btnBg = btnGO.AddComponent<Image>();
-        btnBg.color = new Color(0.2f, 0.6f, 0.2f);
-        btnGO.AddComponent<Button>();
-        RectTransform brt = btnGO.GetComponent<RectTransform>();
-        brt.anchorMin = new Vector2(0.5f, 0.5f);
-        brt.anchorMax = new Vector2(0.5f, 0.5f);
-        brt.anchoredPosition = new Vector2(0, -90);
-        brt.sizeDelta = new Vector2(200, 50);
-        CreateTMPText(btnGO.transform, "RestartLabel",
-            Vector2.zero, new Vector2(200, 50), "RESTART").fontSize = 22;
-
-        panel.SetActive(false);
-
-        // Add GameOverUI script to this panel
-        panel.AddComponent<GameOverUI>();
-    }
+    // UpgradePanel and GameOverPanel are now created entirely by SetupAll.cs for proper wiring
 
     // ── Gate Door ─────────────────────────────────────────────────────────
 
