@@ -84,6 +84,14 @@ public static class ProBuilderLevelBuilder
         pbMesh.ToMesh();
         pbMesh.Refresh();
         
+        // Add collider for physics
+        MeshCollider collider = go.AddComponent<MeshCollider>();
+        collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+        collider.convex = false;
+        
+        // Mark as static for NavMesh baking
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
+        
         return go;
     }
 
@@ -104,6 +112,14 @@ public static class ProBuilderLevelBuilder
         
         pbMesh.ToMesh();
         pbMesh.Refresh();
+        
+        // Add collider for physics (critical for floors!)
+        MeshCollider collider = go.AddComponent<MeshCollider>();
+        collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+        collider.convex = false;
+        
+        // Mark as static for NavMesh baking
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
         
         return go;
     }
