@@ -180,9 +180,18 @@ public static class SetupAll
 
     static void Step7_CreateCanvas()
     {
+        // EventSystem for UI interactions
+        if (GameObject.FindObjectOfType<UnityEngine.EventSystems.EventSystem>() == null)
+        {
+            GameObject eventSys = new GameObject("EventSystem");
+            eventSys.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            eventSys.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+        }
+
         GameObject canvasGO = new GameObject("Canvas_HUD");
         Canvas canvas = canvasGO.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 0;
         CanvasScaler cs = canvasGO.AddComponent<CanvasScaler>();
         cs.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         cs.referenceResolution = new Vector2(1920, 1080);
@@ -220,15 +229,16 @@ public static class SetupAll
         ort.anchorMin = Vector2.zero; ort.anchorMax = Vector2.one; ort.sizeDelta = Vector2.zero;
 
         // ── Upgrade panel ─────────────────────────────────────────────────
-        upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0.78f));
+        upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0.9f));
         upgradeTitle = MakeTMP(upgradePanel.transform, "UpgradeTitle",
-            new Vector2(0, 200), new Vector2(700, 50), "Level Up! Choose an Upgrade", 32);
+            new Vector2(0, 280), new Vector2(900, 80), "LEVEL UP! CHOOSE AN UPGRADE", 48);
         upgradeTitle.color = Color.yellow;
-        MakeUpgradeCard(upgradePanel.transform, "Card0", new Vector2(-260, 0),
+        upgradeTitle.fontStyle = FontStyles.Bold;
+        MakeUpgradeCard(upgradePanel.transform, "Card0", new Vector2(-380, 0),
             out card0Btn, out card0Name, out card0Desc, out card0Bg);
         MakeUpgradeCard(upgradePanel.transform, "Card1", new Vector2(0, 0),
             out card1Btn, out card1Name, out card1Desc, out card1Bg);
-        MakeUpgradeCard(upgradePanel.transform, "Card2", new Vector2(260, 0),
+        MakeUpgradeCard(upgradePanel.transform, "Card2", new Vector2(380, 0),
             out card2Btn, out card2Name, out card2Desc, out card2Bg);
         upgradeUIComp = upgradePanel.AddComponent<UpgradeUI>();
         upgradePanel.SetActive(false);
@@ -474,18 +484,27 @@ public static class SetupAll
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
         cardBg = go.AddComponent<Image>();
-        cardBg.color = new Color(0.28f, 0.28f, 0.28f);
+        cardBg.color = new Color(0.2f, 0.2f, 0.2f);
         btn = go.AddComponent<Button>();
+        
+        // Set button colors for better visibility
+        ColorBlock colors = btn.colors;
+        colors.normalColor = new Color(0.2f, 0.2f, 0.2f);
+        colors.highlightedColor = new Color(0.4f, 0.4f, 0.4f);
+        colors.pressedColor = new Color(0.6f, 0.6f, 0.6f);
+        btn.colors = colors;
 
         RectTransform rt = go.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(230, 150);
+        rt.sizeDelta = new Vector2(320, 220);
 
-        cardName = MakeTMP(go.transform, "CardName", new Vector2(0, 42), new Vector2(220, 34), "Upgrade", 17);
+        cardName = MakeTMP(go.transform, "CardName", new Vector2(0, 55), new Vector2(300, 45), "Upgrade", 22);
         cardName.fontStyle = FontStyles.Bold;
-        cardDesc = MakeTMP(go.transform, "CardDesc", new Vector2(0, -10), new Vector2(220, 60), "Description", 14);
+        cardName.color = Color.yellow;
+        cardDesc = MakeTMP(go.transform, "CardDesc", new Vector2(0, -15), new Vector2(300, 100), "Description", 16);
+        cardDesc.color = new Color(0.9f, 0.9f, 0.9f);
     }
 
     static Button MakeButton(Transform parent, string name, Vector2 pos, Vector2 size,

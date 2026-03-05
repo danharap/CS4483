@@ -49,6 +49,8 @@ public class UpgradeUI : MonoBehaviour
 
     public void Show(bool forceRare)
     {
+        Debug.Log("[UpgradeUI] SHOWING UPGRADE PANEL - Game is paused, click a card to continue!");
+        
         int wave = GameManager.Instance?.WaveManager?.WaveIndex ?? 0;
         currentOptions = UpgradeManager.Instance?.GetOptions(wave, forceRare)
                          ?? new List<UpgradeData>();
@@ -57,8 +59,12 @@ public class UpgradeUI : MonoBehaviour
         PopulateCard(1, card1Name, card1Desc, card1Bg);
         PopulateCard(2, card2Name, card2Desc, card2Bg);
 
-        if (titleText) titleText.text = forceRare ? "BOSS REWARD – Choose an Upgrade!" : "Level Up! Choose an Upgrade";
-        if (upgradePanel) upgradePanel.SetActive(true);
+        if (titleText) titleText.text = forceRare ? "BOSS REWARD – Choose an Upgrade!" : "LEVEL UP! CHOOSE AN UPGRADE";
+        if (upgradePanel)
+        {
+            upgradePanel.SetActive(true);
+            Debug.Log($"[UpgradeUI] Panel active: {upgradePanel.activeSelf}, Options: {currentOptions.Count}");
+        }
     }
 
     private void PopulateCard(int idx, TMP_Text nameText, TMP_Text descText, Image bg)
