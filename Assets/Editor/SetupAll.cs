@@ -234,6 +234,9 @@ public static class SetupAll
 
         // ── Upgrade panel ─────────────────────────────────────────────────
         upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0.9f));
+        // Force this panel to render on top by moving it to last sibling
+        upgradePanel.transform.SetAsLastSibling();
+        
         upgradeTitle = MakeTMP(upgradePanel.transform, "UpgradeTitle",
             new Vector2(0, 280), new Vector2(900, 80), "LEVEL UP! CHOOSE AN UPGRADE", 48);
         upgradeTitle.color = Color.yellow;

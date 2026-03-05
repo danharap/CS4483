@@ -63,11 +63,30 @@ public class UpgradeUI : MonoBehaviour
         PopulateCard(1, card1Name, card1Desc, card1Bg);
         PopulateCard(2, card2Name, card2Desc, card2Bg);
 
-        if (titleText) titleText.text = forceRare ? "BOSS REWARD – Choose an Upgrade!" : "LEVEL UP! CHOOSE AN UPGRADE";
+        if (titleText)
+        {
+            titleText.text = forceRare ? "BOSS REWARD – Choose an Upgrade!" : "LEVEL UP! CHOOSE AN UPGRADE";
+            Debug.Log($"[UpgradeUI] Title text set: {titleText.text}, Color: {titleText.color}");
+        }
+        
         if (upgradePanel)
         {
             upgradePanel.SetActive(true);
-            Debug.Log($"[UpgradeUI] Panel active: {upgradePanel.activeSelf}, Options: {currentOptions.Count}");
+            upgradePanel.transform.SetAsLastSibling();
+            
+            // DEBUG: Make panel bright magenta so we can see if it renders at all
+            var img = upgradePanel.GetComponent<UnityEngine.UI.Image>();
+            if (img)
+            {
+                img.color = new Color(1f, 0f, 1f, 1f);
+                Debug.Log($"[UpgradeUI] Panel Image color set to BRIGHT MAGENTA for visibility test, Canvas: {img.canvas}");
+            }
+            
+            Debug.Log($"[UpgradeUI] Panel active: {upgradePanel.activeSelf}, Position: {upgradePanel.transform.position}, Options: {currentOptions.Count}");
+        }
+        else
+        {
+            Debug.LogError("[UpgradeUI] upgradePanel is NULL!");
         }
     }
 
