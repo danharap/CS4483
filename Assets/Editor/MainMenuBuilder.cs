@@ -159,7 +159,7 @@ public static class MainMenuBuilder
 
         // ── Title ─────────────────────────────────────────────────────────
         TMP_Text title = MakeTMP(root, "Title",
-            new Vector2(0, 200), new Vector2(900, 160), "FRACTURED\nPROVING GROUNDS", 64);
+            new Vector2(0, 200), new Vector2(900, 160), "TEMP TITLE", 64);
         title.fontStyle = FontStyles.Bold;
         title.color     = new Color(1f, 0.88f, 0.3f);
 
@@ -203,7 +203,7 @@ public static class MainMenuBuilder
         pbrt.anchoredPosition = new Vector2(0, -160);
         pbrt.sizeDelta = new Vector2(260, 64);
         TMP_Text playLabel = MakeTMP(playGO.transform, "PlayLabel",
-            Vector2.zero, new Vector2(260, 64), "ENTER THE GROUNDS", 24);
+            Vector2.zero, new Vector2(260, 64), "START GAME", 24);
         playLabel.fontStyle = FontStyles.Bold;
 
         // ── Version / credits ─────────────────────────────────────────────

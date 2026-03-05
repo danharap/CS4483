@@ -75,8 +75,25 @@ This makes the UI text work. You only need to do it once.
 
 1. In Unity (top menu): **CS4483 → ▶  SETUP EVERYTHING  (Run This First!)**
 2. Wait ~5–10 seconds
+3. Save the scene: **File → Save As** → Name it `MainScene` → Save in `Assets/` folder
 
 **That's it.** This single click builds the entire level, creates all game objects, wires every connection, and bakes the NavMesh. Then press **Play**.
+
+---
+
+## STEP 6 (Optional) — Set Up Main Menu
+
+If you want a start screen:
+
+1. **File → New Scene** (to create a fresh scene)
+2. **CS4483 → 5 - Build Main Menu Scene**
+3. **File → Build Settings**
+4. Click **Add Open Scenes** to add the MainMenu scene
+5. Switch back to MainScene and click **Add Open Scenes** again
+6. In Build Settings, drag **MainMenu** to position 0 (top of the list)
+7. Close Build Settings
+
+Now when you press Play from the MainMenu scene, the START GAME button will work!
 
 ---
 

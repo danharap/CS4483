@@ -42,7 +42,7 @@ public class MainMenuManager : MonoBehaviour
     {
         playButton?.onClick.AddListener(StartGame);
 
-        if (titleText)    titleText.text    = "FRACTURED\nPROVING GROUNDS";
+        if (titleText)    titleText.text    = "TEMP TITLE";
         if (subtitleText) subtitleText.text = "Top-Down Wave Survival";
         if (versionText)  versionText.text  = "CS4483 · Group 21 · Graybox Prototype";
 
