@@ -106,8 +106,8 @@ public static class SetupAll
 
     static void Step3_BuildLevel()
     {
-        LevelBuilder.BuildLevel();
-        Debug.Log("[SetupAll] Level geometry built.");
+        ProBuilderLevelBuilder.BuildLevel();
+        Debug.Log("[SetupAll] Level geometry built with ProBuilder.");
     }
 
     // ── Step 4: Camera ────────────────────────────────────────────────────
