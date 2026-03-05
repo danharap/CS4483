@@ -95,7 +95,7 @@ public static class ProBuilderLevelBuilder
         return go;
     }
 
-    static GameObject PBPlane(string name, Vector3 position, Vector3 size, Material material, Transform parent)
+    static GameObject PBPlane(string name, Vector3 position, Vector3 size, Material material, Transform parent, bool useBoxCollider = false)
     {
         ProBuilderMesh pbMesh = ShapeGenerator.CreateShape(ShapeType.Plane);
         GameObject go = pbMesh.gameObject;
@@ -113,10 +113,20 @@ public static class ProBuilderLevelBuilder
         pbMesh.ToMesh();
         pbMesh.Refresh();
         
-        // Add collider for physics (critical for floors!)
-        MeshCollider collider = go.AddComponent<MeshCollider>();
-        collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
-        collider.convex = false;
+        // For floors, use BoxCollider for better CharacterController compatibility
+        if (useBoxCollider)
+        {
+            BoxCollider boxCol = go.AddComponent<BoxCollider>();
+            // ProBuilder plane is 10x10 by default, so match the scale
+            boxCol.size = new Vector3(10f, 0.1f, 10f);
+            boxCol.center = new Vector3(0f, 0f, 0f);
+        }
+        else
+        {
+            MeshCollider collider = go.AddComponent<MeshCollider>();
+            collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
+            collider.convex = false;
+        }
         
         // Mark as static for NavMesh baking
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
@@ -128,9 +138,8 @@ public static class ProBuilderLevelBuilder
 
     static void CreateFloor()
     {
-        // ProBuilder planes are 10x10 by default, scale to 50x50 world units
-        GameObject floor = PBPlane("Floor", new Vector3(0f, 0f, 0f), new Vector3(5f, 1f, 5f), matFloor, levelRoot);
-        floor.transform.rotation = Quaternion.Euler(0, 0, 0);
+        // Use a very flat cube for the floor (better collision than plane)
+        GameObject floor = PBCube("Floor", new Vector3(0f, -0.2f, 0f), new Vector3(50f, 0.4f, 50f), matFloor, levelRoot);
     }
 
     // ── Boundary Walls ────────────────────────────────────────────────────
