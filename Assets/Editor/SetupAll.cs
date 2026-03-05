@@ -201,15 +201,19 @@ public static class SetupAll
 
         // ── HP bar (bottom-left) ──────────────────────────────────────────
         hpSlider = MakeSlider(root, "HP_Slider",
-            new Vector2(-760, -490), new Vector2(260, 22), new Color(0.85f, 0.1f, 0.1f));
+            new Vector2(-760, -490), new Vector2(300, 30), new Color(1f, 0.2f, 0.2f));
         hpText = MakeTMP(root, "HP_Text",
-            new Vector2(-760, -465), new Vector2(260, 20), "100 / 100", 16);
+            new Vector2(-760, -455), new Vector2(300, 35), "100 / 100", 24);
+        hpText.fontStyle = FontStyles.Bold;
+        hpText.color = new Color(1f, 0.3f, 0.3f);
 
         // ── XP bar (bottom-right) ─────────────────────────────────────────
         xpSlider = MakeSlider(root, "XP_Slider",
-            new Vector2(760, -490), new Vector2(260, 22), new Color(0.15f, 0.75f, 0.15f));
+            new Vector2(760, -490), new Vector2(300, 30), new Color(0.2f, 0.9f, 0.3f));
         levelText = MakeTMP(root, "Level_Text",
-            new Vector2(760, -465), new Vector2(100, 20), "Lv 1", 16);
+            new Vector2(760, -455), new Vector2(150, 35), "Lv 1", 24);
+        levelText.fontStyle = FontStyles.Bold;
+        levelText.color = new Color(0.4f, 1f, 0.5f);
 
         // ── Wave / timer (top-center) ─────────────────────────────────────
         waveText  = MakeTMP(root, "Wave_Text",  new Vector2(0, 490), new Vector2(220, 34), "Wave 1", 24);
