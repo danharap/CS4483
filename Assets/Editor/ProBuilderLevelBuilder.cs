@@ -3,7 +3,6 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.ProBuilder;
-using UnityEngine.ProBuilder.Shapes;
 
 /// <summary>
 /// Editor tool: CS4483 → Build ProBuilder Graybox Level
@@ -69,7 +68,7 @@ public static class ProBuilderLevelBuilder
 
     static GameObject PBCube(string name, Vector3 position, Vector3 size, Material material, Transform parent)
     {
-        ProBuilderMesh pbMesh = ShapeFactory.Instantiate<Cube>();
+        ProBuilderMesh pbMesh = ShapeGenerator.CreateShape(ShapeType.Cube);
         GameObject go = pbMesh.gameObject;
         go.name = name;
         go.transform.SetParent(parent);
@@ -90,7 +89,7 @@ public static class ProBuilderLevelBuilder
 
     static GameObject PBPlane(string name, Vector3 position, Vector3 size, Material material, Transform parent)
     {
-        ProBuilderMesh pbMesh = ShapeFactory.Instantiate<UnityEngine.ProBuilder.Shapes.Plane>();
+        ProBuilderMesh pbMesh = ShapeGenerator.CreateShape(ShapeType.Plane);
         GameObject go = pbMesh.gameObject;
         go.name = name;
         go.transform.SetParent(parent);
