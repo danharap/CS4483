@@ -90,7 +90,7 @@ public static class ProBuilderLevelBuilder
 
     static GameObject PBPlane(string name, Vector3 position, Vector3 size, Material material, Transform parent)
     {
-        ProBuilderMesh pbMesh = ShapeFactory.Instantiate<Plane>();
+        ProBuilderMesh pbMesh = ShapeFactory.Instantiate<UnityEngine.ProBuilder.Shapes.Plane>();
         GameObject go = pbMesh.gameObject;
         go.name = name;
         go.transform.SetParent(parent);
