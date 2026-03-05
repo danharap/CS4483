@@ -92,7 +92,12 @@ public static class PrefabBuilder
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         go.name = "Enemy_Chaser";
         go.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
-        SetColor(go, new Color(0.75f, 0.15f, 0.15f));
+        
+        // Bright red material for basic enemy
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.color = new Color(1f, 0.1f, 0.1f);
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Enemy_Chaser.mat");
+        go.GetComponent<Renderer>().sharedMaterial = mat;
 
         SetupEnemyPhysics(go);
         TryAddNavMeshAgent(go, 3.5f);
@@ -112,7 +117,12 @@ public static class PrefabBuilder
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         go.name = "Enemy_Fast";
         go.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
-        SetColor(go, new Color(0.95f, 0.55f, 0.05f));
+        
+        // Bright orange material for fast enemy
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.color = new Color(1f, 0.6f, 0f);
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Enemy_Fast.mat");
+        go.GetComponent<Renderer>().sharedMaterial = mat;
 
         SetupEnemyPhysics(go);
         TryAddNavMeshAgent(go, 6f);
@@ -131,8 +141,13 @@ public static class PrefabBuilder
     {
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         go.name = "Enemy_Boss";
-        go.transform.localScale = new Vector3(2.5f, 2.5f, 2.5f);
-        SetColor(go, new Color(0.5f, 0.0f, 0.5f));
+        go.transform.localScale = new Vector3(3.5f, 3.5f, 3.5f);
+        
+        // Dark purple material for boss
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.color = new Color(0.6f, 0f, 0.7f);
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Enemy_Boss.mat");
+        go.GetComponent<Renderer>().sharedMaterial = mat;
 
         SetupEnemyPhysics(go);
         TryAddNavMeshAgent(go, 2.5f);
@@ -141,13 +156,18 @@ public static class PrefabBuilder
         boss.moveSpeed = 2.5f;
         boss.xpDrop   = 100f;
 
-        // Visual indicator: child sphere on top
+        // Visual indicator: large red sphere on top
         GameObject top = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         top.name = "BossCrown";
         top.transform.SetParent(go.transform);
         top.transform.localPosition = new Vector3(0f, 0.6f, 0f);
-        top.transform.localScale    = new Vector3(0.3f, 0.3f, 0.3f);
-        SetColor(top, Color.yellow);
+        top.transform.localScale    = new Vector3(0.4f, 0.4f, 0.4f);
+        Material crownMat = new Material(Shader.Find("Standard"));
+        crownMat.color = new Color(1f, 0f, 0f);
+        crownMat.EnableKeyword("_EMISSION");
+        crownMat.SetColor("_EmissionColor", new Color(1f, 0f, 0f) * 0.5f);
+        AssetDatabase.CreateAsset(crownMat, "Assets/Materials/M_BossCrown.mat");
+        top.GetComponent<Renderer>().sharedMaterial = crownMat;
         Object.DestroyImmediate(top.GetComponent<SphereCollider>());
 
         SavePrefab(go, "Enemy_Boss");
