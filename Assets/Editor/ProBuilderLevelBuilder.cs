@@ -128,7 +128,9 @@ public static class ProBuilderLevelBuilder
 
     static void CreateFloor()
     {
-        PBPlane("Floor", Vector3.zero, new Vector3(50f, 1f, 50f), matFloor, levelRoot);
+        // ProBuilder planes are 10x10 by default, scale to 50x50 world units
+        GameObject floor = PBPlane("Floor", new Vector3(0f, 0f, 0f), new Vector3(5f, 1f, 5f), matFloor, levelRoot);
+        floor.transform.rotation = Quaternion.Euler(0, 0, 0);
     }
 
     // ── Boundary Walls ────────────────────────────────────────────────────
@@ -151,8 +153,7 @@ public static class ProBuilderLevelBuilder
         GameObject p = new GameObject("Central_Hub");
         p.transform.SetParent(levelRoot);
         
-        PBPlane("Hub_Floor", new Vector3(0, 0.01f, 0), new Vector3(10f, 1f, 10f), matHub, p.transform);
-        
+        // Just a landmark pillar, no separate floor overlay
         GameObject pillar = PBCube("Blue_Pillar", new Vector3(0, 3, 0), new Vector3(0.6f, 6f, 0.6f), null, p.transform);
         pillar.GetComponent<Renderer>().sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
     }
@@ -164,8 +165,7 @@ public static class ProBuilderLevelBuilder
         GameObject p = new GameObject("Boss_Arena_South");
         p.transform.SetParent(levelRoot);
         
-        PBPlane("Boss_Floor", new Vector3(0, 0.01f, -17), new Vector3(12f, 1f, 9f), matBoss, p.transform);
-        
+        // Just a landmark pillar in the south, no separate floor overlay
         GameObject pillar = PBCube("Boss_Pillar", new Vector3(0, 3, -19), new Vector3(0.6f, 6f, 0.6f), matBoss, p.transform);
         pillar.GetComponent<Renderer>().sharedMaterial = matBoss;
     }
