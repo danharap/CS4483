@@ -52,32 +52,29 @@ public static class SetupAll
     [MenuItem("CS4483/▶  SETUP EVERYTHING  (Run This First!)")]
     public static void SetupEverything()
     {
-        // Create or load MainScene (not MainMenu!)
-        Scene mainScene;
+        // ALWAYS work in MainScene, never in MainMenu!
         string mainScenePath = "Assets/Scenes/MainScene.unity";
         
         // Ensure Scenes folder exists
         if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
             AssetDatabase.CreateFolder("Assets", "Scenes");
         
-        // Check if MainScene exists
-        Scene existingScene = EditorSceneManager.GetSceneByPath(mainScenePath);
-        if (existingScene.IsValid() && existingScene.isLoaded)
+        // Force open MainScene (closes all other scenes)
+        Scene mainScene;
+        if (System.IO.File.Exists(mainScenePath))
         {
-            mainScene = existingScene;
-            EditorSceneManager.SetActiveScene(mainScene);
-        }
-        else if (System.IO.File.Exists(mainScenePath))
-        {
+            Debug.Log("[SetupAll] Opening existing MainScene...");
             mainScene = EditorSceneManager.OpenScene(mainScenePath, OpenSceneMode.Single);
         }
         else
         {
+            Debug.Log("[SetupAll] Creating new MainScene...");
             mainScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(mainScene, mainScenePath);
         }
-
-        Debug.Log($"[SetupAll] Starting full setup in scene: {mainScene.name}");
+        
+        EditorSceneManager.SetActiveScene(mainScene);
+        Debug.Log($"[SetupAll] ✓ Now working in scene: {mainScene.name} at {mainScene.path}");
 
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
