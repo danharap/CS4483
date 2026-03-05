@@ -3,6 +3,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.ProBuilder;
+using UnityEngine.ProBuilder.Shapes;
 
 /// <summary>
 /// Editor tool: CS4483 → Build ProBuilder Graybox Level
@@ -88,45 +89,6 @@ public static class ProBuilderLevelBuilder
         MeshCollider collider = go.AddComponent<MeshCollider>();
         collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
         collider.convex = false;
-        
-        // Mark as static for NavMesh baking
-        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
-        
-        return go;
-    }
-
-    static GameObject PBPlane(string name, Vector3 position, Vector3 size, Material material, Transform parent, bool useBoxCollider = false)
-    {
-        ProBuilderMesh pbMesh = ShapeGenerator.CreateShape(ShapeType.Plane);
-        GameObject go = pbMesh.gameObject;
-        go.name = name;
-        go.transform.SetParent(parent);
-        go.transform.position = position;
-        go.transform.localScale = size;
-        
-        if (material != null)
-        {
-            Renderer r = go.GetComponent<Renderer>();
-            if (r != null) r.sharedMaterial = material;
-        }
-        
-        pbMesh.ToMesh();
-        pbMesh.Refresh();
-        
-        // For floors, use BoxCollider for better CharacterController compatibility
-        if (useBoxCollider)
-        {
-            BoxCollider boxCol = go.AddComponent<BoxCollider>();
-            // ProBuilder plane is 10x10 by default, so match the scale
-            boxCol.size = new Vector3(10f, 0.1f, 10f);
-            boxCol.center = new Vector3(0f, 0f, 0f);
-        }
-        else
-        {
-            MeshCollider collider = go.AddComponent<MeshCollider>();
-            collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
-            collider.convex = false;
-        }
         
         // Mark as static for NavMesh baking
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
