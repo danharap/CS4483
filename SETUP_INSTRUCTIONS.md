@@ -6,39 +6,60 @@
 
 ---
 
-## You only need to do 4 things. Everything else is automated.
+## You only need to do 5 simple steps. Everything else is automated.
 
 ---
 
-## STEP 1 — Install Unity Editor via Unity Hub
+## Prerequisites
 
-1. Open **Unity Hub**
-2. Click **Installs** on the left sidebar → **Install Editor**
-3. Find **Unity 2022.3 LTS** (look for the "LTS" badge) → click **Install**
-4. In the install options, make sure **"Visual Studio"** is checked if you want to edit code
-5. Wait for the install to finish (this takes a while)
-
-> If you already see a 2022.3.x version installed in your Installs tab, skip to Step 2.
+Before starting, make sure you have:
+- Git installed on your computer ([download here](https://git-scm.com/downloads))
+- Unity Hub installed ([download here](https://unity.com/download))
+- The repository URL (ask your team member or check your team's GitHub/GitLab)
 
 ---
 
-## STEP 2 — Open the Project (No Cloning Needed!)
+## STEP 1 — Clone the Repository
 
-The project is already on your computer at:
-```
-/Users/danielharapiak/Desktop/SEM2/CS4483/CS4483
-```
+1. Open a terminal or command prompt
+2. Navigate to where you want to store the project:
+   - Windows: `cd Desktop` or `cd Documents`
+   - Mac/Linux: `cd ~/Desktop` or `cd ~/Documents`
+3. Clone the repository: `git clone <repository-url>`
+   - Replace `<repository-url>` with your team's actual GitHub/GitLab URL
+4. Navigate into the project folder: `cd CS4483`
+
+> **Note:** If you already have the project folder, make sure it's up to date by running `git pull` inside the project directory before opening in Unity.
+
+---
+
+## STEP 2 — Install Unity Editor via Unity Hub
+
+1. Download and install **Unity Hub** from [unity.com](https://unity.com/download) if you don't have it
+2. Open **Unity Hub**
+3. Click **Installs** on the left sidebar → **Install Editor**
+4. Find **Unity 2022.3 LTS** (look for the "LTS" badge) → click **Install**
+5. In the install options, make sure **"Visual Studio"** or your preferred IDE is checked if you want to edit code
+6. Wait for the install to finish (this may take 10-20 minutes)
+
+> If you already see a 2022.3.x version installed in your Installs tab, skip to Step 3.
+
+---
+
+## STEP 3 — Open the Project in Unity
 
 1. In Unity Hub, click **Projects** on the left sidebar
 2. Click **Open** (top right) → **Add project from disk**
-3. Browse to: `Desktop → SEM2 → CS4483 → CS4483`
+3. Browse to wherever you cloned the repository and select the `CS4483` folder (the root folder containing the Unity project)
 4. Click **Add Project**
-5. If Unity says **"This project was made with a different version"** → click **Open with 2022.3.x** (whichever you have installed)
-6. Wait for Unity to import everything (first open takes 2–5 minutes)
+5. If Unity prompts **"This project was made with a different version"** → select **Open with 2022.3.x** (whichever LTS version you installed)
+6. Wait for Unity to import everything (first open takes 2–5 minutes depending on your computer)
+
+> **Tip:** You'll know Unity is done importing when the progress bar at the bottom-right disappears and you see the project files in the Project window.
 
 ---
 
-## STEP 3 — Import TextMeshPro Essential Resources
+## STEP 4 — Import TextMeshPro Essential Resources
 
 This makes the UI text work. You only need to do it once.
 
@@ -48,7 +69,7 @@ This makes the UI text work. You only need to do it once.
 
 ---
 
-## STEP 4 — Run the One-Click Setup
+## STEP 5 — Run the One-Click Setup
 
 1. In Unity (top menu): **CS4483 → ▶  SETUP EVERYTHING  (Run This First!)**
 2. Wait ~5–10 seconds
@@ -87,7 +108,7 @@ This makes the UI text work. You only need to do it once.
 | Problem | Fix |
 |---------|-----|
 | "CS4483" menu not visible | Unity is still compiling — wait for the progress bar at the bottom-right to finish |
-| Red errors about `TMPro` | Do Step 3 (Import TMP Essential Resources) first, then re-run Step 4 |
+| Red errors about `TMPro` | Do Step 4 (Import TMP Essential Resources) first, then re-run Step 5 |
 | Enemies walk through walls | Playable anyway (direct movement fallback). To fix: **Window → AI → Navigation → Bake** |
 | `SetupAll` errors on first run | Wait for all packages to compile fully, then run it again |
 | Black screen / no UI | Re-run `CS4483 → ▶ SETUP EVERYTHING` — TMP resources may not have been imported yet |
@@ -124,9 +145,31 @@ Take these while in **Play mode** (or temporarily stop play for screenshot 1):
 
 ## Submission Checklist
 
-- [ ] Runs without errors and is playable
+- [ ] All team members have cloned the repository and can run the project
+- [ ] Game runs without errors and is fully playable
 - [ ] Level shows wayfinding (colored pillars + lights), verticality (ramps + platforms), occlusion (walls)  
-- [ ] Waves, upgrades, boss, and game over all work
-- [ ] 3+ screenshots saved to a `/Screenshots` folder
+- [ ] Waves, upgrades, boss, and game over all work correctly
+- [ ] 3+ screenshots saved to a `/Screenshots` folder in the project
 - [ ] `LDD.md` converted to PDF (open in browser and print → Save as PDF, or use any Markdown→PDF tool)
-- [ ] Zipped as `Group21_GrayboxPrototype.zip`
+- [ ] All files committed and pushed to the repository
+- [ ] Project zipped as `Group21_GrayboxPrototype.zip` for Brightspace submission
+
+---
+
+## Working as a Team
+
+**Before making changes:**
+1. Always run `git pull` to get the latest changes
+2. Make sure Unity isn't open when pulling (close Unity first to avoid file conflicts)
+
+**After making changes:**
+1. Save your Unity scene: **File → Save**
+2. Commit and push your changes:
+   ```bash
+   git add .
+   git commit -m "Describe what you changed"
+   git push
+   ```
+3. Let your team know what you changed so they can pull the updates
+
+> **Tip:** Avoid having multiple people editing the same Unity scene file at the same time, as this can cause merge conflicts. Coordinate who's working on what!
