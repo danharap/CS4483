@@ -35,7 +35,12 @@ public static class PrefabBuilder
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "Projectile";
         go.transform.localScale = Vector3.one * 0.25f;
-        SetColor(go, new Color(1f, 0.85f, 0.1f));
+        
+        // Create and save yellow material
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.color = new Color(1f, 0.85f, 0.1f);
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_Projectile.mat");
+        go.GetComponent<Renderer>().sharedMaterial = mat;
 
         // Remove mesh collider, add sphere trigger
         Object.DestroyImmediate(go.GetComponent<SphereCollider>());
@@ -62,7 +67,12 @@ public static class PrefabBuilder
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "XPOrb";
         go.transform.localScale = Vector3.one * 0.3f;
-        SetColor(go, new Color(0.0f, 0.9f, 0.9f));
+        
+        // Create and save cyan material
+        Material mat = new Material(Shader.Find("Standard"));
+        mat.color = new Color(0.0f, 0.9f, 0.9f);
+        AssetDatabase.CreateAsset(mat, "Assets/Materials/M_XPOrb.mat");
+        go.GetComponent<Renderer>().sharedMaterial = mat;
 
         Object.DestroyImmediate(go.GetComponent<SphereCollider>());
         SphereCollider col = go.AddComponent<SphereCollider>();
