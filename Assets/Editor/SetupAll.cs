@@ -98,7 +98,7 @@ public static class SetupAll
 
     static void Step1_ClearExistingSetup()
     {
-        string[] toRemove = { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===" };
+        string[] toRemove = { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===", "=== LEVEL (ProBuilder) ===" };
         foreach (string n in toRemove)
         {
             GameObject g = GameObject.Find(n);
