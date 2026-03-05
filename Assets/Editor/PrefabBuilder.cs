@@ -94,9 +94,8 @@ public static class PrefabBuilder
 
     static void CreateHealthPackPrefab()
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "HealthPack";
-        go.transform.localScale = Vector3.one * 0.5f;
+        // Create parent object
+        GameObject go = new GameObject("HealthPack");
         
         // Create and save green material (delete first if exists)
         string matPath = "Assets/Materials/M_HealthPack.mat";
@@ -104,14 +103,32 @@ public static class PrefabBuilder
         Material mat = new Material(Shader.Find("Standard"));
         mat.color = new Color(0.1f, 1f, 0.1f); // Bright green
         mat.EnableKeyword("_EMISSION");
-        mat.SetColor("_EmissionColor", new Color(0.1f, 0.5f, 0.1f));
+        mat.SetColor("_EmissionColor", new Color(0.1f, 0.6f, 0.1f));
         AssetDatabase.CreateAsset(mat, matPath);
-        go.GetComponent<Renderer>().sharedMaterial = mat;
 
-        Object.DestroyImmediate(go.GetComponent<BoxCollider>());
+        // Create 3D plus sign (+) using 3 cubes
+        // Vertical bar
+        GameObject vertical = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        vertical.name = "Vertical";
+        vertical.transform.SetParent(go.transform);
+        vertical.transform.localPosition = Vector3.zero;
+        vertical.transform.localScale = new Vector3(0.15f, 0.5f, 0.15f);
+        vertical.GetComponent<Renderer>().sharedMaterial = mat;
+        Object.DestroyImmediate(vertical.GetComponent<BoxCollider>());
+
+        // Horizontal bar
+        GameObject horizontal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        horizontal.name = "Horizontal";
+        horizontal.transform.SetParent(go.transform);
+        horizontal.transform.localPosition = Vector3.zero;
+        horizontal.transform.localScale = new Vector3(0.5f, 0.15f, 0.15f);
+        horizontal.GetComponent<Renderer>().sharedMaterial = mat;
+        Object.DestroyImmediate(horizontal.GetComponent<BoxCollider>());
+
+        // Add trigger collider to parent
         BoxCollider col = go.AddComponent<BoxCollider>();
         col.isTrigger = true;
-        col.size = new Vector3(0.5f, 0.5f, 0.5f);
+        col.size = new Vector3(0.6f, 0.6f, 0.2f);
 
         go.AddComponent<HealthPack>();
 

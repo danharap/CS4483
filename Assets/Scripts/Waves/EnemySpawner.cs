@@ -9,6 +9,7 @@ public class EnemySpawner : MonoBehaviour
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Spawn Points")]
     [SerializeField] private Transform[] spawnPoints;
+    [SerializeField] private float minPlayerDistance = 5f; // Don't spawn within this distance of player
 
     [Header("Enemy Prefabs")]
     [SerializeField] private GameObject chaserPrefab;
@@ -60,14 +61,27 @@ public class EnemySpawner : MonoBehaviour
     {
         if (spawnPoints == null || spawnPoints.Length == 0) return null;
 
-        // Shuffle-pick: try up to 5 random points and use first one that isn't
-        // overlapping with another collider (avoids spawning inside walls).
-        for (int attempt = 0; attempt < 5; attempt++)
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        Vector3 playerPos = player != null ? player.transform.position : Vector3.zero;
+
+        // Try to find a spawn point that is:
+        // 1. Not overlapping with colliders
+        // 2. Far enough from the player (minPlayerDistance)
+        for (int attempt = 0; attempt < 10; attempt++)
         {
             Transform sp = spawnPoints[Random.Range(0, spawnPoints.Length)];
+            
+            // Check if spawn point is far enough from player
+            float distToPlayer = Vector3.Distance(sp.position, playerPos);
+            if (distToPlayer < minPlayerDistance)
+                continue;
+            
+            // Check if spawn point is clear of colliders
             if (!Physics.CheckSphere(sp.position, 0.8f, ~LayerMask.GetMask("Ignore Raycast")))
                 return sp;
         }
+        
+        // Fallback: just pick a random spawn point (better than not spawning)
         return spawnPoints[Random.Range(0, spawnPoints.Length)];
     }
 
