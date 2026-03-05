@@ -90,6 +90,10 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 0f;
 
         float timeSurvived = Time.time - RunStartTime;
+
+        // Submit to high score before showing UI
+        HighScoreManager.Instance?.SubmitRun(WavesCleared, timeSurvived, TotalKills);
+
         logger?.LogSummary(timeSurvived, WavesCleared, TotalKills);
         gameOverUI.Show(timeSurvived, WavesCleared, TotalKills);
     }
@@ -101,6 +105,12 @@ public class GameManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void GoToMainMenu()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene("MainMenu");
     }
 
     // ── Accessors ─────────────────────────────────────────────────────────
