@@ -24,6 +24,9 @@ public static class ProBuilderLevelBuilder
 
         EnsureMaterials();
 
+        // Remove any existing level roots so we don't get duplicates when re-running the menu
+        RemoveExistingLevelRoots(scene);
+
         GameObject root = new GameObject("=== LEVEL (ProBuilder) ===");
         levelRoot = root.transform;
 
@@ -37,6 +40,16 @@ public static class ProBuilderLevelBuilder
 
         EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("[ProBuilderLevelBuilder] ✓ ProBuilder graybox level built. Save scene (Ctrl+S) and bake NavMesh.");
+    }
+
+    static void RemoveExistingLevelRoots(Scene scene)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        foreach (GameObject go in roots)
+        {
+            if (go != null && go.name == "=== LEVEL (ProBuilder) ===")
+                Object.DestroyImmediate(go);
+        }
     }
 
     // ── Materials ─────────────────────────────────────────────────────────
@@ -75,24 +88,25 @@ public static class ProBuilderLevelBuilder
         go.transform.SetParent(parent);
         go.transform.position = position;
         go.transform.localScale = size;
-        
+
+        pbMesh.ToMesh();
+        pbMesh.Refresh();
+
+        // Apply material after mesh is final so it sticks to the rendered mesh
         if (material != null)
         {
             Renderer r = go.GetComponent<Renderer>();
             if (r != null) r.sharedMaterial = material;
         }
-        
-        pbMesh.ToMesh();
-        pbMesh.Refresh();
-        
+
         // Add collider for physics
         MeshCollider collider = go.AddComponent<MeshCollider>();
         collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
         collider.convex = false;
-        
+
         // Mark as static for NavMesh baking
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
-        
+
         return go;
     }
 

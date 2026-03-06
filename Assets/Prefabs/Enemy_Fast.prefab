@@ -178,3 +178,5 @@ MonoBehaviour:
   xpDrop: 8
   hitFlashDuration: 0.12
   xpOrbPrefab: {fileID: 1633893225261815143, guid: 3e88ce5d175b2554db27ef7457434388, type: 3}
+  healthPackPrefab: {fileID: 3122327118712323223, guid: a75ddad210941464bba4a4251c0fdfb1, type: 3}
+  healthPackDropChance: 0.1

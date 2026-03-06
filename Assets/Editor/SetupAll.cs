@@ -98,11 +98,18 @@ public static class SetupAll
 
     static void Step1_ClearExistingSetup()
     {
-        string[] toRemove = { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===", "=== LEVEL (ProBuilder) ===" };
-        foreach (string n in toRemove)
+        // Remove managers and UI (single instances)
+        foreach (string n in new[] { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===" })
         {
             GameObject g = GameObject.Find(n);
             if (g != null) Object.DestroyImmediate(g);
+        }
+        // Remove ALL ProBuilder level roots (there may be more than one)
+        GameObject[] roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+        foreach (GameObject go in roots)
+        {
+            if (go != null && go.name == "=== LEVEL (ProBuilder) ===")
+                Object.DestroyImmediate(go);
         }
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) Object.DestroyImmediate(p);
