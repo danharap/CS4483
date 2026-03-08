@@ -77,6 +77,12 @@ public class SpriteCharacter : MonoBehaviour
                 currentFrame = 0;
                 frameTimer = 0f;
             }
+            
+            // Flip sprite based on movement direction (for player)
+            if (isMoving && characterController.velocity.x != 0f)
+            {
+                spriteRenderer.flipX = characterController.velocity.x < 0f;
+            }
         }
         
         if (currentAnimationFrames == null || currentAnimationFrames.Length == 0) return;
