@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 /// <summary>
 /// Automatically applies sprite billboard to game objects at runtime
@@ -8,6 +9,7 @@ public class SpriteCharacter : MonoBehaviour
 {
     [Header("Sprite Settings")]
     public Sprite[] animationFrames; // Drag sprite frames here
+    public Sprite deathSprite; // Optional death sprite
     public float frameRate = 12f;
     public Color tintColor = Color.white;
     public Vector3 spriteScale = new Vector3(0.8f, 1.2f, 1f);
@@ -16,9 +18,12 @@ public class SpriteCharacter : MonoBehaviour
     private SpriteRenderer spriteRenderer;
     private float frameTimer;
     private int currentFrame;
+    private Color originalTint;
+    private bool isDead = false;
     
     void Start()
     {
+        originalTint = tintColor;
         SetupSpriteBillboard();
         
         // Hide the 3D mesh renderer but keep collider
@@ -49,7 +54,7 @@ public class SpriteCharacter : MonoBehaviour
     
     void Update()
     {
-        if (animationFrames == null || animationFrames.Length == 0) return;
+        if (isDead || animationFrames == null || animationFrames.Length == 0) return;
         
         // Animate through frames
         frameTimer += Time.deltaTime;
@@ -58,6 +63,49 @@ public class SpriteCharacter : MonoBehaviour
             frameTimer = 0f;
             currentFrame = (currentFrame + 1) % animationFrames.Length;
             spriteRenderer.sprite = animationFrames[currentFrame];
+        }
+    }
+    
+    public void FlashWhite(float duration)
+    {
+        if (spriteRenderer != null)
+            StartCoroutine(FlashCoroutine(duration));
+    }
+    
+    private IEnumerator FlashCoroutine(float duration)
+    {
+        if (spriteRenderer == null) yield break;
+        spriteRenderer.color = Color.white;
+        yield return new WaitForSeconds(duration);
+        spriteRenderer.color = originalTint;
+    }
+    
+    public void PlayDeathAnimation()
+    {
+        isDead = true;
+        
+        if (spriteRenderer != null && deathSprite != null)
+        {
+            spriteRenderer.sprite = deathSprite;
+        }
+        
+        // Fade out
+        if (spriteRenderer != null)
+            StartCoroutine(FadeOut());
+    }
+    
+    private IEnumerator FadeOut()
+    {
+        float elapsed = 0f;
+        float duration = 0.4f;
+        Color startColor = spriteRenderer.color;
+        
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float alpha = Mathf.Lerp(1f, 0f, elapsed / duration);
+            spriteRenderer.color = new Color(startColor.r, startColor.g, startColor.b, alpha);
+            yield return null;
         }
     }
 }

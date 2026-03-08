@@ -37,13 +37,10 @@ public static class PrefabBuilder
         go.name = "Projectile";
         go.transform.localScale = Vector3.one * 0.25f;
         
-        // Create and save yellow material (delete first if exists)
-        string matPath = "Assets/Materials/M_Projectile.mat";
-        AssetDatabase.DeleteAsset(matPath);
-        Material mat = new Material(Shader.Find("Standard"));
-        mat.color = new Color(1f, 0.85f, 0.1f);
-        AssetDatabase.CreateAsset(mat, matPath);
-        go.GetComponent<Renderer>().sharedMaterial = mat;
+        // Make 3D mesh invisible (used only for collision)
+        Renderer renderer = go.GetComponent<Renderer>();
+        if (renderer != null)
+            renderer.enabled = false;
 
         // Remove mesh collider, add sphere trigger
         Object.DestroyImmediate(go.GetComponent<SphereCollider>());

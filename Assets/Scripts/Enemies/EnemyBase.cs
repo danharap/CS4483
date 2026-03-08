@@ -146,7 +146,18 @@ public abstract class EnemyBase : MonoBehaviour
         GameManager.Instance?.WaveManager?.NotifyEnemyDied(gameObject);
 
         EnemyRegistry.Unregister(this);
-        Destroy(gameObject);
+        
+        // Play death animation if sprite exists
+        SpriteCharacter spriteChar = GetComponent<SpriteCharacter>();
+        if (spriteChar != null)
+        {
+            spriteChar.PlayDeathAnimation();
+            Destroy(gameObject, 0.5f); // Delay destruction for death animation
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
     // ── Feedback ──────────────────────────────────────────────────────────
@@ -154,6 +165,12 @@ public abstract class EnemyBase : MonoBehaviour
     private IEnumerator HitFlash()
     {
         SetRenderColor(Color.white);
+        
+        // Also flash sprite if it exists
+        SpriteCharacter spriteChar = GetComponent<SpriteCharacter>();
+        if (spriteChar != null)
+            spriteChar.FlashWhite(hitFlashDuration);
+        
         yield return new WaitForSeconds(hitFlashDuration);
         RestoreColors();
     }
