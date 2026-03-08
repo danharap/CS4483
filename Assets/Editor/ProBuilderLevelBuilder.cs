@@ -47,7 +47,7 @@ public static class ProBuilderLevelBuilder
             AssetDatabase.CreateFolder("Assets", "Materials");
 
         matFloor    = GetOrCreateMat("M_Floor",    new Color(0.60f, 0.60f, 0.60f));
-        matWall     = GetOrCreateMat("M_Wall",     new Color(0.30f, 0.30f, 0.30f));
+        matWall     = GetOrCreateMat("M_Wall",     new Color(0.2f, 0.6f, 0.3f)); // Green walls
         matHub      = GetOrCreateMat("M_Hub",      new Color(0.85f, 0.85f, 0.85f));
         matBoss     = GetOrCreateMat("M_Boss",     new Color(0.40f, 0.02f, 0.02f));
         matObstacle = GetOrCreateMat("M_Obstacle", new Color(0.45f, 0.40f, 0.35f));

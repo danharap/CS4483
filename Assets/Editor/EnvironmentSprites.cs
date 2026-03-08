@@ -28,7 +28,10 @@ public static class EnvironmentSprites
         // Apply floor map (playable area)
         ApplyFloorMap(mapSprite);
         
-        Debug.Log("[EnvironmentSprites] ✓ Environment sprites applied! (Walls disabled - 2D sprites don't work well from all angles)");
+        // Re-enable ProBuilder walls (3D green walls)
+        EnableProBuilderWalls();
+        
+        Debug.Log("[EnvironmentSprites] ✓ Environment sprites applied! Using 3D green ProBuilder walls.");
     }
     
     static void ApplyBackground(Sprite bgSprite)
@@ -49,16 +52,16 @@ public static class EnvironmentSprites
             }
         }
         
-        // Find or create background plane
+        // Find or create background plane (outer area beyond walls)
         GameObject bgPlane = GameObject.Find("Background_Plane");
         if (bgPlane == null)
         {
             bgPlane = new GameObject("Background_Plane");
             
-            // Position at floor level (y = 0)
-            bgPlane.transform.position = new Vector3(0f, 0f, 0f);
+            // Position at floor level
+            bgPlane.transform.position = new Vector3(0f, 0.01f, 0f);
             bgPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            bgPlane.transform.localScale = new Vector3(10f, 10f, 1f);
+            bgPlane.transform.localScale = new Vector3(15f, 15f, 1f); // Very large to show outside arena
         }
         
         // Add sprite renderer
@@ -70,23 +73,23 @@ public static class EnvironmentSprites
         sr.sortingOrder = -100; // Far behind everything
         sr.drawMode = SpriteDrawMode.Tiled;
         sr.tileMode = SpriteTileMode.Continuous;
-        sr.size = new Vector2(60f, 60f); // Larger than level to cover everything
+        sr.size = new Vector2(100f, 100f); // Very large to show beyond walls
         
-        Debug.Log("[EnvironmentSprites] ✓ Background applied and floor mesh hidden");
+        Debug.Log("[EnvironmentSprites] ✓ Background applied (shows outside walls)");
     }
     
     static void ApplyFloorMap(Sprite mapSprite)
     {
-        // Find or create floor map plane (playable arena)
+        // Find or create floor map plane (playable arena interior)
         GameObject mapPlane = GameObject.Find("Floor_Map");
         if (mapPlane == null)
         {
             mapPlane = new GameObject("Floor_Map");
             
-            // Position slightly above background, at ground level
-            mapPlane.transform.position = new Vector3(0f, 0.01f, 0f);
+            // Position higher above background so it's clearly visible inside arena
+            mapPlane.transform.position = new Vector3(0f, 0.1f, 0f);
             mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            mapPlane.transform.localScale = new Vector3(8f, 8f, 1f);
+            mapPlane.transform.localScale = new Vector3(12f, 12f, 1f); // Fill arena interior
         }
         
         // Add sprite renderer
@@ -95,8 +98,47 @@ public static class EnvironmentSprites
             sr = mapPlane.AddComponent<SpriteRenderer>();
         
         sr.sprite = mapSprite;
-        sr.sortingOrder = -90; // Above background (-100), below everything else
+        sr.sortingOrder = -50; // Above background (-100), below gameplay objects (0+)
+        sr.drawMode = SpriteDrawMode.Simple; // Use simple mode, not tiled
         
-        Debug.Log("[EnvironmentSprites] ✓ Floor map applied for playable area");
+        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (arena interior, above background)");
+    }
+    
+    static void EnableProBuilderWalls()
+    {
+        // Find all boundary wall objects and enable their 3D mesh renderers
+        GameObject levelRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        if (levelRoot == null)
+        {
+            Debug.LogWarning("[EnvironmentSprites] Level root not found!");
+            return;
+        }
+        
+        Transform wallsParent = levelRoot.transform.Find("Boundary_Walls");
+        if (wallsParent == null)
+        {
+            Debug.LogWarning("[EnvironmentSprites] Boundary_Walls not found!");
+            return;
+        }
+        
+        int wallCount = 0;
+        foreach (Transform wall in wallsParent)
+        {
+            // Enable the ProBuilder mesh renderer for 3D green walls
+            MeshRenderer meshRenderer = wall.GetComponent<MeshRenderer>();
+            if (meshRenderer != null)
+            {
+                meshRenderer.enabled = true;
+            }
+            
+            // Remove any old wall sprite billboard objects
+            Transform oldSprite = wall.Find("Wall_Sprite");
+            if (oldSprite != null)
+                Object.DestroyImmediate(oldSprite.gameObject);
+            
+            wallCount++;
+        }
+        
+        Debug.Log($"[EnvironmentSprites] ✓ Enabled {wallCount} 3D ProBuilder walls (green from material)");
     }
 }
