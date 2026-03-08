@@ -10,25 +10,25 @@ public static class EnvironmentSprites
     [MenuItem("CS4483/🎨 4. Apply Environment Sprites")]
     public static void ApplyEnvironmentSprites()
     {
-        Debug.Log("[EnvironmentSprites] Applying background and wall sprites...");
+        Debug.Log("[EnvironmentSprites] Applying background and floor sprites...");
         
         // Load sprites
         Sprite bgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
-        Sprite wallSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sWall.png");
+        Sprite mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
         
-        if (bgSprite == null || wallSprite == null)
+        if (bgSprite == null || mapSprite == null)
         {
             Debug.LogError("[EnvironmentSprites] Sprites not found! Run '🎨 1. Slice Sprite Sheets' first.");
             return;
         }
         
-        // Apply background
+        // Apply background (outer layer)
         ApplyBackground(bgSprite);
         
-        // Apply walls
-        ApplyWalls(wallSprite);
+        // Apply floor map (playable area)
+        ApplyFloorMap(mapSprite);
         
-        Debug.Log("[EnvironmentSprites] ✓ Environment sprites applied!");
+        Debug.Log("[EnvironmentSprites] ✓ Environment sprites applied! (Walls disabled - 2D sprites don't work well from all angles)");
     }
     
     static void ApplyBackground(Sprite bgSprite)
@@ -75,67 +75,28 @@ public static class EnvironmentSprites
         Debug.Log("[EnvironmentSprites] ✓ Background applied and floor mesh hidden");
     }
     
-    static void ApplyWalls(Sprite wallSprite)
+    static void ApplyFloorMap(Sprite mapSprite)
     {
-        // Find all boundary wall objects
-        GameObject levelRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
-        if (levelRoot == null)
+        // Find or create floor map plane (playable arena)
+        GameObject mapPlane = GameObject.Find("Floor_Map");
+        if (mapPlane == null)
         {
-            Debug.LogWarning("[EnvironmentSprites] Level root not found!");
-            return;
+            mapPlane = new GameObject("Floor_Map");
+            
+            // Position slightly above background, at ground level
+            mapPlane.transform.position = new Vector3(0f, 0.01f, 0f);
+            mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            mapPlane.transform.localScale = new Vector3(8f, 8f, 1f);
         }
         
-        Transform wallsParent = levelRoot.transform.Find("Boundary_Walls");
-        if (wallsParent == null)
-        {
-            Debug.LogWarning("[EnvironmentSprites] Boundary_Walls not found!");
-            return;
-        }
+        // Add sprite renderer
+        SpriteRenderer sr = mapPlane.GetComponent<SpriteRenderer>();
+        if (sr == null)
+            sr = mapPlane.AddComponent<SpriteRenderer>();
         
-        int wallCount = 0;
-        foreach (Transform wall in wallsParent)
-        {
-            // Hide the ProBuilder mesh renderer
-            MeshRenderer meshRenderer = wall.GetComponent<MeshRenderer>();
-            Bounds bounds = meshRenderer != null ? meshRenderer.bounds : new Bounds(wall.position, Vector3.one);
-            if (meshRenderer != null)
-                meshRenderer.enabled = false;
-            
-            // Create child for sprite billboard
-            GameObject wallSpriteObj = wall.Find("Wall_Sprite")?.gameObject;
-            if (wallSpriteObj == null)
-            {
-                wallSpriteObj = new GameObject("Wall_Sprite");
-                wallSpriteObj.transform.SetParent(wall);
-                wallSpriteObj.transform.localScale = Vector3.one;
-            }
-            
-            // Position sprite at bottom of wall (ground level)
-            // The wall's center is at its position, so offset down by half height
-            float wallHeight = 2.5f;
-            wallSpriteObj.transform.localPosition = new Vector3(0f, 0f, 0f); // Center with wall
-            
-            // Add sprite renderer to child
-            SpriteRenderer sr = wallSpriteObj.GetComponent<SpriteRenderer>();
-            if (sr == null)
-                sr = wallSpriteObj.AddComponent<SpriteRenderer>();
-            
-            sr.sprite = wallSprite;
-            sr.sortingOrder = 5;
-            sr.drawMode = SpriteDrawMode.Tiled;
-            sr.tileMode = SpriteTileMode.Continuous;
-            
-            // Calculate tiling based on wall bounds
-            float width = Mathf.Max(bounds.size.x, bounds.size.z);
-            sr.size = new Vector2(width, wallHeight); // Wall height
-            
-            // Add billboard to face camera
-            if (wallSpriteObj.GetComponent<Billboard>() == null)
-                wallSpriteObj.AddComponent<Billboard>();
-            
-            wallCount++;
-        }
+        sr.sprite = mapSprite;
+        sr.sortingOrder = -90; // Above background (-100), below everything else
         
-        Debug.Log($"[EnvironmentSprites] ✓ Applied wall sprites to {wallCount} walls");
+        Debug.Log("[EnvironmentSprites] ✓ Floor map applied for playable area");
     }
 }

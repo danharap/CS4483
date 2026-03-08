@@ -27,6 +27,7 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sBullet.png");
         ConfigureSingleSprite("Assets/Sprites/sGun.png");
         ConfigureSingleSprite("Assets/Sprites/sBg.png");
+        ConfigureSingleSprite("Assets/Sprites/sMap.png");
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
         
         AssetDatabase.SaveAssets();
