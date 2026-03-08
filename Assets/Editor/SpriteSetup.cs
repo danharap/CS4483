@@ -54,9 +54,9 @@ public static class SpriteSetup
         }
         
         // Apply to enemy prefabs
-        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Chaser.prefab", enemy, deathSprite, Color.white); // Default white
-        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", enemy, deathSprite, new Color(1f, 0.3f, 0.3f)); // Red
-        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Boss.prefab", enemy, deathSprite, new Color(0.7f, 0.2f, 1f)); // Purple
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Chaser.prefab", enemy, deathSprite, Color.white); // No tint (default sprite color)
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", enemy, deathSprite, new Color(1f, 0.3f, 0.3f)); // Red tint
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Boss.prefab", enemy, deathSprite, new Color(0.7f, 0.2f, 1f)); // Purple tint
         
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
@@ -97,10 +97,10 @@ public static class SpriteSetup
         EnemyBase[] enemies = Object.FindObjectsOfType<EnemyBase>();
         foreach (EnemyBase e in enemies)
         {
-            Color tint = Color.white;
-            if (e is ChaserEnemy) tint = Color.white; // Default white
-            else if (e is FastEnemy) tint = new Color(1f, 0.3f, 0.3f); // Red
-            else if (e is BossEnemy) tint = new Color(0.7f, 0.2f, 1f); // Purple
+            Color tint = Color.white; // Default: no tint
+            if (e is FastEnemy) tint = new Color(1f, 0.3f, 0.3f); // Red tint
+            else if (e is BossEnemy) tint = new Color(0.7f, 0.2f, 1f); // Purple tint
+            // Chaser uses default (no tint)
             
             AddSpriteComponent(e.gameObject, enemy, deathSprite, tint);
             count++;
