@@ -252,10 +252,12 @@ public static class SpriteSetup
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Single;
         importer.filterMode = FilterMode.Point;
-        importer.spritePixelsPerUnit = 32;
+        importer.spritePixelsPerUnit = 40; // Changed from 32 to 40 for 40x40 assets
+        importer.alphaSource = TextureImporterAlphaSource.FromInput; // Preserve alpha channel
+        importer.alphaIsTransparency = true; // Enable transparency
         importer.SaveAndReimport();
         
-        Debug.Log($"[SpriteSetup] Configured single sprite: {path}");
+        Debug.Log($"[SpriteSetup] Configured single sprite with transparency: {path}");
     }
     
     private static void ApplyBulletSpriteToPrefab(string prefabPath, Sprite bulletSprite)

@@ -8,7 +8,7 @@ public class PlayerGun : MonoBehaviour
 {
     [Header("Gun Settings")]
     public Sprite gunSprite;
-    public float orbitRadius = 0.4f; // Distance from player center
+    public float orbitRadius = 0.6f; // Distance from player center (increased from 0.4)
     public float gunHeight = 0.5f; // Height above ground
     
     private GameObject gunPivot; // Parent for billboard
@@ -72,9 +72,10 @@ public class PlayerGun : MonoBehaviour
             // Adjust rotation based on which side of player we're on
             if (dirToMouse.x < 0)
             {
-                // Aiming left - flip sprite horizontally and adjust rotation
+                // Aiming left - flip sprite horizontally
                 gunRenderer.flipX = true;
-                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, angleToMouse + 90f);
+                // When flipped, negate the angle to maintain correct aim direction
+                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, angleToMouse - 90f);
             }
             else
             {

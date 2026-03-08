@@ -18,10 +18,23 @@ public class PlayerWeapon : MonoBehaviour
     [Header("References")]
     [SerializeField] private GameObject projectilePrefab;
     [SerializeField] private Transform  firePoint;    // child transform at barrel
+    
+    [Header("Audio")]
+    [SerializeField] private AudioClip shootSound;
+    [SerializeField] [Range(0f, 1f)] private float shootVolume = 0.3f;
 
     // ── State ─────────────────────────────────────────────────────────────
     private float fireTimer;
+    private AudioSource audioSource;
 
+    void Start()
+    {
+        // Setup audio source for shooting sounds
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 0f; // 2D sound
+    }
+    
     void Update()
     {
         if (GameManager.Instance != null &&
@@ -74,5 +87,11 @@ public class PlayerWeapon : MonoBehaviour
         Projectile p = go.GetComponent<Projectile>();
         if (p != null)
             p.Init(dir, damage, projectileSpeed, pierceCount);
+        
+        // Play shooting sound
+        if (shootSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(shootSound, shootVolume);
+        }
     }
 }

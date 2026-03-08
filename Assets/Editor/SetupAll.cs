@@ -391,7 +391,9 @@ public static class SetupAll
     {
         GameObject xpOrbPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/XPOrb.prefab");
         GameObject healthPackPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/HealthPack.prefab");
-        
+        AudioClip deathSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aDeath.wav");
+        AudioClip bulletSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aBullet.wav");
+
         if (xpOrbPrefab == null) { Debug.LogWarning("[SetupAll] XPOrb prefab not found."); return; }
         if (healthPackPrefab == null) { Debug.LogWarning("[SetupAll] HealthPack prefab not found."); }
 
@@ -411,12 +413,27 @@ public static class SetupAll
                     so.FindProperty("xpOrbPrefab").objectReferenceValue = xpOrbPrefab;
                     if (healthPackPrefab != null)
                         so.FindProperty("healthPackPrefab").objectReferenceValue = healthPackPrefab;
+                    if (deathSound != null)
+                        so.FindProperty("deathSound").objectReferenceValue = deathSound;
                     so.ApplyModifiedProperties();
                 }
             }
         }
+        
+        // Wire audio to player weapon
+        if (playerGO != null && bulletSound != null)
+        {
+            PlayerWeapon weapon = playerGO.GetComponent<PlayerWeapon>();
+            if (weapon != null)
+            {
+                var so = new SerializedObject(weapon);
+                so.FindProperty("shootSound").objectReferenceValue = bulletSound;
+                so.ApplyModifiedProperties();
+            }
+        }
+        
         AssetDatabase.SaveAssets();
-        Debug.Log("[SetupAll] XPOrb and HealthPack prefabs wired to all enemy prefabs.");
+        Debug.Log("[SetupAll] XPOrb, HealthPack, and Audio wired to all enemy prefabs and player weapon.");
     }
 
     // ── Step 11: NavMesh bake ─────────────────────────────────────────────

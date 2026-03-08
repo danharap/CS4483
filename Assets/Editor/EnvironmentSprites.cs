@@ -89,7 +89,9 @@ public static class EnvironmentSprites
             // Position higher above background so it's clearly visible inside arena
             mapPlane.transform.position = new Vector3(0f, 0.1f, 0f);
             mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            mapPlane.transform.localScale = new Vector3(12f, 12f, 1f); // Fill arena interior
+            // Arena is 50x50 units with walls at ±25. Scale to ~9.6f to fit within walls
+            // This leaves the border visible as the edge marker
+            mapPlane.transform.localScale = new Vector3(9.6f, 9.6f, 1f);
         }
         
         // Add sprite renderer
@@ -101,7 +103,7 @@ public static class EnvironmentSprites
         sr.sortingOrder = -50; // Above background (-100), below gameplay objects (0+)
         sr.drawMode = SpriteDrawMode.Simple; // Use simple mode, not tiled
         
-        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (arena interior, above background)");
+        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (fits within borders, background visible outside)");
     }
     
     static void EnableProBuilderWalls()

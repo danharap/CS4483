@@ -24,6 +24,10 @@ public abstract class EnemyBase : MonoBehaviour
     [SerializeField] protected GameObject xpOrbPrefab;
     [SerializeField] protected GameObject healthPackPrefab;
     [SerializeField] [Range(0f, 1f)] private float healthPackDropChance = 0.1f; // 10% chance
+    
+    [Header("Audio")]
+    [SerializeField] private AudioClip deathSound;
+    [SerializeField] [Range(0f, 1f)] private float deathVolume = 0.5f;
 
     // ── State ─────────────────────────────────────────────────────────────
     public float CurrentHP { get; protected set; }
@@ -130,6 +134,12 @@ public abstract class EnemyBase : MonoBehaviour
     {
         if (!IsAlive) return;
         IsAlive = false;
+
+        // Play death sound
+        if (deathSound != null)
+        {
+            AudioSource.PlayClipAtPoint(deathSound, transform.position, deathVolume);
+        }
 
         // Drop XP orb
         if (xpOrbPrefab != null)
