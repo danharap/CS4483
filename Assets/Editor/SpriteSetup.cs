@@ -54,8 +54,8 @@ public static class SpriteSetup
         }
         
         // Apply to enemy prefabs
-        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Chaser.prefab", enemy, deathSprite, new Color(1f, 0.3f, 0.3f)); // Red
-        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", enemy, deathSprite, new Color(1f, 0.7f, 0.2f)); // Orange
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Chaser.prefab", enemy, deathSprite, Color.white); // Default white
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", enemy, deathSprite, new Color(1f, 0.3f, 0.3f)); // Red
         ApplySpriteToPrefab("Assets/Prefabs/Enemy_Boss.prefab", enemy, deathSprite, new Color(0.7f, 0.2f, 1f)); // Purple
         
         // Apply bullet sprite to projectile prefab
@@ -71,6 +71,7 @@ public static class SpriteSetup
         Debug.Log("[SpriteSetup] Applying sprites to scene objects...");
         
         Sprite[] playerIdle = LoadSlicedSprites("sPlayerIdle_strip4");
+        Sprite[] playerRun = LoadSlicedSprites("sPlayerRun_strip7");
         Sprite[] enemy = LoadSlicedSprites("sEnemy_strip7");
         Sprite deathSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sEnemyDead.png");
         Sprite gunSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sGun.png");
@@ -80,7 +81,7 @@ public static class SpriteSetup
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
-            AddSpriteComponent(player, playerIdle, null, Color.white);
+            AddPlayerSpriteComponent(player, playerIdle, playerRun);
             
             // Add gun sprite
             PlayerGun gunScript = player.GetComponent<PlayerGun>();
@@ -97,9 +98,9 @@ public static class SpriteSetup
         foreach (EnemyBase e in enemies)
         {
             Color tint = Color.white;
-            if (e is ChaserEnemy) tint = new Color(1f, 0.3f, 0.3f);
-            else if (e is FastEnemy) tint = new Color(1f, 0.7f, 0.2f);
-            else if (e is BossEnemy) tint = new Color(0.7f, 0.2f, 1f);
+            if (e is ChaserEnemy) tint = Color.white; // Default white
+            else if (e is FastEnemy) tint = new Color(1f, 0.3f, 0.3f); // Red
+            else if (e is BossEnemy) tint = new Color(0.7f, 0.2f, 1f); // Purple
             
             AddSpriteComponent(e.gameObject, enemy, deathSprite, tint);
             count++;
@@ -178,9 +179,22 @@ public static class SpriteSetup
         if (spriteChar == null)
             spriteChar = target.AddComponent<SpriteCharacter>();
         
-        spriteChar.animationFrames = frames;
+        spriteChar.idleFrames = frames;
         spriteChar.deathSprite = deathSprite;
         spriteChar.tintColor = tint;
+        spriteChar.frameRate = 10f;
+        spriteChar.spriteScale = new Vector3(1.5f, 1.5f, 1f);
+    }
+    
+    private static void AddPlayerSpriteComponent(GameObject target, Sprite[] idleFrames, Sprite[] runFrames)
+    {
+        SpriteCharacter spriteChar = target.GetComponent<SpriteCharacter>();
+        if (spriteChar == null)
+            spriteChar = target.AddComponent<SpriteCharacter>();
+        
+        spriteChar.idleFrames = idleFrames;
+        spriteChar.runFrames = runFrames;
+        spriteChar.tintColor = Color.white;
         spriteChar.frameRate = 10f;
         spriteChar.spriteScale = new Vector3(1.5f, 1.5f, 1f);
     }

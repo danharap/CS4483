@@ -7,8 +7,8 @@ public class PlayerGun : MonoBehaviour
 {
     [Header("Gun Settings")]
     public Sprite gunSprite;
-    public Vector3 gunOffset = new Vector3(0.3f, 0.5f, 0f); // Position relative to player
-    public Vector3 gunScale = new Vector3(1.2f, 1.2f, 1f);
+    public Vector3 gunOffset = new Vector3(0.5f, 0.3f, 0.5f); // Position relative to player (offset to side)
+    public Vector3 gunScale = new Vector3(1.0f, 1.0f, 1f);
     
     private GameObject gunObject;
     private SpriteRenderer gunRenderer;
@@ -41,27 +41,25 @@ public class PlayerGun : MonoBehaviour
     {
         if (gunObject == null || mainCamera == null) return;
         
-        // Calculate angle to mouse cursor
+        // Calculate direction to mouse cursor
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         Plane ground = new Plane(Vector3.up, Vector3.zero);
         
         if (ground.Raycast(ray, out float dist))
         {
             Vector3 mousePos = ray.GetPoint(dist);
-            Vector3 dirToMouse = (mousePos - transform.position).normalized;
+            Vector3 dirToMouse = (mousePos - gunObject.transform.position).normalized;
             
-            // Calculate angle in degrees
-            float angle = Mathf.Atan2(dirToMouse.x, dirToMouse.z) * Mathf.Rad2Deg;
+            // Move gun offset based on mouse direction (orbit around player slightly)
+            Vector3 orbitOffset = dirToMouse * 0.4f; // Offset toward mouse
+            orbitOffset.y = gunOffset.y; // Keep height constant
+            gunObject.transform.localPosition = orbitOffset;
             
-            // Rotate gun sprite to point at mouse
-            // Use localRotation since Billboard handles camera facing
-            gunObject.transform.localRotation = Quaternion.Euler(0, 0, -angle);
-            
-            // Flip sprite if pointing left
+            // Flip sprite based on mouse side
             if (dirToMouse.x < 0)
-                gunRenderer.flipY = true;
+                gunRenderer.flipX = true;
             else
-                gunRenderer.flipY = false;
+                gunRenderer.flipX = false;
         }
     }
 }

@@ -37,10 +37,15 @@ public class PlayerWeapon : MonoBehaviour
 
     private void TryShoot()
     {
-        EnemyBase target = EnemyRegistry.GetNearest(transform.position);
-        if (target == null) return;
-
-        Vector3 dir = (target.transform.position - (firePoint != null ? firePoint.position : transform.position)).normalized;
+        // Shoot toward mouse cursor position
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Plane ground = new Plane(Vector3.up, Vector3.zero);
+        
+        if (!ground.Raycast(ray, out float dist)) return;
+        
+        Vector3 mousePos = ray.GetPoint(dist);
+        Vector3 shootPos = firePoint != null ? firePoint.position : transform.position;
+        Vector3 dir = (mousePos - shootPos).normalized;
 
         if (projectileCount == 1)
         {

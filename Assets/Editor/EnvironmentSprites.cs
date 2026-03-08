@@ -33,14 +33,30 @@ public static class EnvironmentSprites
     
     static void ApplyBackground(Sprite bgSprite)
     {
+        // Hide the ProBuilder floor mesh so background is visible
+        GameObject levelRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        if (levelRoot != null)
+        {
+            Transform floor = levelRoot.transform.Find("Floor");
+            if (floor != null)
+            {
+                MeshRenderer floorRenderer = floor.GetComponent<MeshRenderer>();
+                if (floorRenderer != null)
+                {
+                    floorRenderer.enabled = false;
+                    Debug.Log("[EnvironmentSprites] Disabled floor mesh renderer");
+                }
+            }
+        }
+        
         // Find or create background plane
         GameObject bgPlane = GameObject.Find("Background_Plane");
         if (bgPlane == null)
         {
             bgPlane = new GameObject("Background_Plane");
             
-            // Position slightly below floor
-            bgPlane.transform.position = new Vector3(0f, -0.5f, 0f);
+            // Position at floor level (y = 0)
+            bgPlane.transform.position = new Vector3(0f, 0f, 0f);
             bgPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             bgPlane.transform.localScale = new Vector3(10f, 10f, 1f);
         }
@@ -51,12 +67,12 @@ public static class EnvironmentSprites
             sr = bgPlane.AddComponent<SpriteRenderer>();
         
         sr.sprite = bgSprite;
-        sr.sortingOrder = -10; // Behind everything
+        sr.sortingOrder = -100; // Far behind everything
         sr.drawMode = SpriteDrawMode.Tiled;
         sr.tileMode = SpriteTileMode.Continuous;
-        sr.size = new Vector2(50f, 50f); // Match level size
+        sr.size = new Vector2(60f, 60f); // Larger than level to cover everything
         
-        Debug.Log("[EnvironmentSprites] ✓ Background applied");
+        Debug.Log("[EnvironmentSprites] ✓ Background applied and floor mesh hidden");
     }
     
     static void ApplyWalls(Sprite wallSprite)
@@ -79,26 +95,39 @@ public static class EnvironmentSprites
         int wallCount = 0;
         foreach (Transform wall in wallsParent)
         {
-            // Add sprite renderer to wall
-            SpriteRenderer sr = wall.GetComponent<SpriteRenderer>();
+            // Hide the ProBuilder mesh renderer
+            MeshRenderer meshRenderer = wall.GetComponent<MeshRenderer>();
+            Bounds bounds = meshRenderer != null ? meshRenderer.bounds : new Bounds(wall.position, Vector3.one);
+            if (meshRenderer != null)
+                meshRenderer.enabled = false;
+            
+            // Create child for sprite billboard
+            GameObject wallSpriteObj = wall.Find("Wall_Sprite")?.gameObject;
+            if (wallSpriteObj == null)
+            {
+                wallSpriteObj = new GameObject("Wall_Sprite");
+                wallSpriteObj.transform.SetParent(wall);
+                wallSpriteObj.transform.localPosition = new Vector3(0, 1.5f, 0);
+                wallSpriteObj.transform.localScale = Vector3.one;
+            }
+            
+            // Add sprite renderer to child
+            SpriteRenderer sr = wallSpriteObj.GetComponent<SpriteRenderer>();
             if (sr == null)
-                sr = wall.gameObject.AddComponent<SpriteRenderer>();
+                sr = wallSpriteObj.AddComponent<SpriteRenderer>();
             
             sr.sprite = wallSprite;
             sr.sortingOrder = 5;
             sr.drawMode = SpriteDrawMode.Tiled;
             sr.tileMode = SpriteTileMode.Continuous;
             
-            // Calculate tiling based on wall size
-            Renderer meshRenderer = wall.GetComponent<Renderer>();
-            if (meshRenderer != null)
-            {
-                Bounds bounds = meshRenderer.bounds;
-                sr.size = new Vector2(bounds.size.x, bounds.size.z);
-            }
+            // Calculate tiling based on wall bounds
+            float width = Mathf.Max(bounds.size.x, bounds.size.z);
+            sr.size = new Vector2(width, 3f); // Fixed height for walls
             
-            // Rotate to face camera
-            wall.gameObject.AddComponent<Billboard>();
+            // Add billboard to face camera
+            if (wallSpriteObj.GetComponent<Billboard>() == null)
+                wallSpriteObj.AddComponent<Billboard>();
             
             wallCount++;
         }

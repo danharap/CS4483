@@ -8,7 +8,8 @@ using System.Collections;
 public class SpriteCharacter : MonoBehaviour
 {
     [Header("Sprite Settings")]
-    public Sprite[] animationFrames; // Drag sprite frames here
+    public Sprite[] idleFrames; // Idle animation frames
+    public Sprite[] runFrames; // Run animation frames (for player)
     public Sprite deathSprite; // Optional death sprite
     public float frameRate = 12f;
     public Color tintColor = Color.white;
@@ -20,10 +21,15 @@ public class SpriteCharacter : MonoBehaviour
     private int currentFrame;
     private Color originalTint;
     private bool isDead = false;
+    private Sprite[] currentAnimationFrames;
+    private CharacterController characterController; // For detecting player movement
     
     void Start()
     {
         originalTint = tintColor;
+        currentAnimationFrames = idleFrames;
+        characterController = GetComponent<CharacterController>(); // For player movement detection
+        
         SetupSpriteBillboard();
         
         // Hide the 3D mesh renderer but keep collider
@@ -48,21 +54,40 @@ public class SpriteCharacter : MonoBehaviour
         // Add billboard to face camera
         spriteObj.AddComponent<Billboard>();
         
-        if (animationFrames != null && animationFrames.Length > 0)
-            spriteRenderer.sprite = animationFrames[0];
+        if (currentAnimationFrames != null && currentAnimationFrames.Length > 0)
+            spriteRenderer.sprite = currentAnimationFrames[0];
     }
     
     void Update()
     {
-        if (isDead || animationFrames == null || animationFrames.Length == 0) return;
+        if (isDead) return;
+        
+        // Switch between idle and run animations for player
+        if (characterController != null && runFrames != null && runFrames.Length > 0)
+        {
+            // Check if player is moving (velocity magnitude > threshold)
+            bool isMoving = characterController.velocity.sqrMagnitude > 0.1f;
+            
+            Sprite[] targetFrames = isMoving ? runFrames : idleFrames;
+            
+            // Reset frame counter if switching animations
+            if (targetFrames != currentAnimationFrames)
+            {
+                currentAnimationFrames = targetFrames;
+                currentFrame = 0;
+                frameTimer = 0f;
+            }
+        }
+        
+        if (currentAnimationFrames == null || currentAnimationFrames.Length == 0) return;
         
         // Animate through frames
         frameTimer += Time.deltaTime;
         if (frameTimer >= 1f / frameRate)
         {
             frameTimer = 0f;
-            currentFrame = (currentFrame + 1) % animationFrames.Length;
-            spriteRenderer.sprite = animationFrames[currentFrame];
+            currentFrame = (currentFrame + 1) % currentAnimationFrames.Length;
+            spriteRenderer.sprite = currentAnimationFrames[currentFrame];
         }
     }
     

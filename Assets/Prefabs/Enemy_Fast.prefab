@@ -201,6 +201,7 @@ MonoBehaviour:
   - {fileID: 4885123736680896423, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
   - {fileID: 6324591119161340219, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
   - {fileID: 1871951282191127577, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
+  deathSprite: {fileID: 21300000, guid: eb49c372bad7e984f8c2f0f0c321503f, type: 3}
   frameRate: 10
   tintColor: {r: 1, g: 0.7, b: 0.2, a: 1}
   spriteScale: {x: 1.5, y: 1.5, z: 1}
