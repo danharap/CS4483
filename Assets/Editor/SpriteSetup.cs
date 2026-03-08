@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// Sets up 2D sprite billboards for 3D top-down game
@@ -7,96 +8,154 @@ using UnityEngine;
 /// </summary>
 public static class SpriteSetup
 {
-    [MenuItem("CS4483/🎨 Setup Sprite Billboards")]
-    public static void SetupSpriteBillboards()
+    [MenuItem("CS4483/🎨 1. Slice Sprite Sheets")]
+    public static void SliceSpriteSheets()
     {
-        Debug.Log("[SpriteSetup] Starting sprite billboard setup...");
+        Debug.Log("[SpriteSetup] Slicing sprite sheets...");
         
-        // Load sprites
-        Sprite playerIdle = LoadSprite("sPlayerIdle_strip4");
-        Sprite playerRun = LoadSprite("sPlayerRun_strip7");
-        Sprite enemy = LoadSprite("sEnemy_strip7");
-        Sprite bullet = LoadSprite("sBullet");
+        // Slice player idle (4 frames)
+        SliceSpriteSheet("Assets/Sprites/sPlayerIdle_strip4.png", 4);
         
-        if (playerIdle == null || enemy == null)
+        // Slice player run (7 frames)
+        SliceSpriteSheet("Assets/Sprites/sPlayerRun_strip7.png", 7);
+        
+        // Slice enemy (7 frames)
+        SliceSpriteSheet("Assets/Sprites/sEnemy_strip7.png", 7);
+        
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log("[SpriteSetup] ✓ Sprite sheets sliced! Now run step 2.");
+    }
+    
+    [MenuItem("CS4483/🎨 2. Apply Sprites to Prefabs")]
+    public static void ApplySpritesToPrefabs()
+    {
+        Debug.Log("[SpriteSetup] Applying sprites to prefabs...");
+        
+        // Load sliced sprites
+        Sprite[] playerIdle = LoadSlicedSprites("sPlayerIdle_strip4");
+        Sprite[] playerRun = LoadSlicedSprites("sPlayerRun_strip7");
+        Sprite[] enemy = LoadSlicedSprites("sEnemy_strip7");
+        
+        if (playerIdle.Length == 0 || enemy.Length == 0)
         {
-            Debug.LogError("[SpriteSetup] Could not load sprites! Make sure they're in Assets/Sprites/");
+            Debug.LogError("[SpriteSetup] Sprites not sliced! Run step 1 first.");
             return;
         }
         
-        // Apply to Player
+        // Apply to enemy prefabs
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Chaser.prefab", enemy, new Color(1f, 0.3f, 0.3f)); // Red
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", enemy, new Color(1f, 0.7f, 0.2f)); // Orange
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Boss.prefab", enemy, new Color(0.7f, 0.2f, 1f)); // Purple
+        
+        AssetDatabase.SaveAssets();
+        Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs! Re-run SETUP EVERYTHING to see changes.");
+    }
+    
+    [MenuItem("CS4483/🎨 3. Apply Sprites to Scene Objects")]
+    public static void ApplySpritesToScene()
+    {
+        Debug.Log("[SpriteSetup] Applying sprites to scene objects...");
+        
+        Sprite[] playerIdle = LoadSlicedSprites("sPlayerIdle_strip4");
+        Sprite[] enemy = LoadSlicedSprites("sEnemy_strip7");
+        
+        // Apply to player in scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
-            ApplySpriteBillboard(player, playerIdle, new Vector3(0.8f, 1.2f, 1f), Color.white);
+            AddSpriteComponent(player, playerIdle, Color.white);
             Debug.Log("[SpriteSetup] ✓ Applied sprite to Player");
         }
         
-        // Apply to all enemies
+        // Apply to all enemies in scene
+        int count = 0;
         EnemyBase[] enemies = Object.FindObjectsOfType<EnemyBase>();
         foreach (EnemyBase e in enemies)
         {
-            Color enemyColor = Color.white;
+            Color tint = Color.white;
+            if (e is ChaserEnemy) tint = new Color(1f, 0.3f, 0.3f);
+            else if (e is FastEnemy) tint = new Color(1f, 0.7f, 0.2f);
+            else if (e is BossEnemy) tint = new Color(0.7f, 0.2f, 1f);
             
-            // Color code by enemy type
-            if (e is ChaserEnemy)
-                enemyColor = new Color(1f, 0.3f, 0.3f); // Red tint
-            else if (e is FastEnemy)
-                enemyColor = new Color(1f, 0.7f, 0.2f); // Orange tint
-            else if (e is BossEnemy)
-                enemyColor = new Color(0.7f, 0.2f, 1f); // Purple tint
-            
-            ApplySpriteBillboard(e.gameObject, enemy, new Vector3(0.8f, 1.2f, 1f), enemyColor);
+            AddSpriteComponent(e.gameObject, enemy, tint);
+            count++;
         }
-        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {enemies.Length} enemies");
         
-        Debug.Log("[SpriteSetup] ✓ Sprite billboard setup complete!");
+        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies in scene!");
     }
     
-    private static Sprite LoadSprite(string name)
+    // ── Helper Methods ────────────────────────────────────────────────────
+    
+    private static void SliceSpriteSheet(string path, int frameCount)
     {
-        // Try loading from Assets/Sprites/
-        Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>($"Assets/Sprites/{name}.png");
-        if (tex == null) return null;
-        
-        // Convert texture to sprite if needed
-        string path = AssetDatabase.GetAssetPath(tex);
         TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
-        if (importer != null && importer.textureType != TextureImporterType.Sprite)
+        if (importer == null) return;
+        
+        importer.textureType = TextureImporterType.Sprite;
+        importer.spriteImportMode = SpriteImportMode.Multiple;
+        importer.filterMode = FilterMode.Point;
+        importer.spritePixelsPerUnit = 32; // Adjust for pixel art
+        
+        // Get texture dimensions
+        Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        if (tex == null) return;
+        
+        int frameWidth = tex.width / frameCount;
+        int frameHeight = tex.height;
+        
+        // Create sprite metadata for each frame
+        List<SpriteMetaData> spriteSheet = new List<SpriteMetaData>();
+        for (int i = 0; i < frameCount; i++)
         {
-            importer.textureType = TextureImporterType.Sprite;
-            importer.spritePixelsPerUnit = 100;
-            importer.filterMode = FilterMode.Point; // Pixel art style
-            importer.SaveAndReimport();
+            SpriteMetaData meta = new SpriteMetaData();
+            meta.name = $"frame_{i}";
+            meta.rect = new Rect(i * frameWidth, 0, frameWidth, frameHeight);
+            meta.pivot = new Vector2(0.5f, 0.5f);
+            meta.alignment = (int)SpriteAlignment.Center;
+            spriteSheet.Add(meta);
         }
         
-        return AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/Sprites/{name}.png");
+        importer.spritesheet = spriteSheet.ToArray();
+        importer.SaveAndReimport();
+        
+        Debug.Log($"[SpriteSetup] Sliced {path} into {frameCount} frames");
     }
     
-    private static void ApplySpriteBillboard(GameObject target, Sprite sprite, Vector3 scale, Color tint)
+    private static Sprite[] LoadSlicedSprites(string name)
     {
-        // Remove existing mesh renderer if present
-        MeshRenderer existingRenderer = target.GetComponent<MeshRenderer>();
-        if (existingRenderer != null)
+        Object[] sprites = AssetDatabase.LoadAllAssetsAtPath($"Assets/Sprites/{name}.png");
+        List<Sprite> result = new List<Sprite>();
+        
+        foreach (Object obj in sprites)
         {
-            existingRenderer.enabled = false; // Hide 3D mesh but keep for reference
+            if (obj is Sprite sprite && sprite.name.StartsWith("frame_"))
+                result.Add(sprite);
         }
         
-        // Create sprite child object
-        GameObject spriteObj = new GameObject("Sprite_Billboard");
-        spriteObj.transform.SetParent(target.transform);
-        spriteObj.transform.localPosition = Vector3.zero;
-        spriteObj.transform.localScale = scale;
+        result.Sort((a, b) => a.name.CompareTo(b.name));
+        return result.ToArray();
+    }
+    
+    private static void AddSpriteComponent(GameObject target, Sprite[] frames, Color tint)
+    {
+        SpriteCharacter spriteChar = target.GetComponent<SpriteCharacter>();
+        if (spriteChar == null)
+            spriteChar = target.AddComponent<SpriteCharacter>();
         
-        // Add sprite renderer
-        SpriteRenderer sr = spriteObj.AddComponent<SpriteRenderer>();
-        sr.sprite = sprite;
-        sr.color = tint;
-        sr.sortingOrder = 10; // Render on top
-        
-        // Add billboard script to face camera
-        spriteObj.AddComponent<Billboard>();
-        
-        Debug.Log($"[SpriteSetup] Applied sprite to {target.name} with tint {tint}");
+        spriteChar.animationFrames = frames;
+        spriteChar.tintColor = tint;
+        spriteChar.frameRate = 10f;
+        spriteChar.spriteScale = new Vector3(1.5f, 1.5f, 1f);
+    }
+    
+    private static void ApplySpriteToPrefab(string prefabPath, Sprite[] frames, Color tint)
+    {
+        using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabPath))
+        {
+            GameObject root = scope.prefabContentsRoot;
+            AddSpriteComponent(root, frames, tint);
+            Debug.Log($"[SpriteSetup] Applied sprite to {root.name}");
+        }
     }
 }
