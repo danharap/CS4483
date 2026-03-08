@@ -107,9 +107,13 @@ public static class EnvironmentSprites
             {
                 wallSpriteObj = new GameObject("Wall_Sprite");
                 wallSpriteObj.transform.SetParent(wall);
-                wallSpriteObj.transform.localPosition = new Vector3(0, 1.5f, 0);
                 wallSpriteObj.transform.localScale = Vector3.one;
             }
+            
+            // Position sprite at bottom of wall (ground level)
+            // The wall's center is at its position, so offset down by half height
+            float wallHeight = 2.5f;
+            wallSpriteObj.transform.localPosition = new Vector3(0f, 0f, 0f); // Center with wall
             
             // Add sprite renderer to child
             SpriteRenderer sr = wallSpriteObj.GetComponent<SpriteRenderer>();
@@ -123,7 +127,7 @@ public static class EnvironmentSprites
             
             // Calculate tiling based on wall bounds
             float width = Mathf.Max(bounds.size.x, bounds.size.z);
-            sr.size = new Vector2(width, 3f); // Fixed height for walls
+            sr.size = new Vector2(width, wallHeight); // Wall height
             
             // Add billboard to face camera
             if (wallSpriteObj.GetComponent<Billboard>() == null)

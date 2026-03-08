@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &1846253826806247056
+--- !u!1 &4755918730912559794
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,14 +8,14 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 8351170055715185395}
-  - component: {fileID: 3857300087125704880}
-  - component: {fileID: 6092644574172566637}
-  - component: {fileID: 5244113881647316962}
-  - component: {fileID: 5342782623639052904}
-  - component: {fileID: 6103585187851241592}
-  - component: {fileID: 284354371053742399}
-  - component: {fileID: 1337790966315990595}
+  - component: {fileID: 6656207619450719443}
+  - component: {fileID: 1517119138531650848}
+  - component: {fileID: 2779767074550188600}
+  - component: {fileID: 6200743234063501778}
+  - component: {fileID: 7696920423688668912}
+  - component: {fileID: 6584747147166857091}
+  - component: {fileID: 9167890385195676842}
+  - component: {fileID: 3567336301890395884}
   m_Layer: 0
   m_Name: Enemy_Fast
   m_TagString: Untagged
@@ -23,13 +23,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &8351170055715185395
+--- !u!4 &6656207619450719443
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -38,21 +38,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!33 &3857300087125704880
+--- !u!33 &1517119138531650848
 MeshFilter:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   m_Mesh: {fileID: 10208, guid: 0000000000000000e000000000000000, type: 0}
---- !u!136 &6092644574172566637
+--- !u!136 &2779767074550188600
 CapsuleCollider:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   m_Material: {fileID: 0}
   m_IncludeLayers:
     serializedVersion: 2
@@ -69,13 +69,13 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
---- !u!23 &5244113881647316962
+--- !u!23 &6200743234063501778
 MeshRenderer:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   m_Enabled: 1
   m_CastShadows: 1
   m_ReceiveShadows: 1
@@ -111,13 +111,13 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
---- !u!54 &5342782623639052904
+--- !u!54 &7696920423688668912
 Rigidbody:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   serializedVersion: 4
   m_Mass: 1
   m_Drag: 0
@@ -138,13 +138,13 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 116
   m_CollisionDetection: 0
---- !u!195 &6103585187851241592
+--- !u!195 &6584747147166857091
 NavMeshAgent:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   m_Enabled: 1
   m_AgentTypeID: 0
   m_Radius: 0.4
@@ -160,13 +160,13 @@ NavMeshAgent:
   m_BaseOffset: 1
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
---- !u!114 &284354371053742399
+--- !u!114 &9167890385195676842
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ffc3f25504efc1343980f765b9f9be37, type: 3}
@@ -178,22 +178,22 @@ MonoBehaviour:
   contactCooldown: 1
   xpDrop: 8
   hitFlashDuration: 0.12
-  xpOrbPrefab: {fileID: 3376800627238918029, guid: 3e88ce5d175b2554db27ef7457434388, type: 3}
-  healthPackPrefab: {fileID: 4808949008810993783, guid: 9c26492b5f450c643b666f1c147d5f5b, type: 3}
+  xpOrbPrefab: {fileID: 1212560847545069455, guid: 3e88ce5d175b2554db27ef7457434388, type: 3}
+  healthPackPrefab: {fileID: 7942348321208306852, guid: 9c26492b5f450c643b666f1c147d5f5b, type: 3}
   healthPackDropChance: 0.1
---- !u!114 &1337790966315990595
+--- !u!114 &3567336301890395884
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1846253826806247056}
+  m_GameObject: {fileID: 4755918730912559794}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a9bf10bdf994e164bac5370c8e12149a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  animationFrames:
+  idleFrames:
   - {fileID: 7501387830980884940, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
   - {fileID: -1292133977623532453, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
   - {fileID: 1067268738093248773, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
@@ -201,7 +201,8 @@ MonoBehaviour:
   - {fileID: 4885123736680896423, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
   - {fileID: 6324591119161340219, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
   - {fileID: 1871951282191127577, guid: e94b3888a38e9fe488dfe0325e4edbb4, type: 3}
+  runFrames: []
   deathSprite: {fileID: 21300000, guid: eb49c372bad7e984f8c2f0f0c321503f, type: 3}
   frameRate: 10
-  tintColor: {r: 1, g: 0.7, b: 0.2, a: 1}
+  tintColor: {r: 1, g: 0.3, b: 0.3, a: 1}
   spriteScale: {x: 1.5, y: 1.5, z: 1}

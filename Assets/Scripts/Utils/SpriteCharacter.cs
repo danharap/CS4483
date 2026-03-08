@@ -91,7 +91,7 @@ public class SpriteCharacter : MonoBehaviour
         }
     }
     
-    public void FlashWhite(float duration)
+    public void FlashRed(float duration)
     {
         if (spriteRenderer != null)
             StartCoroutine(FlashCoroutine(duration));
@@ -100,9 +100,10 @@ public class SpriteCharacter : MonoBehaviour
     private IEnumerator FlashCoroutine(float duration)
     {
         if (spriteRenderer == null) yield break;
-        spriteRenderer.color = Color.white;
+        Color originalColor = spriteRenderer.color;
+        spriteRenderer.color = new Color(1f, 0.2f, 0.2f); // Bright red
         yield return new WaitForSeconds(duration);
-        spriteRenderer.color = originalTint;
+        spriteRenderer.color = originalColor;
     }
     
     public void PlayDeathAnimation()

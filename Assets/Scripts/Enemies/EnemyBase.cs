@@ -166,10 +166,10 @@ public abstract class EnemyBase : MonoBehaviour
     {
         SetRenderColor(Color.white);
         
-        // Also flash sprite if it exists
+        // Flash sprite red if it exists
         SpriteCharacter spriteChar = GetComponent<SpriteCharacter>();
         if (spriteChar != null)
-            spriteChar.FlashWhite(hitFlashDuration);
+            spriteChar.FlashRed(hitFlashDuration);
         
         yield return new WaitForSeconds(hitFlashDuration);
         RestoreColors();
