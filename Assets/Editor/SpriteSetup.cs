@@ -29,6 +29,8 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sBg.png");
         ConfigureSingleSprite("Assets/Sprites/sMap.png");
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
+        ConfigureSingleSprite("Assets/Sprites/sExperience.png"); // Custom XP orb
+        ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
         
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -47,6 +49,8 @@ public static class SpriteSetup
         Sprite deathSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sEnemyDead.png");
         Sprite bulletSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBullet.png");
         Sprite gunSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sGun.png");
+        Sprite xpOrbSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sExperience.png");
+        Sprite medkitSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMedkit.png");
         
         if (playerIdle.Length == 0 || enemy.Length == 0)
         {
@@ -62,8 +66,12 @@ public static class SpriteSetup
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
         
+        // Apply XP orb and medkit sprites
+        ApplyPickupSpriteToPrefab("Assets/Prefabs/XPOrb.prefab", xpOrbSprite);
+        ApplyPickupSpriteToPrefab("Assets/Prefabs/HealthPack.prefab", medkitSprite);
+        
         AssetDatabase.SaveAssets();
-        Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs! Re-run SETUP EVERYTHING to see changes.");
+        Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs (including custom XP orb and medkit)! Re-run SETUP EVERYTHING to see changes.");
     }
     
     [MenuItem("CS4483/🎨 3. Apply Sprites to Scene Objects")]
@@ -77,6 +85,8 @@ public static class SpriteSetup
         Sprite deathSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sEnemyDead.png");
         Sprite gunSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sGun.png");
         Sprite bulletSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBullet.png");
+        Sprite xpOrbSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sExperience.png");
+        Sprite medkitSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMedkit.png");
         
         // Apply to player in scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -119,7 +129,31 @@ public static class SpriteSetup
             projCount++;
         }
         
-        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies and {projCount} projectiles in scene!");
+        // Apply to all XP orbs in scene
+        int xpCount = 0;
+        GameObject[] xpOrbs = GameObject.FindGameObjectsWithTag("XPOrb");
+        foreach (GameObject orb in xpOrbs)
+        {
+            PickupSprite orbSprite = orb.GetComponent<PickupSprite>();
+            if (orbSprite == null)
+                orbSprite = orb.AddComponent<PickupSprite>();
+            orbSprite.pickupSprite = xpOrbSprite;
+            xpCount++;
+        }
+        
+        // Apply to all health packs in scene
+        int healthCount = 0;
+        HealthPack[] healthPacks = Object.FindObjectsOfType<HealthPack>();
+        foreach (HealthPack hp in healthPacks)
+        {
+            PickupSprite hpSprite = hp.GetComponent<PickupSprite>();
+            if (hpSprite == null)
+                hpSprite = hp.gameObject.AddComponent<PickupSprite>();
+            hpSprite.pickupSprite = medkitSprite;
+            healthCount++;
+        }
+        
+        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, and {healthCount} health packs in scene!");
     }
     
     // ── Helper Methods ────────────────────────────────────────────────────
@@ -234,6 +268,19 @@ public static class SpriteSetup
                 projSprite = root.AddComponent<ProjectileSprite>();
             projSprite.bulletSprite = bulletSprite;
             Debug.Log($"[SpriteSetup] Applied bullet sprite to {root.name}");
+        }
+    }
+    
+    private static void ApplyPickupSpriteToPrefab(string prefabPath, Sprite pickupSprite)
+    {
+        using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabPath))
+        {
+            GameObject root = scope.prefabContentsRoot;
+            PickupSprite pickup = root.GetComponent<PickupSprite>();
+            if (pickup == null)
+                pickup = root.AddComponent<PickupSprite>();
+            pickup.pickupSprite = pickupSprite;
+            Debug.Log($"[SpriteSetup] Applied pickup sprite to {root.name}");
         }
     }
 }
