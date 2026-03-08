@@ -81,6 +81,27 @@ This makes the UI text work. You only need to do it once.
 
 ---
 
+## STEP 6 (Optional) — Apply 2D Sprite Visuals
+
+If you want to use the 2D sprite assets (player animations, enemy sprites, gun, bullets):
+
+1. Make sure you're on the `dev` branch: `git checkout dev`
+2. Run these menu items **in order**:
+   - **CS4483 → 🎨 1. Slice Sprite Sheets** (configures sprite assets)
+   - **CS4483 → 🎨 2. Apply Sprites to Prefabs** (adds sprites to enemy/projectile prefabs)
+   - **CS4483 → 🎨 3. Apply Sprites to Scene Objects** (applies to player and existing enemies)
+   - **CS4483 → 🎨 4. Apply Environment Sprites** (adds background and wall textures)
+3. Press **Play** to see the sprites in action!
+
+**Visual Features:**
+- Animated player and enemy sprites
+- Hit flash (enemies flash white when damaged)
+- Death animation (enemies fade out)
+- Gun sprite that rotates toward mouse
+- Bullet sprites instead of yellow spheres
+
+---
+
 ## STEP 6 (Optional) — Set Up Main Menu
 
 If you want a start screen:
