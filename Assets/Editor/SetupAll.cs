@@ -146,6 +146,12 @@ public static class SetupAll
             GameObject go = new GameObject("Main Camera");
             go.tag = "MainCamera";
             cam    = go.AddComponent<Camera>();
+            if (go.GetComponent<AudioListener>() == null)
+                go.AddComponent<AudioListener>();
+        }
+        else if (cam.GetComponent<AudioListener>() == null)
+        {
+            cam.gameObject.AddComponent<AudioListener>();
         }
         cam.transform.position = new Vector3(0, 16f, -9f);
         cam.transform.rotation = Quaternion.Euler(60f, 0f, 0f);

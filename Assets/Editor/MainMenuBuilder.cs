@@ -48,6 +48,8 @@ public static class MainMenuBuilder
         GameObject camGO = new GameObject("Main Camera");
         camGO.tag = "MainCamera";
         Camera cam = camGO.AddComponent<Camera>();
+        if (camGO.GetComponent<AudioListener>() == null)
+            camGO.AddComponent<AudioListener>();
         cam.transform.position = new Vector3(0f, 8f, -12f);
         cam.transform.rotation = Quaternion.Euler(30f, 0f, 0f);
         cam.backgroundColor    = new Color(0.03f, 0.02f, 0.04f);

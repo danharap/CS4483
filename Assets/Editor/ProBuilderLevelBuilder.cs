@@ -34,6 +34,7 @@ public static class ProBuilderLevelBuilder
         CreateBossArena();
         CreateRockObstacles();
         CreateSpawnPoints();
+        CreateDeadBodies();
         CreateLighting();
 
         EditorSceneManager.MarkSceneDirty(scene);
@@ -231,6 +232,32 @@ public static class ProBuilderLevelBuilder
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent);
         go.transform.position = pos;
+    }
+
+    // ── Dead Bodies (ambient props; sprite + fly sound applied by SpriteSetup / AudioSetup) ──
+
+    static void CreateDeadBodies()
+    {
+        GameObject root = new GameObject("DeadBodies");
+        root.transform.SetParent(levelRoot);
+
+        // 2–3 bodies near the edges of the map (XZ ±20–24)
+        CreateDeadBody(root.transform, "DeadBody_1", new Vector3(20f,  0.5f,  20f));
+        CreateDeadBody(root.transform, "DeadBody_2", new Vector3(-20f, 0.5f, -18f));
+        CreateDeadBody(root.transform, "DeadBody_3", new Vector3(22f,  0.5f,  -5f));
+    }
+
+    static void CreateDeadBody(Transform parent, string name, Vector3 position)
+    {
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(parent);
+        go.transform.position = position;
+
+        SphereCollider col = go.AddComponent<SphereCollider>();
+        col.isTrigger = true;
+        col.radius = 4f;
+
+        go.AddComponent<DeadBody>();
     }
 
     // ── Lighting ──────────────────────────────────────────────────────────

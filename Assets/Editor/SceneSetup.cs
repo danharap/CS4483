@@ -35,6 +35,12 @@ public static class SceneSetup
             GameObject camGO = new GameObject("Main Camera");
             camGO.tag = "MainCamera";
             mainCam = camGO.AddComponent<Camera>();
+            if (camGO.GetComponent<AudioListener>() == null)
+                camGO.AddComponent<AudioListener>();
+        }
+        else if (mainCam.GetComponent<AudioListener>() == null)
+        {
+            mainCam.gameObject.AddComponent<AudioListener>();
         }
         // Position and angle: top-down with slight forward tilt
         mainCam.transform.position = new Vector3(0, 16f, -9f);

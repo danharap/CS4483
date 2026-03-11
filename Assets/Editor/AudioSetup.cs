@@ -14,6 +14,7 @@ public static class AudioSetup
         // Load audio clips
         AudioClip bulletSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aBullet.wav");
         AudioClip deathSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aDeath.wav");
+        AudioClip flySound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aFlyNoise.mp3");
         
         if (bulletSound == null)
         {
@@ -44,6 +45,23 @@ public static class AudioSetup
                 so.ApplyModifiedProperties();
                 Debug.Log("[AudioSetup] ✓ Applied bullet sound to player weapon");
             }
+        }
+        
+        // Apply fly sound to all dead bodies in scene
+        if (flySound != null)
+        {
+            DeadBody[] deadBodies = Object.FindObjectsOfType<DeadBody>();
+            foreach (DeadBody db in deadBodies)
+            {
+                SerializedObject so = new SerializedObject(db);
+                so.FindProperty("flySound").objectReferenceValue = flySound;
+                so.ApplyModifiedProperties();
+            }
+            Debug.Log($"[AudioSetup] ✓ Applied fly sound to {deadBodies.Length} dead body/bodies");
+        }
+        else
+        {
+            Debug.LogWarning("[AudioSetup] aFlyNoise.mp3 not found; dead body fly sound not assigned.");
         }
         
         AssetDatabase.SaveAssets();

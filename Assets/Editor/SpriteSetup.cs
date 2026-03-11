@@ -31,6 +31,7 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
         ConfigureSingleSprite("Assets/Sprites/sExperience.png"); // Custom XP orb
         ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
+        ConfigureSingleSprite("Assets/Sprites/sdeadPlayer.png"); // Dead body prop
         
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -87,6 +88,7 @@ public static class SpriteSetup
         Sprite bulletSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBullet.png");
         Sprite xpOrbSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sExperience.png");
         Sprite medkitSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMedkit.png");
+        Sprite deadBodySprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sdeadPlayer.png");
         
         // Apply to player in scene
         GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -153,7 +155,16 @@ public static class SpriteSetup
             healthCount++;
         }
         
-        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, and {healthCount} health packs in scene!");
+        // Apply to all dead bodies in scene (billboard sprite only)
+        int deadBodyCount = 0;
+        DeadBody[] deadBodies = Object.FindObjectsOfType<DeadBody>();
+        foreach (DeadBody db in deadBodies)
+        {
+            AddDeadBodySprite(db.gameObject, deadBodySprite);
+            deadBodyCount++;
+        }
+        
+        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, and {deadBodyCount} dead bodies in scene!");
     }
     
     // ── Helper Methods ────────────────────────────────────────────────────
@@ -284,5 +295,21 @@ public static class SpriteSetup
             pickup.pickupSprite = pickupSprite;
             Debug.Log($"[SpriteSetup] Applied pickup sprite to {root.name}");
         }
+    }
+    
+    private static void AddDeadBodySprite(GameObject root, Sprite deadBodySprite)
+    {
+        if (deadBodySprite == null) return;
+        Transform existing = root.transform.Find("DeadBody_Sprite");
+        if (existing != null) Object.DestroyImmediate(existing.gameObject);
+        GameObject spriteObj = new GameObject("DeadBody_Sprite");
+        spriteObj.transform.SetParent(root.transform);
+        spriteObj.transform.localPosition = Vector3.zero;
+        spriteObj.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+        SpriteRenderer sr = spriteObj.AddComponent<SpriteRenderer>();
+        sr.sprite = deadBodySprite;
+        sr.sortingOrder = 5;
+        spriteObj.AddComponent<Billboard>();
+        Debug.Log($"[SpriteSetup] Applied dead body sprite to {root.name}");
     }
 }

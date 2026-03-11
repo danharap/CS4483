@@ -17,6 +17,8 @@ public static class PrefabBuilder
         if (!AssetDatabase.IsValidFolder(PrefabDir))
             AssetDatabase.CreateFolder("Assets", "Prefabs");
 
+        EnsureTagExists("XPOrb");
+
         CreateProjectilePrefab();
         CreateXPOrbPrefab();
         CreateHealthPackPrefab();
@@ -66,8 +68,9 @@ public static class PrefabBuilder
     {
         GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         go.name = "XPOrb";
+        go.tag = "XPOrb";
         go.transform.localScale = Vector3.one * 0.3f;
-        
+
         // Create and save cyan material (delete first if exists)
         string matPath = "Assets/Materials/M_XPOrb.mat";
         AssetDatabase.DeleteAsset(matPath);
@@ -85,6 +88,23 @@ public static class PrefabBuilder
 
         SavePrefab(go, "XPOrb");
         Object.DestroyImmediate(go);
+    }
+
+    /// <summary>Ensures a tag exists in ProjectSettings so assigning gameObject.tag does not throw.</summary>
+    static void EnsureTagExists(string tagName)
+    {
+        Object tagManagerAsset = AssetDatabase.LoadAssetAtPath<Object>("ProjectSettings/TagManager.asset");
+        if (tagManagerAsset == null) return;
+        SerializedObject so = new SerializedObject(tagManagerAsset);
+        SerializedProperty tagsProp = so.FindProperty("tags");
+        if (tagsProp == null) return;
+        for (int i = 0; i < tagsProp.arraySize; i++)
+            if (tagsProp.GetArrayElementAtIndex(i).stringValue == tagName)
+                return;
+        tagsProp.InsertArrayElementAtIndex(tagsProp.arraySize);
+        tagsProp.GetArrayElementAtIndex(tagsProp.arraySize - 1).stringValue = tagName;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        Debug.Log($"[PrefabBuilder] Added tag: {tagName}");
     }
 
     // ── Health Pack ───────────────────────────────────────────────────────
