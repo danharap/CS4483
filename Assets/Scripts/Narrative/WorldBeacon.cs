@@ -16,6 +16,13 @@ public class WorldBeacon : MonoBehaviour
     [SerializeField] private Color activeColor     = new Color(0.3f, 0.7f, 1.0f);
     [SerializeField] private float activationTime  = 1.5f;
 
+    [Header("Activation FX")]
+    [SerializeField] private float scalePulseAmount   = 0.3f;
+    [SerializeField] private float scalePulseSpeed    = 6f;
+    [SerializeField] private AnimationCurve activationCurve =
+        AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+    [SerializeField] private AudioSource activationAudio;
+
     [Header("References")]
     [SerializeField] private Light  beaconLight;            // point light on this GO
     [SerializeField] private Renderer beaconRenderer;       // the pillar/prop mesh
@@ -24,11 +31,14 @@ public class WorldBeacon : MonoBehaviour
     private bool isActive;
     private float dormantIntensity;
     private float activeIntensity = 2.5f;
+    private Vector3 baseScale;
 
     void Awake()
     {
         if (beaconLight == null)   beaconLight    = GetComponentInChildren<Light>();
         if (beaconRenderer == null) beaconRenderer = GetComponentInChildren<Renderer>();
+
+        baseScale = transform.localScale;
 
         SetDormant();
     }
@@ -71,18 +81,31 @@ public class WorldBeacon : MonoBehaviour
         isActive = true;
         float elapsed = 0f;
 
+        // Optional one-shot audio on activation
+        if (activationAudio != null)
+            activationAudio.Play();
+
         while (elapsed < activationTime)
         {
             elapsed += Time.deltaTime;
             float t = elapsed / activationTime;
+            float eased = activationCurve != null ? activationCurve.Evaluate(t) : t;
 
             if (beaconLight)
             {
-                beaconLight.color     = Color.Lerp(dormantColor, activeColor, t);
-                beaconLight.intensity = Mathf.Lerp(dormantIntensity, activeIntensity, t);
+                beaconLight.color     = Color.Lerp(dormantColor, activeColor, eased);
+                beaconLight.intensity = Mathf.Lerp(dormantIntensity, activeIntensity, eased);
             }
             if (beaconRenderer)
-                beaconRenderer.material.color = Color.Lerp(dormantColor, activeColor, t);
+                beaconRenderer.material.color = Color.Lerp(dormantColor, activeColor, eased);
+
+            // Scale pulse for a more noticeable \"coming alive\" moment
+            if (scalePulseAmount > 0f)
+            {
+                float pulse = Mathf.Sin(elapsed * scalePulseSpeed) * scalePulseAmount;
+                float s = 1f + Mathf.Max(0f, pulse);
+                transform.localScale = baseScale * s;
+            }
 
             yield return null;
         }
@@ -94,5 +117,8 @@ public class WorldBeacon : MonoBehaviour
         }
         if (beaconRenderer)
             beaconRenderer.material.color = activeColor;
+
+        // Settle back to base scale after activation pulse
+        transform.localScale = baseScale;
     }
 }

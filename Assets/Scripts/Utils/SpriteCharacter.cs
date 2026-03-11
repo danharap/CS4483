@@ -22,14 +22,18 @@ public class SpriteCharacter : MonoBehaviour
     private Color originalTint;
     private bool isDead = false;
     private Sprite[] currentAnimationFrames;
-    private CharacterController characterController; // For detecting player movement
+    private CharacterController characterController;
+    private UnityEngine.AI.NavMeshAgent navAgent;
+    private Rigidbody rb;
     
     void Start()
     {
         originalTint = tintColor;
         currentAnimationFrames = idleFrames;
-        characterController = GetComponent<CharacterController>(); // For player movement detection
-        
+        characterController = GetComponent<CharacterController>();
+        navAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+        rb = GetComponent<Rigidbody>();
+
         SetupSpriteBillboard();
         
         // Hide the 3D mesh renderer but keep collider
@@ -83,6 +87,18 @@ public class SpriteCharacter : MonoBehaviour
             {
                 spriteRenderer.flipX = characterController.velocity.x < 0f;
             }
+        }
+        else
+        {
+            // Enemies: flip based on velocity (NavMeshAgent or Rigidbody)
+            Vector3 velocity = Vector3.zero;
+            if (navAgent != null && navAgent.isOnNavMesh)
+                velocity = navAgent.velocity;
+            else if (rb != null)
+                velocity = rb.velocity;
+
+            if (velocity.sqrMagnitude > 0.01f && Mathf.Abs(velocity.x) > 0.01f)
+                spriteRenderer.flipX = velocity.x < 0f;
         }
         
         if (currentAnimationFrames == null || currentAnimationFrames.Length == 0) return;

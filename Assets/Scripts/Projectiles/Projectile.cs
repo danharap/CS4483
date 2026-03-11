@@ -36,18 +36,19 @@ public class Projectile : MonoBehaviour
     void OnTriggerEnter(Collider other)
     {
         EnemyBase enemy = other.GetComponent<EnemyBase>();
-        if (enemy == null) return;
-        
-        // Only deal damage if enemy is still alive
-        if (enemy.IsAlive)
+        if (enemy != null)
         {
-            enemy.TakeDamage(damage);
+            if (enemy.IsAlive)
+                enemy.TakeDamage(damage);
+            if (pierceLeft <= 0)
+                Destroy(gameObject);
+            else
+                pierceLeft--;
+            return;
         }
 
-        // Always destroy projectile when hitting enemy if no pierce remaining
-        if (pierceLeft <= 0)
+        // Block on walls and obstacles (any solid non-trigger collider except player)
+        if (!other.isTrigger && !other.CompareTag("Player"))
             Destroy(gameObject);
-        else
-            pierceLeft--;
     }
 }

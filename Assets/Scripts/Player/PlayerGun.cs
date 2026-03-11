@@ -66,22 +66,18 @@ public class PlayerGun : MonoBehaviour
             
             // Calculate angle from gun position to mouse (so barrel points at mouse)
             Vector3 gunToMouse = new Vector3(mousePos.x - pivotWorldPos.x, 0f, mousePos.z - pivotWorldPos.z).normalized;
-            float angleToMouse = Mathf.Atan2(gunToMouse.x, gunToMouse.z) * Mathf.Rad2Deg;
-            
-            // Rotate the sprite so barrel points toward mouse
-            // Adjust rotation based on which side of player we're on
+            float angleDeg = Mathf.Atan2(gunToMouse.x, gunToMouse.z) * Mathf.Rad2Deg;
+
+            // Rotate the sprite so barrel points toward mouse; flip when aiming left so gun doesn't look inverted
             if (dirToMouse.x < 0)
             {
-                // Aiming left - flip sprite horizontally
                 gunRenderer.flipX = true;
-                // When flipped, negate the angle to maintain correct aim direction
-                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, angleToMouse - 90f);
+                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, 180f - angleDeg);
             }
             else
             {
-                // Aiming right - normal sprite orientation
                 gunRenderer.flipX = false;
-                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, -angleToMouse + 90f);
+                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, angleDeg);
             }
         }
     }
