@@ -33,6 +33,7 @@ public static class ProBuilderLevelBuilder
         CreateCentralHub();
         CreateBossArena();
         CreateRockObstacles();
+        CreateTraps();
         CreateSpawnPoints();
         CreateDeadBodies();
         CreateLighting();
@@ -209,6 +210,46 @@ public static class ProBuilderLevelBuilder
         PBCube("Rock3", new Vector3(-10, 1, -8), new Vector3(2f, 2.5f, 2f), matObstacle, p.transform);
         PBCube("Rock4", new Vector3(12, 1, -5),  new Vector3(2f, 2f, 3f),   matObstacle, p.transform);
         PBCube("Rock5", new Vector3(5, 1, -10),  new Vector3(3f, 2f, 2f),   matObstacle, p.transform);
+    }
+
+    // ── Arena Traps (damage + stun on step) ─────────────────────────────────
+
+    static void CreateTraps()
+    {
+        GameObject root = new GameObject("Traps");
+        root.transform.SetParent(levelRoot);
+
+        Material matTrap = GetOrCreateMat("M_Trap", new Color(0.35f, 0.12f, 0.12f));
+
+        Vector3[] positions = new[]
+        {
+            new Vector3(10f,  0.3f,  10f),
+            new Vector3(-10f, 0.3f,  10f),
+            new Vector3(10f,  0.3f, -10f),
+            new Vector3(-10f, 0.3f, -10f)
+        };
+
+        for (int i = 0; i < positions.Length; i++)
+        {
+            GameObject trap = new GameObject($"Trap_{i + 1}");
+            trap.transform.SetParent(root.transform);
+            trap.transform.position = positions[i];
+
+            BoxCollider trigger = trap.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.size = new Vector3(2f, 0.5f, 2f);
+            trigger.center = Vector3.zero;
+
+            ArenaTrap arenaTrap = trap.AddComponent<ArenaTrap>();
+
+            GameObject pad = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            pad.name = "Pad";
+            pad.transform.SetParent(trap.transform, false);
+            pad.transform.localPosition = Vector3.zero;
+            pad.transform.localScale = new Vector3(1.9f, 0.08f, 1.9f);
+            Object.DestroyImmediate(pad.GetComponent<Collider>());
+            pad.GetComponent<Renderer>().sharedMaterial = matTrap;
+        }
     }
 
     // ── Spawn Points ──────────────────────────────────────────────────────

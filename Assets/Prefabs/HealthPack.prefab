@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 7403996441213075819}
   - component: {fileID: 2224426828353491057}
   - component: {fileID: 5783507493545557590}
-  - component: {fileID: 5177205256786663484}
+  - component: {fileID: 6808318178586646010}
   m_Layer: 0
   m_Name: HealthPack
   m_TagString: Untagged
@@ -71,7 +71,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   healAmount: 20
   lifetime: 10
---- !u!114 &5177205256786663484
+--- !u!114 &6808318178586646010
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

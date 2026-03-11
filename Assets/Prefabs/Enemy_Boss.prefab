@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 8651152783913315155}
   - component: {fileID: 3955426066875946965}
   - component: {fileID: 1438196175838026899}
-  - component: {fileID: 1675861298633564260}
+  - component: {fileID: 8865353877592919059}
   m_Layer: 0
   m_Name: Enemy_Boss
   m_TagString: Untagged
@@ -188,7 +188,7 @@ MonoBehaviour:
   chargeCooldown: 5
   chargeDuration: 1.4
   chargeWindup: 0.5
---- !u!114 &1675861298633564260
+--- !u!114 &8865353877592919059
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
