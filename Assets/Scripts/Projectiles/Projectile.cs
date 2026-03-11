@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Player projectile. Travels in a straight line, damages enemies, supports piercing.
-/// Auto-destroys after maxLifetime.
+/// Player projectile. Travels in a straight line in the direction set at spawn (no homing, no stop at mouse).
+/// Damages enemies, supports piercing. Auto-destroys after maxLifetime.
 /// </summary>
 public class Projectile : MonoBehaviour
 {
@@ -25,8 +25,20 @@ public class Projectile : MonoBehaviour
         pierceLeft = pierce;
     }
 
+    void Awake()
+    {
+        Rigidbody rb = GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.isKinematic = true;
+            rb.velocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+        }
+    }
+
     void Update()
     {
+        // Move only by our fixed direction (ignore any physics)
         transform.position += direction * speed * Time.deltaTime;
         lifetime += Time.deltaTime;
         if (lifetime >= maxLifetime)

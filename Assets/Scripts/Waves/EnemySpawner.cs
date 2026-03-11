@@ -9,6 +9,7 @@ public class EnemySpawner : MonoBehaviour
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Spawn Points")]
     [SerializeField] private Transform[] spawnPoints;
+    [SerializeField] private Transform[] spawnPointsArena2;
     [SerializeField] private float minPlayerDistance = 5f; // Don't spawn within this distance of player
 
     [Header("Enemy Prefabs")]
@@ -45,6 +46,15 @@ public class EnemySpawner : MonoBehaviour
 
         Instantiate(bossPrefab, sp.position, Quaternion.identity);
         GameManager.Instance?.WaveManager?.NotifyEnemySpawned();
+    }
+
+    /// <summary>
+    /// Call when transitioning to Arena 2 so enemies spawn from Arena 2 spawn points.
+    /// </summary>
+    public void UseArena2Spawns()
+    {
+        if (spawnPointsArena2 != null && spawnPointsArena2.Length > 0)
+            spawnPoints = spawnPointsArena2;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

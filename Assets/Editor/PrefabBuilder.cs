@@ -48,10 +48,10 @@ public static class PrefabBuilder
         col.isTrigger = true;
         col.radius    = 0.15f;
 
-        // Rigidbody (kinematic, gravity off – movement done in script)
+        // Rigidbody (kinematic so bullet travels only in initial direction, not affected by physics)
         Rigidbody rb = go.AddComponent<Rigidbody>();
         rb.useGravity  = false;
-        rb.isKinematic = false;
+        rb.isKinematic = true;
         rb.constraints = RigidbodyConstraints.FreezeRotation;
 
         go.AddComponent<Projectile>();
@@ -149,6 +149,8 @@ public static class PrefabBuilder
         AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
+        CapsuleCollider cap = go.GetComponent<CapsuleCollider>();
+        if (cap != null) { cap.radius = 0.7f; cap.height = 2.4f; }
         SetupEnemyPhysics(go);
         TryAddNavMeshAgent(go, 3.5f);
         ChaserEnemy e = go.AddComponent<ChaserEnemy>();
@@ -176,6 +178,8 @@ public static class PrefabBuilder
         AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
+        CapsuleCollider cap = go.GetComponent<CapsuleCollider>();
+        if (cap != null) { cap.radius = 0.6f; cap.height = 2.2f; }
         SetupEnemyPhysics(go);
         TryAddNavMeshAgent(go, 6f);
         FastEnemy e = go.AddComponent<FastEnemy>();
@@ -203,6 +207,8 @@ public static class PrefabBuilder
         AssetDatabase.CreateAsset(mat, matPath);
         go.GetComponent<Renderer>().sharedMaterial = mat;
 
+        CapsuleCollider cap = go.GetComponent<CapsuleCollider>();
+        if (cap != null) { cap.radius = 1.4f; cap.height = 4.2f; }
         SetupEnemyPhysics(go);
         TryAddNavMeshAgent(go, 2.5f);
         BossEnemy boss = go.AddComponent<BossEnemy>();

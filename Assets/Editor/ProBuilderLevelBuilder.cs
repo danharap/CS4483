@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.ProBuilder;
 using UnityEngine.ProBuilder.Shapes;
+using Unity.AI.Navigation;
 
 /// <summary>
 /// Editor tool: CS4483 → Build ProBuilder Graybox Level
@@ -37,6 +38,60 @@ public static class ProBuilderLevelBuilder
 
         EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("[ProBuilderLevelBuilder] ✓ ProBuilder graybox level built. Save scene (Ctrl+S) and bake NavMesh.");
+    }
+
+    [MenuItem("CS4483/2 - Build Arena 2 (for wave 6+)")]
+    public static void BuildArena2()
+    {
+        Scene scene = EditorSceneManager.GetActiveScene();
+        Debug.Log("[ProBuilderLevelBuilder] Building Arena 2...");
+
+        EnsureMaterials();
+        Material matFloor2 = GetOrCreateMat("M_Floor_Arena2",  new Color(0.25f, 0.22f, 0.35f));
+        Material matWall2  = GetOrCreateMat("M_Wall_Arena2",   new Color(0.35f, 0.25f, 0.45f));
+
+        GameObject existing = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+        if (existing != null) Object.DestroyImmediate(existing);
+
+        GameObject root = new GameObject("=== LEVEL (ProBuilder) Arena2 ===");
+        root.SetActive(false);
+        levelRoot = root.transform;
+
+        PBCube("Floor", new Vector3(0f, -0.2f, 0f), new Vector3(50f, 0.4f, 50f), matFloor2, levelRoot);
+
+        GameObject walls = new GameObject("Boundary_Walls");
+        walls.transform.SetParent(levelRoot);
+        PBCube("Wall_North", new Vector3(0,    4,  25),  new Vector3(50f, 8f, 0.5f), matWall2, walls.transform);
+        PBCube("Wall_South", new Vector3(0,    4, -25),  new Vector3(50f, 8f, 0.5f), matWall2, walls.transform);
+        PBCube("Wall_East",  new Vector3(25,   4,   0),  new Vector3(0.5f, 8f, 50f), matWall2, walls.transform);
+        PBCube("Wall_West",  new Vector3(-25,  4,   0),  new Vector3(0.5f, 8f, 50f), matWall2, walls.transform);
+
+        GameObject hub = new GameObject("Central_Hub");
+        hub.transform.SetParent(levelRoot);
+        GameObject pillar = PBCube("Blue_Pillar", new Vector3(0, 3, 0), new Vector3(0.6f, 6f, 0.6f), null, hub.transform);
+        pillar.GetComponent<Renderer>().sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
+
+        GameObject bossP = new GameObject("Boss_Arena_South");
+        bossP.transform.SetParent(levelRoot);
+        GameObject bp = PBCube("Boss_Pillar", new Vector3(0, 3, -19), new Vector3(0.6f, 6f, 0.6f), matBoss, bossP.transform);
+        bp.GetComponent<Renderer>().sharedMaterial = matBoss;
+
+        GameObject rocks = new GameObject("Rock_Obstacles");
+        rocks.transform.SetParent(levelRoot);
+        PBCube("Rock1", new Vector3(10f, 1f, 10f),  new Vector3(2f, 2f, 2f),   matObstacle, rocks.transform);
+        PBCube("Rock2", new Vector3(-10f, 1f, -12f), new Vector3(2.5f, 2f, 2f), matObstacle, rocks.transform);
+        PBCube("Rock3", new Vector3(15f, 1f, -3f),  new Vector3(2f, 2.5f, 2f), matObstacle, rocks.transform);
+        PBCube("Rock4", new Vector3(-14f, 1f, 6f),  new Vector3(2f, 2f, 3f),   matObstacle, rocks.transform);
+        PBCube("Rock5", new Vector3(0f, 1f, 8f),    new Vector3(3f, 2f, 2f),   matObstacle, rocks.transform);
+
+        CreateSpawnPoints();
+        CreateLighting();
+
+        if (root.GetComponent<NavMeshSurface>() == null)
+            root.AddComponent<NavMeshSurface>();
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        Debug.Log("[ProBuilderLevelBuilder] ✓ Arena 2 built (disabled). Run Setup All to wire spawn points.");
     }
 
     // ── Materials ─────────────────────────────────────────────────────────

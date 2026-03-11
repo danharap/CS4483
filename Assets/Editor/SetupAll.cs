@@ -12,7 +12,7 @@ using TMPro;
 /// CS4483 → ▶ SETUP EVERYTHING
 /// One-click tool that:
 ///   1. Creates all prefabs (Projectile, XPOrb, 3 enemies)
-///   2. Builds the full graybox level geometry
+///   2. Builds the full graybox level geometry (Arena 1 + Arena 2 for portal after wave 5)
 ///   3. Creates player, camera, managers, and full UI canvas
 ///   4. Auto-wires EVERY inspector reference via SerializedObject
 ///   5. Adds a NavMeshSurface and bakes the NavMesh
@@ -80,6 +80,7 @@ public static class SetupAll
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
         Step3_BuildLevel();
+        Step3_BuildArena2();
         Step4_SetupCamera();
         Step5_CreateManagers();
         Step6_CreatePlayer();
@@ -126,6 +127,12 @@ public static class SetupAll
         Debug.Log("[SetupAll] Level geometry built with ProBuilder.");
     }
 
+    static void Step3_BuildArena2()
+    {
+        ProBuilderLevelBuilder.BuildArena2();
+        Debug.Log("[SetupAll] Arena 2 built (for portal after wave 5).");
+    }
+
     // ── Step 4: Camera ────────────────────────────────────────────────────
 
     static void Step4_SetupCamera()
@@ -162,6 +169,8 @@ public static class SetupAll
         hudComp = mgr.AddComponent<HUDManager>();
         umComp  = mgr.AddComponent<UpgradeManager>();
         plComp  = mgr.AddComponent<PlaytestLogger>();
+        if (mgr.GetComponent<ArenaPortalManager>() == null)
+            mgr.AddComponent<ArenaPortalManager>();
     }
 
     // ── Step 6: Player ────────────────────────────────────────────────────
@@ -216,13 +225,8 @@ public static class SetupAll
 
         Transform root = canvasGO.transform;
 
-        // ── HP bar (bottom-left) ──────────────────────────────────────────
-        hpSlider = MakeSlider(root, "HP_Slider",
-            new Vector2(-760, -490), new Vector2(300, 30), new Color(1f, 0.2f, 0.2f));
-        hpText = MakeTMP(root, "HP_Text",
-            new Vector2(-760, -455), new Vector2(300, 35), "100 / 100", 24);
-        hpText.fontStyle = FontStyles.Bold;
-        hpText.color = new Color(1f, 0.3f, 0.3f);
+        // ── HP bar: big red bar at bottom with black outline ───────────────
+        hpSlider = MakeHealthBarBottom(root, out hpText);
 
         // ── XP bar (bottom-right) ─────────────────────────────────────────
         xpSlider = MakeSlider(root, "XP_Slider",
@@ -322,11 +326,38 @@ public static class SetupAll
             prop.arraySize = spawnPointTransforms.Length;
             for (int i = 0; i < spawnPointTransforms.Length; i++)
                 prop.GetArrayElementAtIndex(i).objectReferenceValue = spawnPointTransforms[i];
+
+            // If Arena 2 exists, wire its spawn points for wave 6+
+            GameObject arena2 = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+            if (arena2 != null)
+            {
+                Transform arena2SpawnRoot = arena2.transform.Find("SpawnPoints");
+                if (arena2SpawnRoot != null)
+                {
+                    var list = new List<Transform>();
+                    foreach (Transform c in arena2SpawnRoot) list.Add(c);
+                    var a2Prop = so.FindProperty("spawnPointsArena2");
+                    a2Prop.arraySize = list.Count;
+                    for (int i = 0; i < list.Count; i++)
+                        a2Prop.GetArrayElementAtIndex(i).objectReferenceValue = list[i];
+                }
+            }
             so.ApplyModifiedPropertiesWithoutUndo();
         }
         Wire(esComp, "chaserPrefab", chaserPrefab);
         Wire(esComp, "fastPrefab",   fastPrefab);
         Wire(esComp, "bossPrefab",   bossPrefab);
+
+        // ── ArenaPortalManager (portal after wave 5, transition to Arena 2) ─
+        ArenaPortalManager portalMgr = Object.FindFirstObjectByType<ArenaPortalManager>();
+        if (portalMgr != null)
+        {
+            var so = new SerializedObject(portalMgr);
+            so.FindProperty("arena1Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) ===");
+            so.FindProperty("arena2Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+            so.FindProperty("spawner").objectReferenceValue = esComp;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
 
         // ── PlayerWeapon ──────────────────────────────────────────────────
         var weapon = playerGO.GetComponent<PlayerWeapon>();
@@ -440,8 +471,9 @@ public static class SetupAll
 
     static void Step11_BakeNavMesh()
     {
-        // Use the new AI Navigation package (NavMeshSurface)
-        GameObject levelRoot = GameObject.Find("=== LEVEL ===");
+        // Prefer ProBuilder level root, fallback to legacy name
+        GameObject levelRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        if (levelRoot == null) levelRoot = GameObject.Find("=== LEVEL ===");
         if (levelRoot == null) { Debug.LogWarning("[SetupAll] Level root not found — NavMesh skipped."); return; }
 
         // Remove old surface if any
@@ -456,6 +488,70 @@ public static class SetupAll
     }
 
     // ── UI Factory Helpers ────────────────────────────────────────────────
+
+    static Slider MakeHealthBarBottom(Transform parent, out TMP_Text hpText)
+    {
+        const float barHeight = 48f;
+        const float outlineThickness = 4f;
+        const float barWidth = 1600f;
+
+        GameObject outlineGO = new GameObject("HP_Bar_Outline");
+        outlineGO.transform.SetParent(parent, false);
+        Image outlineImg = outlineGO.AddComponent<Image>();
+        outlineImg.color = Color.black;
+        RectTransform outlineRt = outlineGO.GetComponent<RectTransform>();
+        outlineRt.anchorMin = new Vector2(0.5f, 0f);
+        outlineRt.anchorMax = new Vector2(0.5f, 0f);
+        outlineRt.pivot = new Vector2(0.5f, 0f);
+        outlineRt.anchoredPosition = new Vector2(0f, (barHeight * 0.5f) + outlineThickness);
+        outlineRt.sizeDelta = new Vector2(barWidth + outlineThickness * 2f, barHeight + outlineThickness * 2f);
+
+        GameObject sliderGO = new GameObject("HP_Slider");
+        sliderGO.transform.SetParent(outlineGO.transform, false);
+        Slider slider = sliderGO.AddComponent<Slider>();
+        slider.interactable = false;
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value = 1f;
+
+        RectTransform sliderRt = sliderGO.GetComponent<RectTransform>();
+        sliderRt.anchorMin = Vector2.zero;
+        sliderRt.anchorMax = Vector2.one;
+        sliderRt.offsetMin = new Vector2(outlineThickness, outlineThickness);
+        sliderRt.offsetMax = new Vector2(-outlineThickness, -outlineThickness);
+
+        GameObject bg = new GameObject("BG");
+        bg.transform.SetParent(sliderGO.transform, false);
+        bg.AddComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f);
+        StretchRect(bg.GetComponent<RectTransform>());
+
+        GameObject fa = new GameObject("FillArea");
+        fa.transform.SetParent(sliderGO.transform, false);
+        StretchRect(fa.AddComponent<RectTransform>());
+
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fa.transform, false);
+        fill.AddComponent<Image>().color = new Color(0.9f, 0.15f, 0.15f);
+        RectTransform fillRt = fill.GetComponent<RectTransform>();
+        StretchRect(fillRt);
+        slider.fillRect = fillRt;
+
+        GameObject textGO = new GameObject("HP_Text");
+        textGO.transform.SetParent(outlineGO.transform, false);
+        hpText = textGO.AddComponent<TextMeshProUGUI>();
+        hpText.text = "100 / 100";
+        hpText.fontSize = 18f;
+        hpText.alignment = TextAlignmentOptions.Center;
+        hpText.color = new Color(1f, 0.9f, 0.9f);
+        RectTransform textRt = textGO.GetComponent<RectTransform>();
+        textRt.anchorMin = new Vector2(0.5f, 1f);
+        textRt.anchorMax = new Vector2(0.5f, 1f);
+        textRt.pivot = new Vector2(0.5f, 1f);
+        textRt.anchoredPosition = new Vector2(0f, 4f);
+        textRt.sizeDelta = new Vector2(200f, 24f);
+
+        return slider;
+    }
 
     static Slider MakeSlider(Transform parent, string name, Vector2 pos, Vector2 size, Color fillColor)
     {

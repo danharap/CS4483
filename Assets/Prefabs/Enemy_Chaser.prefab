@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 4557543671852073965}
   - component: {fileID: 8127504926258938627}
   - component: {fileID: 375469032598739384}
-  - component: {fileID: 8080294004850314360}
+  - component: {fileID: 873760632008604254}
   m_Layer: 0
   m_Name: Enemy_Chaser
   m_TagString: Untagged
@@ -65,8 +65,8 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
+  m_Radius: 0.7
+  m_Height: 2.4
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &4353480521045363925
@@ -183,7 +183,7 @@ MonoBehaviour:
   healthPackDropChance: 0.1
   deathSound: {fileID: 8300000, guid: fc6f79d2f98db4596b98804d2a93b5ca, type: 3}
   deathVolume: 0.5
---- !u!114 &8080294004850314360
+--- !u!114 &873760632008604254
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

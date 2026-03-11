@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 8510092091489367726}
   - component: {fileID: 3860849746776456161}
   - component: {fileID: 3366895924449373630}
-  - component: {fileID: 9018625723687588929}
+  - component: {fileID: 6878570764382260100}
   m_Layer: 0
   m_Name: Enemy_Fast
   m_TagString: Untagged
@@ -65,8 +65,8 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.5
-  m_Height: 2
+  m_Radius: 0.6
+  m_Height: 2.2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
 --- !u!23 &4641062092655098305
@@ -183,7 +183,7 @@ MonoBehaviour:
   healthPackDropChance: 0.1
   deathSound: {fileID: 8300000, guid: fc6f79d2f98db4596b98804d2a93b5ca, type: 3}
   deathVolume: 0.5
---- !u!114 &9018625723687588929
+--- !u!114 &6878570764382260100
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

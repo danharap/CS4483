@@ -142,6 +142,14 @@ public class WaveManager : MonoBehaviour
 
     public void NotifyBossKilled() => bossKilledThisWave = true;
 
+    /// <summary>
+    /// Used when transitioning to Arena 2 so the next wave is wave 6 (index 5).
+    /// </summary>
+    public void SetWaveIndex(int index)
+    {
+        WaveIndex = index;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private float CalculateSpawnInterval()
