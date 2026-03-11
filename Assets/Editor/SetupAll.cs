@@ -39,6 +39,9 @@ public static class SetupAll
     private static Slider   hpSlider, xpSlider;
     private static TMP_Text hpText, levelText, waveText, timerText, transitionText;
     private static Image    damageOverlay;
+
+    private const string LevelUpButtonSpritePath = "Assets/Sprites/LevelUpButton.png";
+    private static Sprite s_levelUpButtonSprite;
     private static GameObject upgradePanel, gameOverPanel;
     private static Button     card0Btn, card1Btn, card2Btn;
     private static TMP_Text   card0Name, card1Name, card2Name;
@@ -254,7 +257,7 @@ public static class SetupAll
         ort.anchorMin = Vector2.zero; ort.anchorMax = Vector2.one; ort.sizeDelta = Vector2.zero;
 
         // ── Upgrade panel ─────────────────────────────────────────────────
-        upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0.9f));
+        upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0f)); // Transparent: just the buttons, no overlay
         // Force this panel to render on top by moving it to last sibling
         upgradePanel.transform.SetAsLastSibling();
         
@@ -620,6 +623,33 @@ public static class SetupAll
         return go;
     }
 
+    /// <summary>Loads the standalone level-up button sprite (rounded light grey block). Imports as Sprite if needed.</summary>
+    static Sprite GetLevelUpButtonSprite()
+    {
+        if (s_levelUpButtonSprite != null) return s_levelUpButtonSprite;
+        const string path = LevelUpButtonSpritePath;
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null && (importer.textureType != TextureImporterType.Sprite || importer.spriteImportMode != SpriteImportMode.Single))
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.filterMode = FilterMode.Point;
+            importer.spritePixelsPerUnit = 100f;
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
+        }
+        Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
+        foreach (Object o in assets)
+        {
+            if (o is Sprite s)
+            {
+                s_levelUpButtonSprite = s;
+                break;
+            }
+        }
+        return s_levelUpButtonSprite;
+    }
+
     static void MakeUpgradeCard(Transform parent, string name, Vector2 pos,
                                  out Button btn, out TMP_Text cardName,
                                  out TMP_Text cardDesc, out Image cardBg)
@@ -627,27 +657,41 @@ public static class SetupAll
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
         cardBg = go.AddComponent<Image>();
-        cardBg.color = new Color(0.2f, 0.2f, 0.2f);
+        Sprite levelUpSprite = GetLevelUpButtonSprite();
+        if (levelUpSprite != null)
+        {
+            cardBg.sprite = levelUpSprite;
+            cardBg.color = Color.white;
+            cardBg.type = Image.Type.Simple;
+        }
+        else
+            cardBg.color = new Color(0.2f, 0.2f, 0.2f);
         btn = go.AddComponent<Button>();
-        
-        // Set button colors for better visibility
+
+        // Set button colors for better visibility (tint when no sprite; with sprite keep normal/highlight/pressed subtle)
         ColorBlock colors = btn.colors;
-        colors.normalColor = new Color(0.2f, 0.2f, 0.2f);
-        colors.highlightedColor = new Color(0.4f, 0.4f, 0.4f);
-        colors.pressedColor = new Color(0.6f, 0.6f, 0.6f);
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.95f, 0.95f, 0.95f);
+        colors.pressedColor = new Color(0.9f, 0.9f, 0.9f);
         btn.colors = colors;
 
         RectTransform rt = go.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(320, 220);
+        rt.sizeDelta = new Vector2(220, 220); // Square to match the button, no extra background
 
-        cardName = MakeTMP(go.transform, "CardName", new Vector2(0, 55), new Vector2(300, 45), "Upgrade", 22);
+        // Text sized to fit inside the button with padding; larger font, wraps in box
+        const float textWidth = 190f;
+        const float pad = 14f;
+        cardName = MakeTMP(go.transform, "CardName", new Vector2(0, 50), new Vector2(textWidth, 44), "Upgrade", 26);
         cardName.fontStyle = FontStyles.Bold;
-        cardName.color = Color.yellow;
-        cardDesc = MakeTMP(go.transform, "CardDesc", new Vector2(0, -15), new Vector2(300, 100), "Description", 16);
-        cardDesc.color = new Color(0.9f, 0.9f, 0.9f);
+        cardName.color = Color.black;
+        cardName.enableWordWrapping = true;
+        cardDesc = MakeTMP(go.transform, "CardDesc", new Vector2(0, -35), new Vector2(textWidth, 100), "Description", 20);
+        cardDesc.color = Color.black;
+        cardDesc.enableWordWrapping = true;
+        cardDesc.alignment = TextAlignmentOptions.Center;
     }
 
     static Button MakeButton(Transform parent, string name, Vector2 pos, Vector2 size,
