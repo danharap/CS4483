@@ -118,9 +118,9 @@ public static class PrefabBuilder
         string matPath = "Assets/Materials/M_HealthPack.mat";
         AssetDatabase.DeleteAsset(matPath);
         Material mat = new Material(Shader.Find("Standard"));
-        mat.color = new Color(0.1f, 1f, 0.1f); // Bright green
+        mat.color = new Color(0.2f, 1f, 0.2f); // Bright green
         mat.EnableKeyword("_EMISSION");
-        mat.SetColor("_EmissionColor", new Color(0.1f, 0.6f, 0.1f));
+        mat.SetColor("_EmissionColor", new Color(0.2f, 1f, 0.2f) * 1.8f); // Strong green glow
         AssetDatabase.CreateAsset(mat, matPath);
 
         // Create 3D plus sign (+) using 3 cubes

@@ -26,6 +26,9 @@ public class ArenaPortalManager : MonoBehaviour
     [Header("References")]
     [SerializeField] private EnemySpawner spawner;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip portalTransitionSound;
+
     private GameObject portalInstance;
     private const string Arena1Name = "=== LEVEL (ProBuilder) ===";
     private const string Arena2Name = "=== LEVEL (ProBuilder) Arena2 ===";
@@ -124,6 +127,11 @@ public class ArenaPortalManager : MonoBehaviour
     /// </summary>
     public void TransitionToArena2()
     {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        Vector3 playPosition = player != null ? player.transform.position : portalSpawnPosition;
+        if (portalTransitionSound != null)
+            AudioSource.PlayClipAtPoint(portalTransitionSound, playPosition, 1f);
+
         if (arena2Root == null)
         {
             arena2Root = FindRootByName(Arena2Name);
@@ -146,7 +154,6 @@ public class ArenaPortalManager : MonoBehaviour
             surface.BuildNavMesh();
 
         // Teleport player to Arena 2 spawn
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
             player.transform.position = arena2PlayerSpawnPosition;
 

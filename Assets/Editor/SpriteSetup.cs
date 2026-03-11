@@ -67,12 +67,11 @@ public static class SpriteSetup
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
         
-        // Apply XP orb and medkit sprites
+        // Apply XP orb sprite only (HealthPack stays as 3D plus sign with glow, no PNG)
         ApplyPickupSpriteToPrefab("Assets/Prefabs/XPOrb.prefab", xpOrbSprite);
-        ApplyPickupSpriteToPrefab("Assets/Prefabs/HealthPack.prefab", medkitSprite);
         
         AssetDatabase.SaveAssets();
-        Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs (including custom XP orb and medkit)! Re-run SETUP EVERYTHING to see changes.");
+        Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs (XP orb; HealthPack is 3D plus with glow). Re-run SETUP EVERYTHING to see changes.");
     }
     
     [MenuItem("CS4483/🎨 3. Apply Sprites to Scene Objects")]
@@ -143,15 +142,14 @@ public static class SpriteSetup
             xpCount++;
         }
         
-        // Apply to all health packs in scene
+        // Health packs: keep as 3D plus sign with glow (no sprite)
         int healthCount = 0;
         HealthPack[] healthPacks = Object.FindObjectsOfType<HealthPack>();
         foreach (HealthPack hp in healthPacks)
         {
             PickupSprite hpSprite = hp.GetComponent<PickupSprite>();
-            if (hpSprite == null)
-                hpSprite = hp.gameObject.AddComponent<PickupSprite>();
-            hpSprite.pickupSprite = medkitSprite;
+            if (hpSprite != null)
+                Object.DestroyImmediate(hpSprite); // Remove sprite so 3D plus + glow shows
             healthCount++;
         }
         

@@ -17,6 +17,11 @@ public static class ProBuilderLevelBuilder
     private static Transform levelRoot;
     private static Material matFloor, matWall, matHub, matBoss, matObstacle;
 
+    private const string RocksSpritePath = "Assets/Sprites/Rocks.png";
+    private static UnityEngine.Sprite[] s_rockSprites;
+    const string Arena2RootName = "=== LEVEL (ProBuilder) Arena2 ===";
+    const string Arena1RootName = "=== LEVEL (ProBuilder) ===";
+
     [MenuItem("CS4483/1 - Build ProBuilder Graybox Level")]
     public static void BuildLevel()
     {
@@ -24,6 +29,8 @@ public static class ProBuilderLevelBuilder
         Debug.Log($"[ProBuilderLevelBuilder] Building ProBuilder graybox level in scene: {scene.name}");
 
         EnsureMaterials();
+
+        DestroyArena1IfExists();
 
         GameObject root = new GameObject("=== LEVEL (ProBuilder) ===");
         levelRoot = root.transform;
@@ -51,8 +58,7 @@ public static class ProBuilderLevelBuilder
         Material matFloor2 = GetOrCreateMat("M_Floor_Arena2",  new Color(0.25f, 0.22f, 0.35f));
         Material matWall2  = GetOrCreateMat("M_Wall_Arena2",   new Color(0.35f, 0.25f, 0.45f));
 
-        GameObject existing = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
-        if (existing != null) Object.DestroyImmediate(existing);
+        DestroyArena2IfExists();
 
         GameObject root = new GameObject("=== LEVEL (ProBuilder) Arena2 ===");
         root.SetActive(false);
@@ -79,11 +85,11 @@ public static class ProBuilderLevelBuilder
 
         GameObject rocks = new GameObject("Rock_Obstacles");
         rocks.transform.SetParent(levelRoot);
-        PBCube("Rock1", new Vector3(10f, 1f, 10f),  new Vector3(2f, 2f, 2f),   matObstacle, rocks.transform);
-        PBCube("Rock2", new Vector3(-10f, 1f, -12f), new Vector3(2.5f, 2f, 2f), matObstacle, rocks.transform);
-        PBCube("Rock3", new Vector3(15f, 1f, -3f),  new Vector3(2f, 2.5f, 2f), matObstacle, rocks.transform);
-        PBCube("Rock4", new Vector3(-14f, 1f, 6f),  new Vector3(2f, 2f, 3f),   matObstacle, rocks.transform);
-        PBCube("Rock5", new Vector3(0f, 1f, 8f),    new Vector3(3f, 2f, 2f),   matObstacle, rocks.transform);
+        CreateRockSprite(rocks.transform, "Rock1", new Vector3(10f, 0f, 10f),  2f,  1);
+        CreateRockSprite(rocks.transform, "Rock2", new Vector3(-10f, 0f, -12f), 2.25f, 2);
+        CreateRockSprite(rocks.transform, "Rock3", new Vector3(15f, 0f, -3f),  2.25f, 3);
+        CreateRockSprite(rocks.transform, "Rock4", new Vector3(-14f, 0f, 6f), 2.5f, 4);
+        CreateRockSprite(rocks.transform, "Rock5", new Vector3(0f, 0f, 8f),    2.5f, 5);
 
         CreateSpawnPoints();
         CreateLighting();
@@ -96,6 +102,30 @@ public static class ProBuilderLevelBuilder
     }
 
     // ── Materials ─────────────────────────────────────────────────────────
+
+    static void DestroyArena1IfExists()
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == Arena1RootName)
+            {
+                Object.DestroyImmediate(root);
+                Debug.Log("[ProBuilderLevelBuilder] Removed existing Arena 1 (level root).");
+            }
+        }
+    }
+
+    static void DestroyArena2IfExists()
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == Arena2RootName)
+            {
+                Object.DestroyImmediate(root);
+                Debug.Log("[ProBuilderLevelBuilder] Removed existing Arena 2.");
+            }
+        }
+    }
 
     static void EnsureMaterials()
     {
@@ -199,16 +229,94 @@ public static class ProBuilderLevelBuilder
 
     // ── Rock Obstacles (for cover and navigation) ─────────────────────────
 
+    /// <summary>Slice Rocks.png (72x48, 2x3 grid) into 6 sprites and cache. PPU 12 so 24px = 2 units.</summary>
+    static void EnsureRockSprites()
+    {
+        if (s_rockSprites != null && s_rockSprites.Length == 6) return;
+        const string path = RocksSpritePath;
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null)
+        {
+            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (tex != null)
+            {
+                int cw = 24, ch = 24;
+                bool needReimport = importer.textureType != TextureImporterType.Sprite
+                    || importer.spriteImportMode != SpriteImportMode.Multiple
+                    || importer.spritesheet == null || importer.spritesheet.Length != 6;
+                if (needReimport)
+                {
+                    importer.textureType = TextureImporterType.Sprite;
+                    importer.spriteImportMode = SpriteImportMode.Multiple;
+                    importer.filterMode = FilterMode.Point;
+                    importer.spritePixelsPerUnit = 12f;
+                    importer.alphaIsTransparency = true;
+                    importer.spritesheet = new[]
+                    {
+                        new SpriteMetaData { name = "Rock0", rect = new Rect(0, 0, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
+                        new SpriteMetaData { name = "Rock1", rect = new Rect(24, 0, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
+                        new SpriteMetaData { name = "Rock2", rect = new Rect(48, 0, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
+                        new SpriteMetaData { name = "Rock3", rect = new Rect(0, 24, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
+                        new SpriteMetaData { name = "Rock4", rect = new Rect(24, 24, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
+                        new SpriteMetaData { name = "Rock5", rect = new Rect(48, 24, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
+                    };
+                    importer.SaveAndReimport();
+                }
+            }
+        }
+        Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
+        var list = new System.Collections.Generic.List<UnityEngine.Sprite>();
+        foreach (Object o in assets)
+        {
+            if (o is UnityEngine.Sprite s && s.name.StartsWith("Rock"))
+                list.Add(s);
+        }
+        list.Sort((a, b) => a.name.CompareTo(b.name));
+        s_rockSprites = list.Count >= 6 ? list.GetRange(0, 6).ToArray() : new UnityEngine.Sprite[0];
+    }
+
+    /// <summary>Create one rock obstacle using a sprite from the Rocks sheet. Same footprint as before, bullet + player collision.</summary>
+    static void CreateRockSprite(Transform parent, string name, Vector3 position, float scaleXZ, int spriteIndex)
+    {
+        EnsureRockSprites();
+        if (s_rockSprites == null || s_rockSprites.Length == 0)
+        {
+            Debug.LogWarning("[ProBuilderLevelBuilder] Rocks.png not found or not sliced; skipping rock " + name);
+            return;
+        }
+        UnityEngine.Sprite sprite = s_rockSprites[Mathf.Clamp(spriteIndex, 0, s_rockSprites.Length - 1)];
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(parent);
+        go.transform.position = position;
+        go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        float s = scaleXZ / 2f;
+        go.transform.localScale = new Vector3(s, s, 1f);
+
+        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = 0;
+
+        BoxCollider col = go.AddComponent<BoxCollider>();
+        col.size = new Vector3(scaleXZ, 0.5f, scaleXZ);
+        col.center = new Vector3(0f, 0.25f, 0f);
+
+        Rigidbody rb = go.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
+    }
+
     static void CreateRockObstacles()
     {
         GameObject p = new GameObject("Rock_Obstacles");
         p.transform.SetParent(levelRoot);
-        
-        PBCube("Rock1", new Vector3(-8, 1, 5),   new Vector3(2f, 2f, 2f),   matObstacle, p.transform);
-        PBCube("Rock2", new Vector3(6, 1, 8),    new Vector3(2.5f, 2f, 2f), matObstacle, p.transform);
-        PBCube("Rock3", new Vector3(-10, 1, -8), new Vector3(2f, 2.5f, 2f), matObstacle, p.transform);
-        PBCube("Rock4", new Vector3(12, 1, -5),  new Vector3(2f, 2f, 3f),   matObstacle, p.transform);
-        PBCube("Rock5", new Vector3(5, 1, -10),  new Vector3(3f, 2f, 2f),   matObstacle, p.transform);
+
+        CreateRockSprite(p.transform, "Rock1", new Vector3(-8, 0, 5),   2f,   0);
+        CreateRockSprite(p.transform, "Rock2", new Vector3(6, 0, 8),    2.25f, 1);
+        CreateRockSprite(p.transform, "Rock3", new Vector3(-10, 0, -8), 2.25f, 2);
+        CreateRockSprite(p.transform, "Rock4", new Vector3(12, 0, -5), 2.5f, 3);
+        CreateRockSprite(p.transform, "Rock5", new Vector3(5, 0, -10), 2.5f, 4);
     }
 
     // ── Spawn Points ──────────────────────────────────────────────────────

@@ -365,6 +365,9 @@ public static class SetupAll
             so.FindProperty("arena1Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) ===");
             so.FindProperty("arena2Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
             so.FindProperty("spawner").objectReferenceValue = esComp;
+            AudioClip portalSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/PortalTransition.mp3");
+            if (portalSound != null)
+                so.FindProperty("portalTransitionSound").objectReferenceValue = portalSound;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
