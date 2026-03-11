@@ -8,18 +8,19 @@ public class Projectile : MonoBehaviour
 {
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Projectile Settings")]
-    [SerializeField] private float maxLifetime = 3f;
+    [SerializeField] private float maxTravelDistance = 30f;  // world units to travel before despawn
 
     // ── Runtime state (set via Init) ──────────────────────────────────────
     private Vector3 direction;
     private float   speed;
     private float   damage;
-    private int     pierceLeft;  // how many additional enemies to pierce through
-    private float   lifetime;
+    private int     pierceLeft;   // how many additional enemies to pierce through
+    private float   travelled;
 
     public void Init(Vector3 dir, float dmg, float spd, int pierce)
     {
-        direction  = dir.normalized;
+        dir.y = 0f;                 // ensure ground-plane travel only
+        direction  = dir.sqrMagnitude > 0.0001f ? dir.normalized : Vector3.forward;
         damage     = dmg;
         speed      = spd;
         pierceLeft = pierce;
@@ -39,9 +40,10 @@ public class Projectile : MonoBehaviour
     void Update()
     {
         // Move only by our fixed direction (ignore any physics)
-        transform.position += direction * speed * Time.deltaTime;
-        lifetime += Time.deltaTime;
-        if (lifetime >= maxLifetime)
+        float step = speed * Time.deltaTime;
+        transform.position += direction * step;
+        travelled += step;
+        if (travelled >= maxTravelDistance)
             Destroy(gameObject);
     }
 

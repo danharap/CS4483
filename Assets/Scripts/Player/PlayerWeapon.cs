@@ -58,7 +58,11 @@ public class PlayerWeapon : MonoBehaviour
         
         Vector3 mousePos = ray.GetPoint(dist);
         Vector3 shootPos = firePoint != null ? firePoint.position : transform.position;
-        Vector3 dir = (mousePos - shootPos).normalized;
+        Vector3 dir = (mousePos - shootPos);
+        dir.y = 0f;                  // keep projectiles on the ground plane
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = transform.forward; // sensible fallback
+        dir.Normalize();
 
         if (projectileCount == 1)
         {
@@ -74,6 +78,8 @@ public class PlayerWeapon : MonoBehaviour
             {
                 float angle = startAngle + step * i;
                 Vector3 spread = Quaternion.Euler(0f, angle, 0f) * dir;
+                spread.y = 0f;
+                spread.Normalize();
                 SpawnProjectile(spread);
             }
         }
