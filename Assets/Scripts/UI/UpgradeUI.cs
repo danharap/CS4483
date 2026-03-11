@@ -85,23 +85,7 @@ public class UpgradeUI : MonoBehaviour
             }
             
             upgradePanel.transform.SetAsLastSibling();
-            
-            // DEBUG: Make panel bright magenta so we can see if it renders at all
-            var img = upgradePanel.GetComponent<UnityEngine.UI.Image>();
-            if (img)
-            {
-                img.color = new Color(1f, 0f, 1f, 1f);
-                Debug.Log($"[UpgradeUI] Panel Image color set to BRIGHT MAGENTA for visibility test, Canvas: {img.canvas}");
-            }
-            
-            // Check RectTransform
-            var rt = upgradePanel.GetComponent<RectTransform>();
-            if (rt)
-            {
-                Debug.Log($"[UpgradeUI] RectTransform - AnchorMin: {rt.anchorMin}, AnchorMax: {rt.anchorMax}, SizeDelta: {rt.sizeDelta}");
-                Debug.Log($"[UpgradeUI] RectTransform - AnchoredPosition: {rt.anchoredPosition}, LocalPosition: {rt.localPosition}");
-            }
-            
+
             Debug.Log($"[UpgradeUI] FINAL CHECK - Panel active: {upgradePanel.activeSelf}, WorldPosition: {upgradePanel.transform.position}, Options: {currentOptions.Count}");
             Debug.Log($"[UpgradeUI] Panel parent: {upgradePanel.transform.parent?.name}, Sibling index: {upgradePanel.transform.GetSiblingIndex()}");
         }
