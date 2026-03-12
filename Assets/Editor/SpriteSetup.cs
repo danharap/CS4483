@@ -97,8 +97,8 @@ public static class SpriteSetup
         theme.arena2FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
 
         // Trap animations
-        theme.zapTrapBlueFrames = LoadSlicedSprites("sZapTrap_Blue");
-        theme.zapTrapRedFrames = LoadSlicedSprites("sZapTrap_Red");
+        theme.zapTrapBlueFrames = LoadZapTrapBlueFrames();
+        theme.zapTrapRedFrames = LoadZapTrapRedFrames();
     }
     
     [MenuItem("CS4483/🎨 3. Apply Sprites to Scene Objects")]
