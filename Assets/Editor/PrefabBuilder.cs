@@ -124,21 +124,21 @@ public static class PrefabBuilder
         AssetDatabase.CreateAsset(mat, matPath);
 
         // Create 3D plus sign (+) using 3 cubes
-        // Vertical bar
+        // Vertical bar (scaled almost to zero so medkit sprite is the only visible element)
         GameObject vertical = GameObject.CreatePrimitive(PrimitiveType.Cube);
         vertical.name = "Vertical";
         vertical.transform.SetParent(go.transform);
         vertical.transform.localPosition = Vector3.zero;
-        vertical.transform.localScale = new Vector3(0.15f, 0.5f, 0.15f);
+        vertical.transform.localScale = new Vector3(0.001f, 0.001f, 0.001f);
         vertical.GetComponent<Renderer>().sharedMaterial = mat;
         Object.DestroyImmediate(vertical.GetComponent<BoxCollider>());
 
-        // Horizontal bar
+        // Horizontal bar (also scaled almost to zero)
         GameObject horizontal = GameObject.CreatePrimitive(PrimitiveType.Cube);
         horizontal.name = "Horizontal";
         horizontal.transform.SetParent(go.transform);
         horizontal.transform.localPosition = Vector3.zero;
-        horizontal.transform.localScale = new Vector3(0.5f, 0.15f, 0.15f);
+        horizontal.transform.localScale = new Vector3(0.001f, 0.001f, 0.001f);
         horizontal.GetComponent<Renderer>().sharedMaterial = mat;
         Object.DestroyImmediate(horizontal.GetComponent<BoxCollider>());
 
@@ -147,7 +147,18 @@ public static class PrefabBuilder
         col.isTrigger = true;
         col.size = new Vector3(0.6f, 0.6f, 0.2f);
 
+        // Add soft glow light above the plus sign
+        GameObject glow = new GameObject("GlowLight");
+        glow.transform.SetParent(go.transform);
+        glow.transform.localPosition = new Vector3(0f, 0.8f, 0f);
+        Light light = glow.AddComponent<Light>();
+        light.type = LightType.Point;
+        light.color = new Color(0.4f, 1f, 0.4f);
+        light.range = 6f;
+        light.intensity = 4.0f;
+
         go.AddComponent<HealthPack>();
+        go.AddComponent<HealthPackGlow>();
 
         SavePrefab(go, "HealthPack");
         Object.DestroyImmediate(go);
