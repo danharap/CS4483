@@ -28,10 +28,15 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sGun.png");
         ConfigureSingleSprite("Assets/Sprites/sBg.png");
         ConfigureSingleSprite("Assets/Sprites/sMap.png");
+        ConfigureSingleSprite("Assets/Sprites/sMap_Arena2_Red.png");
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
         ConfigureSingleSprite("Assets/Sprites/sExperience.png"); // Custom XP orb
         ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
         ConfigureSingleSprite("Assets/Sprites/sdeadPlayer.png"); // Dead body prop
+
+        // Zap trap sheets (6x2 = 12 frames)
+        SliceSpriteSheetGrid("Assets/Sprites/sZapTrap_Blue.png", 6, 2, 32);
+        SliceSpriteSheetGrid("Assets/Sprites/sZapTrap_Red.png", 6, 2, 32);
         
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -72,9 +77,28 @@ public static class SpriteSetup
 
         // Apply HealthPack medkit sprite + green glow
         ApplyPickupSpriteToPrefab("Assets/Prefabs/HealthPack.prefab", medkitSprite, true);
+
+        // Wire ArenaThemeController sprite references for runtime switching
+        WireThemeControllerAssets();
         
         AssetDatabase.SaveAssets();
         Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs (XP orb + HealthPack medkit glow). Re-run SETUP EVERYTHING to see changes.");
+    }
+
+    private static void WireThemeControllerAssets()
+    {
+        GameObject mgr = GameObject.Find("=== MANAGERS ===");
+        if (mgr == null) return;
+        ArenaThemeController theme = mgr.GetComponent<ArenaThemeController>();
+        if (theme == null) return;
+
+        // Floor sprites
+        theme.arena1FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
+        theme.arena2FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
+
+        // Trap animations
+        theme.zapTrapBlueFrames = LoadSlicedSprites("sZapTrap_Blue");
+        theme.zapTrapRedFrames = LoadSlicedSprites("sZapTrap_Red");
     }
     
     [MenuItem("CS4483/🎨 3. Apply Sprites to Scene Objects")]
@@ -150,10 +174,40 @@ public static class SpriteSetup
         HealthPack[] healthPacks = Object.FindObjectsOfType<HealthPack>();
         foreach (HealthPack hp in healthPacks)
         {
-            PickupSprite hpSprite = hp.GetComponent<PickupSprite>();
-            if (hpSprite != null)
-                Object.DestroyImmediate(hpSprite); // Remove sprite so 3D plus + glow shows
+            // HealthPack prefab now uses medkit sprite + green glow via PickupSprite
             healthCount++;
+        }
+
+        // Apply zap trap animations (blue in Arena 1, red in Arena 2)
+        Sprite[] zapBlue = LoadSlicedSprites("sZapTrap_Blue");
+        Sprite[] zapRed = LoadSlicedSprites("sZapTrap_Red");
+        int trapCount = 0;
+        foreach (ArenaTrap trap in Resources.FindObjectsOfTypeAll<ArenaTrap>())
+        {
+            if (trap == null) continue;
+            // Skip prefabs/assets, only operate on scene objects
+            if (EditorUtility.IsPersistent(trap.gameObject)) continue;
+
+            // Remove any legacy 3D pad visuals
+            Transform pad = trap.transform.Find("Pad");
+            if (pad != null) Object.DestroyImmediate(pad.gameObject);
+
+            Transform visual = trap.transform.Find("TrapVisual");
+            if (visual == null)
+            {
+                GameObject v = new GameObject("TrapVisual");
+                v.transform.SetParent(trap.transform, false);
+                v.transform.localPosition = Vector3.zero;
+                visual = v.transform;
+            }
+
+            TrapSpriteAnimator anim = visual.GetComponent<TrapSpriteAnimator>();
+            if (anim == null) anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
+            anim.frameRate = 12f;
+
+            bool isArena2 = IsUnderRootNamed(trap.gameObject, "=== LEVEL (ProBuilder) Arena2 ===");
+            anim.SetFrames(isArena2 ? zapRed : zapBlue);
+            trapCount++;
         }
         
         // Apply to all dead bodies in scene (billboard sprite only)
@@ -165,7 +219,18 @@ public static class SpriteSetup
             deadBodyCount++;
         }
         
-        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, and {deadBodyCount} dead bodies in scene!");
+        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, {trapCount} traps, and {deadBodyCount} dead bodies in scene!");
+    }
+
+    private static bool IsUnderRootNamed(GameObject go, string rootName)
+    {
+        Transform t = go != null ? go.transform : null;
+        while (t != null)
+        {
+            if (t.parent == null && t.gameObject.name == rootName) return true;
+            t = t.parent;
+        }
+        return false;
     }
     
     // ── Helper Methods ────────────────────────────────────────────────────
@@ -203,6 +268,45 @@ public static class SpriteSetup
         importer.SaveAndReimport();
         
         Debug.Log($"[SpriteSetup] Sliced {path} into {frameCount} frames");
+    }
+
+    private static void SliceSpriteSheetGrid(string path, int columns, int rows, float ppu)
+    {
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer == null) return;
+
+        importer.textureType = TextureImporterType.Sprite;
+        importer.spriteImportMode = SpriteImportMode.Multiple;
+        importer.filterMode = FilterMode.Point;
+        importer.spritePixelsPerUnit = ppu;
+        importer.alphaSource = TextureImporterAlphaSource.FromInput;
+        importer.alphaIsTransparency = true;
+
+        Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        if (tex == null) return;
+
+        int frameWidth = tex.width / columns;
+        int frameHeight = tex.height / rows;
+
+        List<SpriteMetaData> metas = new List<SpriteMetaData>();
+        int idx = 0;
+        // Unity rects are bottom-left origin; iterate rows from bottom to top
+        for (int y = 0; y < rows; y++)
+        {
+            for (int x = 0; x < columns; x++)
+            {
+                SpriteMetaData meta = new SpriteMetaData();
+                meta.name = $"frame_{idx++}";
+                meta.rect = new Rect(x * frameWidth, y * frameHeight, frameWidth, frameHeight);
+                meta.pivot = new Vector2(0.5f, 0.5f);
+                meta.alignment = (int)SpriteAlignment.Center;
+                metas.Add(meta);
+            }
+        }
+
+        importer.spritesheet = metas.ToArray();
+        importer.SaveAndReimport();
+        Debug.Log($"[SpriteSetup] Sliced grid {path} into {columns * rows} frames");
     }
     
     private static Sprite[] LoadSlicedSprites(string name)
