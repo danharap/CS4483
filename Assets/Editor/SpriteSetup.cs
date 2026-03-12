@@ -67,11 +67,14 @@ public static class SpriteSetup
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
         
-        // Apply XP orb sprite only (HealthPack stays as 3D plus sign with glow, no PNG)
-        ApplyPickupSpriteToPrefab("Assets/Prefabs/XPOrb.prefab", xpOrbSprite);
+        // Apply XP orb sprite
+        ApplyPickupSpriteToPrefab("Assets/Prefabs/XPOrb.prefab", xpOrbSprite, false);
+
+        // Apply HealthPack medkit sprite + green glow
+        ApplyPickupSpriteToPrefab("Assets/Prefabs/HealthPack.prefab", medkitSprite, true);
         
         AssetDatabase.SaveAssets();
-        Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs (XP orb; HealthPack is 3D plus with glow). Re-run SETUP EVERYTHING to see changes.");
+        Debug.Log("[SpriteSetup] ✓ Sprites applied to prefabs (XP orb + HealthPack medkit glow). Re-run SETUP EVERYTHING to see changes.");
     }
     
     [MenuItem("CS4483/🎨 3. Apply Sprites to Scene Objects")]
@@ -282,7 +285,7 @@ public static class SpriteSetup
         }
     }
     
-    private static void ApplyPickupSpriteToPrefab(string prefabPath, Sprite pickupSprite)
+    private static void ApplyPickupSpriteToPrefab(string prefabPath, Sprite pickupSprite, bool enableGlow)
     {
         using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabPath))
         {
@@ -291,6 +294,13 @@ public static class SpriteSetup
             if (pickup == null)
                 pickup = root.AddComponent<PickupSprite>();
             pickup.pickupSprite = pickupSprite;
+            pickup.enableGlow = enableGlow;
+            if (enableGlow)
+            {
+                pickup.glowColor = new Color(0.2f, 1f, 0.3f);
+                pickup.glowIntensity = 2.5f;
+                pickup.glowRange = 3.5f;
+            }
             Debug.Log($"[SpriteSetup] Applied pickup sprite to {root.name}");
         }
     }

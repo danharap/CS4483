@@ -12,9 +12,16 @@ public class PickupSprite : MonoBehaviour
     public float rotationSpeed = 45f; // Degrees per second
     public float bobSpeed = 2f; // Up/down bobbing speed
     public float bobAmount = 0.2f; // How much to bob
+
+    [Header("Glow (Optional)")]
+    public bool enableGlow = false;
+    public Color glowColor = new Color(0.2f, 1f, 0.3f);
+    [Range(0f, 10f)] public float glowIntensity = 2.5f;
+    [Range(0.1f, 10f)] public float glowRange = 3.5f;
     
     private GameObject spriteObj;
     private SpriteRenderer spriteRenderer;
+    private Light glowLight;
     private float bobTimer;
     private Vector3 startLocalPos;
     
@@ -44,6 +51,17 @@ public class PickupSprite : MonoBehaviour
         
         // Add billboard to face camera
         spriteObj.AddComponent<Billboard>();
+
+        if (enableGlow)
+        {
+            glowLight = GetComponent<Light>();
+            if (glowLight == null) glowLight = gameObject.AddComponent<Light>();
+            glowLight.type = LightType.Point;
+            glowLight.color = glowColor;
+            glowLight.intensity = glowIntensity;
+            glowLight.range = glowRange;
+            glowLight.shadows = LightShadows.None;
+        }
     }
     
     void Update()
