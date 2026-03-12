@@ -9,11 +9,14 @@ public class EnemySpawner : MonoBehaviour
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Spawn Points")]
     [SerializeField] private Transform[] spawnPoints;
+    [SerializeField] private Transform[] spawnPointsArena2;
     [SerializeField] private float minPlayerDistance = 5f; // Don't spawn within this distance of player
 
     [Header("Enemy Prefabs")]
     [SerializeField] private GameObject chaserPrefab;
     [SerializeField] private GameObject fastPrefab;
+    [SerializeField] private GameObject bigBatPrefab;
+    [SerializeField] private GameObject heavyPrefab;
     [SerializeField] private GameObject bossPrefab;
 
     [Header("Enemy HP Scaling per Wave")]
@@ -21,6 +24,12 @@ public class EnemySpawner : MonoBehaviour
 
     [Header("Fast Enemy Unlock Wave")]
     [SerializeField] private int fastEnemyUnlockWave = 2;    // 0-based index
+
+    [Header("Heavy Enemy Unlock Wave")]
+    [SerializeField] private int heavyEnemyUnlockWave = 2;   // 0-based index (Wave 3)
+
+    [Header("Big Bat Unlock Wave")]
+    [SerializeField] private int bigBatUnlockWave = 5;       // 0-based index (Wave 6 = after wave 5)
 
     // ── Spawn ─────────────────────────────────────────────────────────────
 
@@ -47,12 +56,36 @@ public class EnemySpawner : MonoBehaviour
         GameManager.Instance?.WaveManager?.NotifyEnemySpawned();
     }
 
+    /// <summary>
+    /// Call when transitioning to Arena 2 so enemies spawn from Arena 2 spawn points.
+    /// </summary>
+    public void UseArena2Spawns()
+    {
+        if (spawnPointsArena2 != null && spawnPointsArena2.Length > 0)
+            spawnPoints = spawnPointsArena2;
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────
 
     private GameObject ChoosePrefab(int waveIndex)
     {
-        bool canSpawnFast = waveIndex >= fastEnemyUnlockWave && fastPrefab != null;
-        if (canSpawnFast && Random.value < 0.35f)
+        bool canSpawnFast  = waveIndex >= fastEnemyUnlockWave  && fastPrefab  != null;
+        bool canSpawnHeavy = waveIndex >= heavyEnemyUnlockWave && heavyPrefab != null;
+        bool canSpawnBigBat = waveIndex >= bigBatUnlockWave && bigBatPrefab != null;
+
+        // Waves before unlock: only basic chasers
+        if (!canSpawnFast && !canSpawnHeavy && !canSpawnBigBat)
+            return chaserPrefab;
+
+        float r = Random.value;
+
+        // Mix:
+        // After wave 5: add BigBat (fast+HP). Keep Heavy and Fast in the pool.
+        if (canSpawnBigBat && r < 0.20f)
+            return bigBatPrefab;
+        if (canSpawnHeavy && r < 0.20f + 0.25f)
+            return heavyPrefab;
+        if (canSpawnFast && r < 0.20f + 0.25f + 0.30f)
             return fastPrefab;
         return chaserPrefab;
     }
@@ -91,4 +124,45 @@ public class EnemySpawner : MonoBehaviour
         if (eb != null)
             eb.maxHP *= (1f + hpScalePerWave * waveIndex);
     }
+
+#if UNITY_EDITOR
+    // ── Debug helpers for manual spawning while testing ────────────────────
+
+    public void SpawnChaserDebug()
+    {
+        SpawnSpecific(chaserPrefab);
+    }
+
+    public void SpawnFastDebug()
+    {
+        SpawnSpecific(fastPrefab);
+    }
+
+    public void SpawnHeavyDebug()
+    {
+        SpawnSpecific(heavyPrefab);
+    }
+
+    public void SpawnBigBatDebug()
+    {
+        if (bigBatPrefab == null)
+        {
+            Debug.LogWarning("[EnemySpawner] BigBat prefab is not wired. Run CS4483 → 3 - Create Prefabs, then CS4483 → SETUP EVERYTHING.");
+            return;
+        }
+        SpawnSpecific(bigBatPrefab);
+    }
+
+    private void SpawnSpecific(GameObject prefab)
+    {
+        if (prefab == null)
+        {
+            Debug.LogWarning("[EnemySpawner] SpawnSpecific called with null prefab.");
+            return;
+        }
+        Transform sp = PickSpawnPoint();
+        if (sp == null) return;
+        Instantiate(prefab, sp.position, Quaternion.identity);
+    }
+#endif
 }

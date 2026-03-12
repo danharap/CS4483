@@ -18,10 +18,23 @@ public class PlayerWeapon : MonoBehaviour
     [Header("References")]
     [SerializeField] private GameObject projectilePrefab;
     [SerializeField] private Transform  firePoint;    // child transform at barrel
+    
+    [Header("Audio")]
+    [SerializeField] private AudioClip shootSound;
+    [SerializeField] [Range(0f, 1f)] private float shootVolume = 0.06f;
 
     // ── State ─────────────────────────────────────────────────────────────
     private float fireTimer;
+    private AudioSource audioSource;
 
+    void Start()
+    {
+        // Setup audio source for shooting sounds
+        audioSource = gameObject.AddComponent<AudioSource>();
+        audioSource.playOnAwake = false;
+        audioSource.spatialBlend = 0f; // 2D sound
+    }
+    
     void Update()
     {
         if (GameManager.Instance != null &&
@@ -37,10 +50,19 @@ public class PlayerWeapon : MonoBehaviour
 
     private void TryShoot()
     {
-        EnemyBase target = EnemyRegistry.GetNearest(transform.position);
-        if (target == null) return;
-
-        Vector3 dir = (target.transform.position - (firePoint != null ? firePoint.position : transform.position)).normalized;
+        // Shoot toward mouse cursor position
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        Plane ground = new Plane(Vector3.up, Vector3.zero);
+        
+        if (!ground.Raycast(ray, out float dist)) return;
+        
+        Vector3 mousePos = ray.GetPoint(dist);
+        Vector3 shootPos = firePoint != null ? firePoint.position : transform.position;
+        Vector3 dir = (mousePos - shootPos);
+        dir.y = 0f;                  // keep projectiles on the ground plane
+        if (dir.sqrMagnitude < 0.0001f)
+            dir = transform.forward; // sensible fallback
+        dir.Normalize();
 
         if (projectileCount == 1)
         {
@@ -56,6 +78,8 @@ public class PlayerWeapon : MonoBehaviour
             {
                 float angle = startAngle + step * i;
                 Vector3 spread = Quaternion.Euler(0f, angle, 0f) * dir;
+                spread.y = 0f;
+                spread.Normalize();
                 SpawnProjectile(spread);
             }
         }
@@ -69,5 +93,11 @@ public class PlayerWeapon : MonoBehaviour
         Projectile p = go.GetComponent<Projectile>();
         if (p != null)
             p.Init(dir, damage, projectileSpeed, pierceCount);
+        
+        // Play shooting sound
+        if (shootSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(shootSound, shootVolume);
+        }
     }
 }

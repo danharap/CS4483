@@ -12,7 +12,7 @@ using TMPro;
 /// CS4483 → ▶ SETUP EVERYTHING
 /// One-click tool that:
 ///   1. Creates all prefabs (Projectile, XPOrb, 3 enemies)
-///   2. Builds the full graybox level geometry
+///   2. Builds the full graybox level geometry (Arena 1 + Arena 2 for portal after wave 5)
 ///   3. Creates player, camera, managers, and full UI canvas
 ///   4. Auto-wires EVERY inspector reference via SerializedObject
 ///   5. Adds a NavMeshSurface and bakes the NavMesh
@@ -39,6 +39,9 @@ public static class SetupAll
     private static Slider   hpSlider, xpSlider;
     private static TMP_Text hpText, levelText, waveText, timerText, transitionText;
     private static Image    damageOverlay;
+
+    private const string LevelUpButtonSpritePath = "Assets/Sprites/LevelUpButton.png";
+    private static Sprite s_levelUpButtonSprite;
     private static GameObject upgradePanel, gameOverPanel;
     private static Button     card0Btn, card1Btn, card2Btn;
     private static TMP_Text   card0Name, card1Name, card2Name;
@@ -80,6 +83,7 @@ public static class SetupAll
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
         Step3_BuildLevel();
+        Step3_BuildArena2();
         Step4_SetupCamera();
         Step5_CreateManagers();
         Step6_CreatePlayer();
@@ -133,6 +137,12 @@ public static class SetupAll
         Debug.Log("[SetupAll] Level geometry built with ProBuilder.");
     }
 
+    static void Step3_BuildArena2()
+    {
+        ProBuilderLevelBuilder.BuildArena2();
+        Debug.Log("[SetupAll] Arena 2 built (for portal after wave 5).");
+    }
+
     // ── Step 4: Camera ────────────────────────────────────────────────────
 
     static void Step4_SetupCamera()
@@ -143,6 +153,12 @@ public static class SetupAll
             GameObject go = new GameObject("Main Camera");
             go.tag = "MainCamera";
             cam    = go.AddComponent<Camera>();
+            if (go.GetComponent<AudioListener>() == null)
+                go.AddComponent<AudioListener>();
+        }
+        else if (cam.GetComponent<AudioListener>() == null)
+        {
+            cam.gameObject.AddComponent<AudioListener>();
         }
         cam.transform.position = new Vector3(0, 16f, -9f);
         cam.transform.rotation = Quaternion.Euler(60f, 0f, 0f);
@@ -169,6 +185,13 @@ public static class SetupAll
         hudComp = mgr.AddComponent<HUDManager>();
         umComp  = mgr.AddComponent<UpgradeManager>();
         plComp  = mgr.AddComponent<PlaytestLogger>();
+        if (mgr.GetComponent<ArenaPortalManager>() == null)
+            mgr.AddComponent<ArenaPortalManager>();
+        if (mgr.GetComponent<ArenaThemeController>() == null)
+            mgr.AddComponent<ArenaThemeController>();
+        // Optional debug spawner hotkeys (only active in editor)
+        if (mgr.GetComponent<DebugSpawnHotkeys>() == null)
+            mgr.AddComponent<DebugSpawnHotkeys>();
     }
 
     // ── Step 6: Player ────────────────────────────────────────────────────
@@ -223,13 +246,8 @@ public static class SetupAll
 
         Transform root = canvasGO.transform;
 
-        // ── HP bar (bottom-left) ──────────────────────────────────────────
-        hpSlider = MakeSlider(root, "HP_Slider",
-            new Vector2(-760, -490), new Vector2(300, 30), new Color(1f, 0.2f, 0.2f));
-        hpText = MakeTMP(root, "HP_Text",
-            new Vector2(-760, -455), new Vector2(300, 35), "100 / 100", 24);
-        hpText.fontStyle = FontStyles.Bold;
-        hpText.color = new Color(1f, 0.3f, 0.3f);
+        // ── HP bar: big red bar at bottom with black outline ───────────────
+        hpSlider = MakeHealthBarBottom(root, out hpText);
 
         // ── XP bar (bottom-right) ─────────────────────────────────────────
         xpSlider = MakeSlider(root, "XP_Slider",
@@ -257,7 +275,7 @@ public static class SetupAll
         ort.anchorMin = Vector2.zero; ort.anchorMax = Vector2.one; ort.sizeDelta = Vector2.zero;
 
         // ── Upgrade panel ─────────────────────────────────────────────────
-        upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0.9f));
+        upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0f)); // Transparent: just the buttons, no overlay
         // Force this panel to render on top by moving it to last sibling
         upgradePanel.transform.SetAsLastSibling();
         
@@ -306,10 +324,12 @@ public static class SetupAll
         else { spawnPointTransforms = new Transform[0]; }
 
         // Load created prefabs from disk
-        GameObject projPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectile.prefab");
-        GameObject chaserPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
-        GameObject fastPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
-        GameObject bossPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject projPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectile.prefab");
+        GameObject chaserPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
+        GameObject fastPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
+        GameObject bossPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject heavyPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Heavy.prefab");
+        GameObject bigBatPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_BigBat.prefab");
 
         // ── GameManager ───────────────────────────────────────────────────
         Wire(gmComp, "waveManager",  wmComp);
@@ -329,11 +349,52 @@ public static class SetupAll
             prop.arraySize = spawnPointTransforms.Length;
             for (int i = 0; i < spawnPointTransforms.Length; i++)
                 prop.GetArrayElementAtIndex(i).objectReferenceValue = spawnPointTransforms[i];
+
+            // If Arena 2 exists, wire its spawn points for wave 6+
+            GameObject arena2 = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+            if (arena2 != null)
+            {
+                Transform arena2SpawnRoot = arena2.transform.Find("SpawnPoints");
+                if (arena2SpawnRoot != null)
+                {
+                    var list = new List<Transform>();
+                    foreach (Transform c in arena2SpawnRoot) list.Add(c);
+                    var a2Prop = so.FindProperty("spawnPointsArena2");
+                    a2Prop.arraySize = list.Count;
+                    for (int i = 0; i < list.Count; i++)
+                        a2Prop.GetArrayElementAtIndex(i).objectReferenceValue = list[i];
+                }
+            }
             so.ApplyModifiedPropertiesWithoutUndo();
         }
         Wire(esComp, "chaserPrefab", chaserPrefab);
         Wire(esComp, "fastPrefab",   fastPrefab);
+        Wire(esComp, "heavyPrefab",  heavyPrefab);
         Wire(esComp, "bossPrefab",   bossPrefab);
+        Wire(esComp, "bigBatPrefab", bigBatPrefab);
+
+        // Debug spawn hotkeys (1/2/3 and function keys) live on the MANAGERS object
+        GameObject mgrRoot = GameObject.Find("=== MANAGERS ===");
+        if (mgrRoot != null)
+        {
+            var debugHotkeys = mgrRoot.GetComponent<DebugSpawnHotkeys>();
+            if (debugHotkeys != null)
+                Wire(debugHotkeys, "spawner", esComp);
+        }
+
+        // ── ArenaPortalManager (portal after wave 5, transition to Arena 2) ─
+        ArenaPortalManager portalMgr = Object.FindFirstObjectByType<ArenaPortalManager>();
+        if (portalMgr != null)
+        {
+            var so = new SerializedObject(portalMgr);
+            so.FindProperty("arena1Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) ===");
+            so.FindProperty("arena2Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+            so.FindProperty("spawner").objectReferenceValue = esComp;
+            AudioClip portalSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/PortalTransition.mp3");
+            if (portalSound != null)
+                so.FindProperty("portalTransitionSound").objectReferenceValue = portalSound;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
 
         // ── PlayerWeapon ──────────────────────────────────────────────────
         var weapon = playerGO.GetComponent<PlayerWeapon>();
@@ -398,14 +459,19 @@ public static class SetupAll
     {
         GameObject xpOrbPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/XPOrb.prefab");
         GameObject healthPackPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/HealthPack.prefab");
-        
+        GameObject damageNumberPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/DamageNumber.prefab");
+        AudioClip deathSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aDeath.wav");
+        AudioClip bulletSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aBullet.wav");
+
         if (xpOrbPrefab == null) { Debug.LogWarning("[SetupAll] XPOrb prefab not found."); return; }
         if (healthPackPrefab == null) { Debug.LogWarning("[SetupAll] HealthPack prefab not found."); }
+        if (damageNumberPrefab == null) { Debug.LogWarning("[SetupAll] DamageNumber prefab not found."); }
 
         string[] enemyPaths = {
             "Assets/Prefabs/Enemy_Chaser.prefab",
             "Assets/Prefabs/Enemy_Fast.prefab",
-            "Assets/Prefabs/Enemy_Boss.prefab"
+            "Assets/Prefabs/Enemy_Boss.prefab",
+            "Assets/Prefabs/Enemy_Heavy.prefab"
         };
         foreach (string path in enemyPaths)
         {
@@ -418,20 +484,38 @@ public static class SetupAll
                     so.FindProperty("xpOrbPrefab").objectReferenceValue = xpOrbPrefab;
                     if (healthPackPrefab != null)
                         so.FindProperty("healthPackPrefab").objectReferenceValue = healthPackPrefab;
+                    if (damageNumberPrefab != null)
+                        so.FindProperty("damageNumberPrefab").objectReferenceValue = damageNumberPrefab;
+                    if (deathSound != null)
+                        so.FindProperty("deathSound").objectReferenceValue = deathSound;
                     so.ApplyModifiedProperties();
                 }
             }
         }
+        
+        // Wire audio to player weapon
+        if (playerGO != null && bulletSound != null)
+        {
+            PlayerWeapon weapon = playerGO.GetComponent<PlayerWeapon>();
+            if (weapon != null)
+            {
+                var so = new SerializedObject(weapon);
+                so.FindProperty("shootSound").objectReferenceValue = bulletSound;
+                so.ApplyModifiedProperties();
+            }
+        }
+        
         AssetDatabase.SaveAssets();
-        Debug.Log("[SetupAll] XPOrb and HealthPack prefabs wired to all enemy prefabs.");
+        Debug.Log("[SetupAll] XPOrb, HealthPack, and Audio wired to all enemy prefabs and player weapon.");
     }
 
     // ── Step 11: NavMesh bake ─────────────────────────────────────────────
 
     static void Step11_BakeNavMesh()
     {
-        // Use the new AI Navigation package (NavMeshSurface)
-        GameObject levelRoot = GameObject.Find("=== LEVEL ===");
+        // Prefer ProBuilder level root, fallback to legacy name
+        GameObject levelRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        if (levelRoot == null) levelRoot = GameObject.Find("=== LEVEL ===");
         if (levelRoot == null) { Debug.LogWarning("[SetupAll] Level root not found — NavMesh skipped."); return; }
 
         // Remove old surface if any
@@ -446,6 +530,70 @@ public static class SetupAll
     }
 
     // ── UI Factory Helpers ────────────────────────────────────────────────
+
+    static Slider MakeHealthBarBottom(Transform parent, out TMP_Text hpText)
+    {
+        const float barHeight = 48f;
+        const float outlineThickness = 4f;
+        const float barWidth = 1600f;
+
+        GameObject outlineGO = new GameObject("HP_Bar_Outline");
+        outlineGO.transform.SetParent(parent, false);
+        Image outlineImg = outlineGO.AddComponent<Image>();
+        outlineImg.color = Color.black;
+        RectTransform outlineRt = outlineGO.GetComponent<RectTransform>();
+        outlineRt.anchorMin = new Vector2(0.5f, 0f);
+        outlineRt.anchorMax = new Vector2(0.5f, 0f);
+        outlineRt.pivot = new Vector2(0.5f, 0f);
+        outlineRt.anchoredPosition = new Vector2(0f, (barHeight * 0.5f) + outlineThickness);
+        outlineRt.sizeDelta = new Vector2(barWidth + outlineThickness * 2f, barHeight + outlineThickness * 2f);
+
+        GameObject sliderGO = new GameObject("HP_Slider");
+        sliderGO.transform.SetParent(outlineGO.transform, false);
+        Slider slider = sliderGO.AddComponent<Slider>();
+        slider.interactable = false;
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value = 1f;
+
+        RectTransform sliderRt = sliderGO.GetComponent<RectTransform>();
+        sliderRt.anchorMin = Vector2.zero;
+        sliderRt.anchorMax = Vector2.one;
+        sliderRt.offsetMin = new Vector2(outlineThickness, outlineThickness);
+        sliderRt.offsetMax = new Vector2(-outlineThickness, -outlineThickness);
+
+        GameObject bg = new GameObject("BG");
+        bg.transform.SetParent(sliderGO.transform, false);
+        bg.AddComponent<Image>().color = new Color(0.15f, 0.15f, 0.15f);
+        StretchRect(bg.GetComponent<RectTransform>());
+
+        GameObject fa = new GameObject("FillArea");
+        fa.transform.SetParent(sliderGO.transform, false);
+        StretchRect(fa.AddComponent<RectTransform>());
+
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fa.transform, false);
+        fill.AddComponent<Image>().color = new Color(0.9f, 0.15f, 0.15f);
+        RectTransform fillRt = fill.GetComponent<RectTransform>();
+        StretchRect(fillRt);
+        slider.fillRect = fillRt;
+
+        GameObject textGO = new GameObject("HP_Text");
+        textGO.transform.SetParent(outlineGO.transform, false);
+        hpText = textGO.AddComponent<TextMeshProUGUI>();
+        hpText.text = "100 / 100";
+        hpText.fontSize = 18f;
+        hpText.alignment = TextAlignmentOptions.Center;
+        hpText.color = new Color(1f, 0.9f, 0.9f);
+        RectTransform textRt = textGO.GetComponent<RectTransform>();
+        textRt.anchorMin = new Vector2(0.5f, 1f);
+        textRt.anchorMax = new Vector2(0.5f, 1f);
+        textRt.pivot = new Vector2(0.5f, 1f);
+        textRt.anchoredPosition = new Vector2(0f, 4f);
+        textRt.sizeDelta = new Vector2(200f, 24f);
+
+        return slider;
+    }
 
     static Slider MakeSlider(Transform parent, string name, Vector2 pos, Vector2 size, Color fillColor)
     {
@@ -514,6 +662,33 @@ public static class SetupAll
         return go;
     }
 
+    /// <summary>Loads the standalone level-up button sprite (rounded light grey block). Imports as Sprite if needed.</summary>
+    static Sprite GetLevelUpButtonSprite()
+    {
+        if (s_levelUpButtonSprite != null) return s_levelUpButtonSprite;
+        const string path = LevelUpButtonSpritePath;
+        TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (importer != null && (importer.textureType != TextureImporterType.Sprite || importer.spriteImportMode != SpriteImportMode.Single))
+        {
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.filterMode = FilterMode.Point;
+            importer.spritePixelsPerUnit = 100f;
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
+        }
+        Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
+        foreach (Object o in assets)
+        {
+            if (o is Sprite s)
+            {
+                s_levelUpButtonSprite = s;
+                break;
+            }
+        }
+        return s_levelUpButtonSprite;
+    }
+
     static void MakeUpgradeCard(Transform parent, string name, Vector2 pos,
                                  out Button btn, out TMP_Text cardName,
                                  out TMP_Text cardDesc, out Image cardBg)
@@ -521,27 +696,41 @@ public static class SetupAll
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
         cardBg = go.AddComponent<Image>();
-        cardBg.color = new Color(0.2f, 0.2f, 0.2f);
+        Sprite levelUpSprite = GetLevelUpButtonSprite();
+        if (levelUpSprite != null)
+        {
+            cardBg.sprite = levelUpSprite;
+            cardBg.color = Color.white;
+            cardBg.type = Image.Type.Simple;
+        }
+        else
+            cardBg.color = new Color(0.2f, 0.2f, 0.2f);
         btn = go.AddComponent<Button>();
-        
-        // Set button colors for better visibility
+
+        // Set button colors for better visibility (tint when no sprite; with sprite keep normal/highlight/pressed subtle)
         ColorBlock colors = btn.colors;
-        colors.normalColor = new Color(0.2f, 0.2f, 0.2f);
-        colors.highlightedColor = new Color(0.4f, 0.4f, 0.4f);
-        colors.pressedColor = new Color(0.6f, 0.6f, 0.6f);
+        colors.normalColor = Color.white;
+        colors.highlightedColor = new Color(0.95f, 0.95f, 0.95f);
+        colors.pressedColor = new Color(0.9f, 0.9f, 0.9f);
         btn.colors = colors;
 
         RectTransform rt = go.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
         rt.anchorMax = new Vector2(0.5f, 0.5f);
         rt.anchoredPosition = pos;
-        rt.sizeDelta = new Vector2(320, 220);
+        rt.sizeDelta = new Vector2(220, 220); // Square to match the button, no extra background
 
-        cardName = MakeTMP(go.transform, "CardName", new Vector2(0, 55), new Vector2(300, 45), "Upgrade", 22);
+        // Text sized to fit inside the button with padding; larger font, wraps in box
+        const float textWidth = 190f;
+        const float pad = 14f;
+        cardName = MakeTMP(go.transform, "CardName", new Vector2(0, 50), new Vector2(textWidth, 44), "Upgrade", 26);
         cardName.fontStyle = FontStyles.Bold;
-        cardName.color = Color.yellow;
-        cardDesc = MakeTMP(go.transform, "CardDesc", new Vector2(0, -15), new Vector2(300, 100), "Description", 16);
-        cardDesc.color = new Color(0.9f, 0.9f, 0.9f);
+        cardName.color = Color.black;
+        cardName.enableWordWrapping = true;
+        cardDesc = MakeTMP(go.transform, "CardDesc", new Vector2(0, -35), new Vector2(textWidth, 100), "Description", 20);
+        cardDesc.color = Color.black;
+        cardDesc.enableWordWrapping = true;
+        cardDesc.alignment = TextAlignmentOptions.Center;
     }
 
     static Button MakeButton(Transform parent, string name, Vector2 pos, Vector2 size,

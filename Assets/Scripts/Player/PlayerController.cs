@@ -24,6 +24,7 @@ public class PlayerController : MonoBehaviour
     private float dashCooldownTimer;
     private bool isDashing;
     private Vector3 dashDirection;
+    private float stunTimer;             // when > 0, movement and dash are disabled
 
     // ── Ground detection ──────────────────────────────────────────────────
     private int groundLayer;
@@ -36,6 +37,8 @@ public class PlayerController : MonoBehaviour
 
     void Update()
     {
+        if (stunTimer > 0f) stunTimer -= Time.deltaTime;
+
         if (GameManager.Instance != null &&
             GameManager.Instance.State != GameManager.GameState.Playing) return;
 
@@ -44,15 +47,31 @@ public class PlayerController : MonoBehaviour
         HandleDash();
     }
 
+    /// <summary>Disables movement and dash for the given duration (e.g. trap stun).</summary>
+    public void StunFor(float duration)
+    {
+        if (duration > stunTimer) stunTimer = duration;
+    }
+
+    public bool IsStunned => stunTimer > 0f;
+
     private void HandleMovement()
     {
+        if (stunTimer > 0f)
+        {
+            // Apply gravity only so player doesn't float
+            if (cc.isGrounded && velocity.y < 0f) velocity.y = -2f;
+            velocity.y += gravity * Time.deltaTime;
+            cc.Move(velocity * Time.deltaTime);
+            return;
+        }
+
         float x = Input.GetAxisRaw("Horizontal");
         float z = Input.GetAxisRaw("Vertical");
         Vector3 move = new Vector3(x, 0f, z).normalized;
 
         if (!isDashing)
         {
-            // Apply gravity
             if (cc.isGrounded && velocity.y < 0f) velocity.y = -2f;
             velocity.y += gravity * Time.deltaTime;
 
@@ -88,6 +107,8 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        if (stunTimer > 0f) return;
+
         if (Input.GetKeyDown(KeyCode.LeftShift) && dashCooldownTimer <= 0f)
         {
             float x = Input.GetAxisRaw("Horizontal");
@@ -104,4 +125,11 @@ public class PlayerController : MonoBehaviour
     }
 
     public bool IsDashing => isDashing;
+
+    /// <summary>Small vertical pop (used by boss slam).</summary>
+    public void LaunchUp(float upwardVelocity)
+    {
+        if (upwardVelocity <= 0f) return;
+        if (velocity.y < upwardVelocity) velocity.y = upwardVelocity;
+    }
 }
