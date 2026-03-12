@@ -8,14 +8,26 @@ using UnityEngine;
 public static class ZapTrapFrameSetup
 {
     private const string BlueFramesDir = "Assets/Sprites/ZapTrapBlueFrames";
+    private const string RedFramesDir  = "Assets/Sprites/ZapTrapRedFrames";
 
     [MenuItem("CS4483/⚡ Setup ZapTrap Blue Frames (Pre-cut)")]
     public static void SetupBlueFrames()
     {
-        string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { BlueFramesDir });
+        SetupFramesInDir(BlueFramesDir, "blue");
+    }
+
+    [MenuItem("CS4483/⚡ Setup ZapTrap Red Frames (Pre-cut)")]
+    public static void SetupRedFrames()
+    {
+        SetupFramesInDir(RedFramesDir, "red");
+    }
+
+    private static void SetupFramesInDir(string dir, string label)
+    {
+        string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { dir });
         if (guids == null || guids.Length == 0)
         {
-            Debug.LogWarning($"[ZapTrapFrameSetup] No frames found in {BlueFramesDir}");
+            Debug.LogWarning($"[ZapTrapFrameSetup] No {label} frames found in {dir}");
             return;
         }
 
@@ -50,7 +62,7 @@ public static class ZapTrapFrameSetup
         }
 
         AssetDatabase.Refresh();
-        Debug.Log($"[ZapTrapFrameSetup] ✓ Configured {changed} zap trap blue frame(s) with bottom pivot.");
+        Debug.Log($"[ZapTrapFrameSetup] ✓ Configured {changed} zap trap {label} frame(s) with bottom pivot.");
     }
 }
 

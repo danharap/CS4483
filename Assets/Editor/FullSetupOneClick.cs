@@ -22,6 +22,7 @@ public static class FullSetupOneClick
 
             // 1.5) Ensure pre-cut zap trap frames have correct pivot/settings
             ZapTrapFrameSetup.SetupBlueFrames();
+            ZapTrapFrameSetup.SetupRedFrames();
 
             // 2) Build / rebuild the full scene (this also creates Assets/Prefabs/*)
             SetupAll.SetupEverything();

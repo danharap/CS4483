@@ -180,7 +180,7 @@ public static class SpriteSetup
 
         // Apply zap trap animations (blue in Arena 1, red in Arena 2)
         Sprite[] zapBlue = LoadZapTrapBlueFrames();
-        Sprite[] zapRed = LoadSlicedSprites("sZapTrap_Red");
+        Sprite[] zapRed = LoadZapTrapRedFrames();
         int trapCount = 0;
         foreach (ArenaTrap trap in Resources.FindObjectsOfTypeAll<ArenaTrap>())
         {
@@ -201,9 +201,19 @@ public static class SpriteSetup
                 visual = v.transform;
             }
 
+            // Ensure there is only ONE trap sprite renderer (fixes “frame 0 stuck” layering).
+            foreach (Transform child in visual)
+            {
+                if (child.name == "Trap_Sprite")
+                    Object.DestroyImmediate(child.gameObject);
+            }
+            SpriteRenderer existingSr = visual.GetComponent<SpriteRenderer>();
+            if (existingSr != null) Object.DestroyImmediate(existingSr);
+
             TrapSpriteAnimator anim = visual.GetComponent<TrapSpriteAnimator>();
             if (anim == null) anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
             anim.frameRate = 12f;
+            anim.sortingOrder = 2;
 
             bool isArena2 = IsUnderRootNamed(trap.gameObject, "=== LEVEL (ProBuilder) Arena2 ===");
             anim.SetFrames(isArena2 ? zapRed : zapBlue);
@@ -247,6 +257,22 @@ public static class SpriteSetup
 
         // Fallback: if frames aren’t present, try legacy sliced sheet
         return LoadSlicedSprites("sZapTrap_Blue");
+    }
+
+    private static Sprite[] LoadZapTrapRedFrames()
+    {
+        // Prefer pre-cut frames in Assets/Sprites/ZapTrapRedFrames/0..11.png
+        var list = new List<Sprite>();
+        for (int i = 0; i < 12; i++)
+        {
+            string path = $"Assets/Sprites/ZapTrapRedFrames/{i}.png";
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s != null) list.Add(s);
+        }
+        if (list.Count == 12) return list.ToArray();
+
+        // Fallback: legacy sliced sheet
+        return LoadSlicedSprites("sZapTrap_Red");
     }
     
     // ── Helper Methods ────────────────────────────────────────────────────
