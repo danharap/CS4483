@@ -91,6 +91,7 @@ public static class ProBuilderLevelBuilder
         CreateRockSprite(rocks.transform, "Rock4", new Vector3(-14f, 0f, 6f), 2.5f, 4);
         CreateRockSprite(rocks.transform, "Rock5", new Vector3(0f, 0f, 8f),    2.5f, 5);
 
+        CreateTraps();
         CreateSpawnPoints();
         CreateLighting();
 
@@ -340,8 +341,6 @@ public static class ProBuilderLevelBuilder
         GameObject root = new GameObject("Traps");
         root.transform.SetParent(levelRoot);
 
-        Material matTrap = GetOrCreateMat("M_Trap", new Color(0.35f, 0.12f, 0.12f));
-
         Vector3[] positions = new[]
         {
             new Vector3(10f,  0.3f,  10f),
@@ -363,13 +362,10 @@ public static class ProBuilderLevelBuilder
 
             ArenaTrap arenaTrap = trap.AddComponent<ArenaTrap>();
 
-            GameObject pad = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            pad.name = "Pad";
-            pad.transform.SetParent(trap.transform, false);
-            pad.transform.localPosition = Vector3.zero;
-            pad.transform.localScale = new Vector3(1.9f, 0.08f, 1.9f);
-            Object.DestroyImmediate(pad.GetComponent<Collider>());
-            pad.GetComponent<Renderer>().sharedMaterial = matTrap;
+            // Visual will be added by SpriteSetup (animated zap trap sprites)
+            GameObject visual = new GameObject("TrapVisual");
+            visual.transform.SetParent(trap.transform, false);
+            visual.transform.localPosition = Vector3.zero;
         }
     }
 

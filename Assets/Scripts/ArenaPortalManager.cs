@@ -176,6 +176,11 @@ public class ArenaPortalManager : MonoBehaviour
             portalInstance = null;
         }
 
+        // Swap visuals to Arena 2 theme (red floor + red zap traps)
+        ArenaThemeController theme = FindFirstObjectByType<ArenaThemeController>();
+        if (theme != null)
+            theme.ApplyArena2Theme();
+
         GameManager.Instance?.HUD?.ShowTransition("Arena 2! Survive...");
     }
 }

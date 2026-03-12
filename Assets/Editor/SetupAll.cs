@@ -180,6 +180,8 @@ public static class SetupAll
         plComp  = mgr.AddComponent<PlaytestLogger>();
         if (mgr.GetComponent<ArenaPortalManager>() == null)
             mgr.AddComponent<ArenaPortalManager>();
+        if (mgr.GetComponent<ArenaThemeController>() == null)
+            mgr.AddComponent<ArenaThemeController>();
     }
 
     // ── Step 6: Player ────────────────────────────────────────────────────
