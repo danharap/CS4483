@@ -9,7 +9,7 @@ public class TrapSpriteAnimator : MonoBehaviour
     [Header("Animation")]
     public Sprite[] frames;
     public float frameRate = 12f;
-    public Vector3 spriteScale = new Vector3(1.8f, 1.8f, 1f);
+    public Vector3 spriteScale = new Vector3(1.6f, 1.6f, 1f);
     public int sortingOrder = 1;
 
     [Header("Glow (Optional)")]
