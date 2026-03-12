@@ -26,7 +26,38 @@ public class TrapSpriteAnimator : MonoBehaviour
 
     void Start()
     {
+        CleanupStackedSprites();
         EnsureVisual();
+    }
+
+    void CleanupStackedSprites()
+    {
+        // If the trap got set up multiple times, we can end up with multiple SpriteRenderers
+        // (e.g. a static first-frame renderer + an animated one). Remove all old renderers/children.
+        SpriteRenderer[] renderers = GetComponentsInChildren<SpriteRenderer>(true);
+        foreach (SpriteRenderer r in renderers)
+        {
+            if (r != null)
+                SafeDestroy(r.gameObject);
+        }
+
+        // Also remove any legacy Trap_Sprite children (name-based fallback)
+        for (int i = transform.childCount - 1; i >= 0; i--)
+        {
+            Transform child = transform.GetChild(i);
+            if (child != null && child.name == "Trap_Sprite")
+                SafeDestroy(child.gameObject);
+        }
+
+        spriteObj = null;
+        sr = null;
+    }
+
+    void SafeDestroy(GameObject go)
+    {
+        if (go == null) return;
+        if (Application.isPlaying) Destroy(go);
+        else DestroyImmediate(go);
     }
 
     void EnsureVisual()
@@ -63,6 +94,7 @@ public class TrapSpriteAnimator : MonoBehaviour
         frames = newFrames;
         frame = 0;
         timer = 0f;
+        CleanupStackedSprites();
         EnsureVisual();
         if (sr != null && frames != null && frames.Length > 0)
             sr.sprite = frames[0];
