@@ -24,30 +24,27 @@ public class PlayerGun : MonoBehaviour
     
     void SetupGunSprite()
     {
-        // Create pivot object that will orbit around player
+        // Pivot rotates around world Y so gun points at mouse (no billboard — rotation is axis-based)
         gunPivot = new GameObject("Gun_Pivot");
         gunPivot.transform.SetParent(transform);
+        gunPivot.transform.localPosition = new Vector3(0f, gunHeight, 0f);
         
-        // Add billboard to pivot so it faces camera
-        gunPivot.AddComponent<Billboard>();
-        
-        // Create sprite child that will rotate within the billboard
         gunSpriteObj = new GameObject("Gun_Sprite");
         gunSpriteObj.transform.SetParent(gunPivot.transform);
-        gunSpriteObj.transform.localPosition = Vector3.zero;
+        gunSpriteObj.transform.localPosition = new Vector3(orbitRadius, 0f, 0f); // Barrel (right side) at this offset
+        gunSpriteObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); // Lay sprite in XZ plane so it orbits correctly
         gunSpriteObj.transform.localScale = Vector3.one * 1.5f;
         
-        // Add sprite renderer to child
         gunRenderer = gunSpriteObj.AddComponent<SpriteRenderer>();
         gunRenderer.sprite = gunSprite;
-        gunRenderer.sortingOrder = 8; // Behind character sprite (character is at 10)
+        gunRenderer.sortingOrder = 8;
+        // No Billboard: pivot rotation alone makes the gun's right side point at the cursor on an axis around the player
     }
     
     void LateUpdate()
     {
         if (gunPivot == null || mainCamera == null) return;
         
-        // Get mouse position in world space
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
         Plane ground = new Plane(Vector3.up, Vector3.zero);
         
@@ -55,30 +52,16 @@ public class PlayerGun : MonoBehaviour
         {
             Vector3 mousePos = ray.GetPoint(dist);
             Vector3 playerPos = transform.position;
+            Vector3 dirToMouse = new Vector3(mousePos.x - playerPos.x, 0f, mousePos.z - playerPos.z);
+            if (dirToMouse.sqrMagnitude < 0.01f) return;
+            dirToMouse.Normalize();
             
-            // Calculate direction from player to mouse (on ground plane)
-            Vector3 dirToMouse = new Vector3(mousePos.x - playerPos.x, 0f, mousePos.z - playerPos.z).normalized;
+            // Rotate pivot around world Y so gun (local +X = barrel) points at mouse
+            float angleY = Mathf.Atan2(dirToMouse.x, dirToMouse.z) * Mathf.Rad2Deg;
+            gunPivot.transform.rotation = Quaternion.Euler(0f, angleY, 0f);
             
-            // Position gun pivot slightly away from player center toward mouse
-            Vector3 pivotWorldPos = playerPos + dirToMouse * orbitRadius;
-            pivotWorldPos.y = playerPos.y + gunHeight;
-            gunPivot.transform.position = pivotWorldPos;
-            
-            // Calculate angle from gun position to mouse (so barrel points at mouse)
-            Vector3 gunToMouse = new Vector3(mousePos.x - pivotWorldPos.x, 0f, mousePos.z - pivotWorldPos.z).normalized;
-            float angleDeg = Mathf.Atan2(gunToMouse.x, gunToMouse.z) * Mathf.Rad2Deg;
-
-            // Rotate the sprite so barrel points toward mouse; flip when aiming left so gun doesn't look inverted
-            if (dirToMouse.x < 0)
-            {
-                gunRenderer.flipX = true;
-                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, 180f - angleDeg);
-            }
-            else
-            {
-                gunRenderer.flipX = false;
-                gunSpriteObj.transform.localRotation = Quaternion.Euler(0f, 0f, angleDeg);
-            }
+            // Flip sprite when aiming left so gun art faces correctly
+            gunRenderer.flipX = dirToMouse.x < 0f;
         }
     }
 }

@@ -1,14 +1,16 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Player projectile. Travels in a straight line in the direction set at spawn (no homing, no stop at mouse).
-/// Damages enemies, supports piercing. Auto-destroys after maxLifetime.
+/// Damages enemies, supports piercing. Uses overlap check each frame so fast-moving enemies don't get tunneled through.
 /// </summary>
 public class Projectile : MonoBehaviour
 {
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Projectile Settings")]
     [SerializeField] private float maxTravelDistance = 30f;  // world units to travel before despawn
+    [SerializeField] private float hitCheckRadius = 0.6f;     // overlap sphere radius to catch enemies (avoids tunneling)
 
     // ── Runtime state (set via Init) ──────────────────────────────────────
     private Vector3 direction;
@@ -16,6 +18,7 @@ public class Projectile : MonoBehaviour
     private float   damage;
     private int     pierceLeft;   // how many additional enemies to pierce through
     private float   travelled;
+    private HashSet<EnemyBase> hitEnemies = new HashSet<EnemyBase>();
 
     public void Init(Vector3 dir, float dmg, float spd, int pierce)
     {
@@ -44,7 +47,41 @@ public class Projectile : MonoBehaviour
         transform.position += direction * step;
         travelled += step;
         if (travelled >= maxTravelDistance)
+        {
             Destroy(gameObject);
+            return;
+        }
+
+        // Per-frame overlap so we don't tunnel through fast enemies (trigger can miss between physics steps)
+        CheckOverlapHit();
+    }
+
+    private void CheckOverlapHit()
+    {
+        Collider[] hits = Physics.OverlapSphere(transform.position, hitCheckRadius);
+        foreach (Collider c in hits)
+        {
+            if (c.isTrigger && c.CompareTag("Player")) continue;
+            EnemyBase enemy = c.GetComponent<EnemyBase>();
+            if (enemy != null && enemy.IsAlive && !hitEnemies.Contains(enemy))
+            {
+                hitEnemies.Add(enemy);
+                enemy.TakeDamage(damage);
+                if (pierceLeft <= 0)
+                {
+                    Destroy(gameObject);
+                    return;
+                }
+                pierceLeft--;
+                continue;
+            }
+            // Block on solid (non-trigger) obstacles
+            if (!c.isTrigger && !c.CompareTag("Player"))
+            {
+                Destroy(gameObject);
+                return;
+            }
+        }
     }
 
     void OnTriggerEnter(Collider other)
@@ -52,16 +89,21 @@ public class Projectile : MonoBehaviour
         EnemyBase enemy = other.GetComponent<EnemyBase>();
         if (enemy != null)
         {
-            if (enemy.IsAlive)
+            bool didHitNewEnemy = enemy.IsAlive && !hitEnemies.Contains(enemy);
+            if (didHitNewEnemy)
+            {
+                hitEnemies.Add(enemy);
                 enemy.TakeDamage(damage);
-            if (pierceLeft <= 0)
-                Destroy(gameObject);
-            else
-                pierceLeft--;
+            }
+            // Only consume pierce when we actually hit a new enemy.
+            if (didHitNewEnemy)
+            {
+                if (pierceLeft <= 0) Destroy(gameObject);
+                else pierceLeft--;
+            }
             return;
         }
 
-        // Block on walls and obstacles (any solid non-trigger collider except player)
         if (!other.isTrigger && !other.CompareTag("Player"))
             Destroy(gameObject);
     }

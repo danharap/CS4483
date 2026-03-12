@@ -125,4 +125,11 @@ public class PlayerController : MonoBehaviour
     }
 
     public bool IsDashing => isDashing;
+
+    /// <summary>Small vertical pop (used by boss slam).</summary>
+    public void LaunchUp(float upwardVelocity)
+    {
+        if (upwardVelocity <= 0f) return;
+        if (velocity.y < upwardVelocity) velocity.y = upwardVelocity;
+    }
 }

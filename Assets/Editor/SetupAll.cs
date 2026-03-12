@@ -182,6 +182,9 @@ public static class SetupAll
             mgr.AddComponent<ArenaPortalManager>();
         if (mgr.GetComponent<ArenaThemeController>() == null)
             mgr.AddComponent<ArenaThemeController>();
+        // Optional debug spawner hotkeys (only active in editor)
+        if (mgr.GetComponent<DebugSpawnHotkeys>() == null)
+            mgr.AddComponent<DebugSpawnHotkeys>();
     }
 
     // ── Step 6: Player ────────────────────────────────────────────────────
@@ -314,10 +317,12 @@ public static class SetupAll
         else { spawnPointTransforms = new Transform[0]; }
 
         // Load created prefabs from disk
-        GameObject projPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectile.prefab");
-        GameObject chaserPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
-        GameObject fastPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
-        GameObject bossPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject projPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Projectile.prefab");
+        GameObject chaserPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
+        GameObject fastPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
+        GameObject bossPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject heavyPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Heavy.prefab");
+        GameObject bigBatPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_BigBat.prefab");
 
         // ── GameManager ───────────────────────────────────────────────────
         Wire(gmComp, "waveManager",  wmComp);
@@ -357,7 +362,18 @@ public static class SetupAll
         }
         Wire(esComp, "chaserPrefab", chaserPrefab);
         Wire(esComp, "fastPrefab",   fastPrefab);
+        Wire(esComp, "heavyPrefab",  heavyPrefab);
         Wire(esComp, "bossPrefab",   bossPrefab);
+        Wire(esComp, "bigBatPrefab", bigBatPrefab);
+
+        // Debug spawn hotkeys (1/2/3 and function keys) live on the MANAGERS object
+        GameObject mgrRoot = GameObject.Find("=== MANAGERS ===");
+        if (mgrRoot != null)
+        {
+            var debugHotkeys = mgrRoot.GetComponent<DebugSpawnHotkeys>();
+            if (debugHotkeys != null)
+                Wire(debugHotkeys, "spawner", esComp);
+        }
 
         // ── ArenaPortalManager (portal after wave 5, transition to Arena 2) ─
         ArenaPortalManager portalMgr = Object.FindFirstObjectByType<ArenaPortalManager>();
@@ -436,16 +452,19 @@ public static class SetupAll
     {
         GameObject xpOrbPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/XPOrb.prefab");
         GameObject healthPackPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/HealthPack.prefab");
+        GameObject damageNumberPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/DamageNumber.prefab");
         AudioClip deathSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aDeath.wav");
         AudioClip bulletSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aBullet.wav");
 
         if (xpOrbPrefab == null) { Debug.LogWarning("[SetupAll] XPOrb prefab not found."); return; }
         if (healthPackPrefab == null) { Debug.LogWarning("[SetupAll] HealthPack prefab not found."); }
+        if (damageNumberPrefab == null) { Debug.LogWarning("[SetupAll] DamageNumber prefab not found."); }
 
         string[] enemyPaths = {
             "Assets/Prefabs/Enemy_Chaser.prefab",
             "Assets/Prefabs/Enemy_Fast.prefab",
-            "Assets/Prefabs/Enemy_Boss.prefab"
+            "Assets/Prefabs/Enemy_Boss.prefab",
+            "Assets/Prefabs/Enemy_Heavy.prefab"
         };
         foreach (string path in enemyPaths)
         {
@@ -458,6 +477,8 @@ public static class SetupAll
                     so.FindProperty("xpOrbPrefab").objectReferenceValue = xpOrbPrefab;
                     if (healthPackPrefab != null)
                         so.FindProperty("healthPackPrefab").objectReferenceValue = healthPackPrefab;
+                    if (damageNumberPrefab != null)
+                        so.FindProperty("damageNumberPrefab").objectReferenceValue = damageNumberPrefab;
                     if (deathSound != null)
                         so.FindProperty("deathSound").objectReferenceValue = deathSound;
                     so.ApplyModifiedProperties();

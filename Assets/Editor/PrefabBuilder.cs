@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.AI;
+using TMPro;
 
 /// <summary>
 /// Editor tool: CS4483 → 3 - Create Prefabs
@@ -24,7 +25,10 @@ public static class PrefabBuilder
         CreateHealthPackPrefab();
         CreateChaserPrefab();
         CreateFastEnemyPrefab();
+        CreateBigBatPrefab();
         CreateBossPrefab();
+        CreateHeavyEnemyPrefab();
+        CreateDamageNumberPrefab();
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -44,17 +48,18 @@ public static class PrefabBuilder
         if (renderer != null)
             renderer.enabled = false;
 
-        // Remove mesh collider, add sphere trigger
+        // Remove mesh collider, add sphere trigger (radius in local space; scale 0.25 → world radius ~0.5 so fast enemies don't tunnel through)
         Object.DestroyImmediate(go.GetComponent<SphereCollider>());
         SphereCollider col = go.AddComponent<SphereCollider>();
         col.isTrigger = true;
-        col.radius    = 0.15f;
+        col.radius    = 2f;
 
-        // Rigidbody (kinematic so bullet travels only in initial direction, not affected by physics)
+        // Rigidbody: kinematic + continuous speculative so trigger overlap is reliable vs fast-moving enemies
         Rigidbody rb = go.AddComponent<Rigidbody>();
         rb.useGravity  = false;
         rb.isKinematic = true;
         rb.constraints = RigidbodyConstraints.FreezeRotation;
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
         go.AddComponent<Projectile>();
 
@@ -214,7 +219,7 @@ public static class PrefabBuilder
         SetupEnemyPhysics(go);
         TryAddNavMeshAgent(go, 6f);
         FastEnemy e = go.AddComponent<FastEnemy>();
-        e.maxHP    = 30f;
+        e.maxHP    = 22f;
         e.moveSpeed = 6f;
         e.xpDrop   = 8f;
 
@@ -222,48 +227,164 @@ public static class PrefabBuilder
         Object.DestroyImmediate(go);
     }
 
+    // ── Big Bat Enemy (fast + higher HP) ──────────────────────────────────
+
+    static void CreateBigBatPrefab()
+    {
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        go.name = "Enemy_BigBat";
+        go.transform.localScale = new Vector3(0.9f, 0.9f, 0.9f);
+
+        // Hide 3D mesh; BatEnemyVisualController will display sprites
+        Renderer r = go.GetComponent<Renderer>();
+        if (r != null) r.enabled = false;
+
+        CapsuleCollider cap = go.GetComponent<CapsuleCollider>();
+        if (cap != null) { cap.radius = 0.75f; cap.height = 2.4f; }
+        SetupEnemyPhysics(go);
+        TryAddNavMeshAgent(go, 6.2f);
+
+        BigBatEnemy e = go.AddComponent<BigBatEnemy>();
+        e.maxHP = 65f;
+        e.moveSpeed = 6.2f;
+        e.xpDrop = 14f;
+
+        SavePrefab(go, "Enemy_BigBat");
+        Object.DestroyImmediate(go);
+    }
+
     // ── Boss Enemy ────────────────────────────────────────────────────────
 
     static void CreateBossPrefab()
     {
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        go.name = "Enemy_Boss";
-        go.transform.localScale = new Vector3(3.5f, 3.5f, 3.5f);
-        
-        // Dark purple material for boss (delete first if exists)
-        string matPath = "Assets/Materials/M_Enemy_Boss.mat";
-        AssetDatabase.DeleteAsset(matPath);
-        Material mat = new Material(Shader.Find("Standard"));
-        mat.color = new Color(0.6f, 0f, 0.7f);
-        AssetDatabase.CreateAsset(mat, matPath);
-        go.GetComponent<Renderer>().sharedMaterial = mat;
+        GameObject root = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        root.name = "Enemy_Boss";
+        // IMPORTANT: keep physics at scale 1 (so hitbox/pathing isn't gigantic).
+        // Scale only the visuals via VisualRoot.
+        root.transform.localScale = Vector3.one;
 
-        CapsuleCollider cap = go.GetComponent<CapsuleCollider>();
-        if (cap != null) { cap.radius = 1.4f; cap.height = 4.2f; }
-        SetupEnemyPhysics(go);
-        TryAddNavMeshAgent(go, 2.5f);
-        BossEnemy boss = go.AddComponent<BossEnemy>();
+        // Hide 3D mesh; we render with sprites like Heavy
+        Renderer r = root.GetComponent<Renderer>();
+        if (r != null) r.enabled = false;
+
+        CapsuleCollider cap = root.GetComponent<CapsuleCollider>();
+        // Smaller hitbox (about half of previous)
+        if (cap != null) { cap.radius = 0.45f; cap.height = 1.6f; }
+        SetupEnemyPhysics(root);
+        TryAddNavMeshAgent(root, 2.5f);
+        // Boss agent should be bigger than default enemies
+        {
+            var a = root.GetComponent<UnityEngine.AI.NavMeshAgent>();
+            if (a != null)
+            {
+                a.radius = 0.45f;
+                a.height = 1.6f;
+                a.stoppingDistance = 1.0f;
+                a.acceleration = 30f;
+                a.angularSpeed = 720f;
+            }
+        }
+
+        BossEnemy boss = root.AddComponent<BossEnemy>();
         boss.maxHP    = 500f;
         boss.moveSpeed = 2.5f;
         boss.xpDrop   = 100f;
 
-        // Visual indicator: large red sphere on top
-        GameObject top = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        top.name = "BossCrown";
-        top.transform.SetParent(go.transform);
-        top.transform.localPosition = new Vector3(0f, 0.6f, 0f);
-        top.transform.localScale    = new Vector3(0.4f, 0.4f, 0.4f);
-        string crownMatPath = "Assets/Materials/M_BossCrown.mat";
-        AssetDatabase.DeleteAsset(crownMatPath);
-        Material crownMat = new Material(Shader.Find("Standard"));
-        crownMat.color = new Color(1f, 0f, 0f);
-        crownMat.EnableKeyword("_EMISSION");
-        crownMat.SetColor("_EmissionColor", new Color(1f, 0f, 0f) * 0.5f);
-        AssetDatabase.CreateAsset(crownMat, crownMatPath);
-        top.GetComponent<Renderer>().sharedMaterial = crownMat;
-        Object.DestroyImmediate(top.GetComponent<SphereCollider>());
+        // Visual root so we can "jump" visuals without moving colliders (prevents pushing player upward)
+        GameObject visualRoot = new GameObject("VisualRoot");
+        visualRoot.transform.SetParent(root.transform);
+        visualRoot.transform.localPosition = Vector3.zero;
+        visualRoot.transform.localScale = new Vector3(3.5f, 3.5f, 3.5f);
 
-        SavePrefab(go, "Enemy_Boss");
+        // Body
+        GameObject body = new GameObject("Body");
+        body.transform.SetParent(visualRoot.transform);
+        body.transform.localPosition = new Vector3(0f, 1.6f, 0f);
+        body.transform.localScale = Vector3.one;
+        SpriteRenderer bodySr = body.AddComponent<SpriteRenderer>();
+        bodySr.sortingOrder = 20;
+        body.AddComponent<Billboard>();
+
+        // Head (renders above body)
+        GameObject head = new GameObject("Head");
+        head.transform.SetParent(body.transform);
+        head.transform.localPosition = new Vector3(0f, 0.62f, 0f);
+        head.transform.localScale = Vector3.one;
+        SpriteRenderer headSr = head.AddComponent<SpriteRenderer>();
+        headSr.sortingOrder = 21;
+        head.AddComponent<Billboard>();
+
+        BossVisualController vis = root.AddComponent<BossVisualController>();
+        vis.bodyRenderer = bodySr;
+        vis.headRenderer = headSr;
+
+        SavePrefab(root, "Enemy_Boss");
+        Object.DestroyImmediate(root);
+    }
+
+    // ── Heavy Enemy (tank) ────────────────────────────────────────────────
+    // Body (animated) + Head (direction: up/down = sHeavyHead, right = sHeavyHead_Right, left = same sprite flipped).
+    // Apply Sprites to Prefabs uses ApplyHeavyEnemySprites to assign body strip + head sprites.
+
+    static void CreateHeavyEnemyPrefab()
+    {
+        GameObject root = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        root.name = "Enemy_Heavy";
+        // 1.5x larger than prior (1.2 → 1.8)
+        root.transform.localScale = new Vector3(1.8f, 1.8f, 1.8f);
+
+        Renderer r = root.GetComponent<Renderer>();
+        if (r != null) r.enabled = false;
+
+        CapsuleCollider cap = root.GetComponent<CapsuleCollider>();
+        if (cap != null) { cap.radius = 1.0f; cap.height = 3.0f; }
+        SetupEnemyPhysics(root);
+        TryAddNavMeshAgent(root, 2.0f);
+
+        HeavyEnemy heavy = root.AddComponent<HeavyEnemy>();
+        heavy.maxHP     = 180f;
+        heavy.moveSpeed = 2.0f;
+        heavy.xpDrop    = 18f;
+
+        // Body: animated sprite below the head (frames driven by HeavyEnemyVisualController)
+        GameObject body = new GameObject("Body");
+        body.transform.SetParent(root.transform);
+        body.transform.localPosition = new Vector3(0f, 1.15f, 0f);
+        body.transform.localScale = Vector3.one;
+        SpriteRenderer bodySr = body.AddComponent<SpriteRenderer>();
+        bodySr.sortingOrder = 12;
+        body.AddComponent<Billboard>();
+
+        // Head: direction-based (heavy head / heavy right, flip when moving left)
+        GameObject head = new GameObject("Head");
+        head.transform.SetParent(body.transform);
+        head.transform.localPosition = new Vector3(0f, 0.48f, 0f);
+        head.transform.localScale = Vector3.one;
+        SpriteRenderer headSr = head.AddComponent<SpriteRenderer>();
+        headSr.sortingOrder = 11;
+        head.AddComponent<Billboard>();
+
+        HeavyEnemyVisualController vis = root.AddComponent<HeavyEnemyVisualController>();
+        vis.bodyRenderer = bodySr;
+        vis.headRenderer = headSr;
+
+        SavePrefab(root, "Enemy_Heavy");
+        Object.DestroyImmediate(root);
+    }
+
+    static void CreateDamageNumberPrefab()
+    {
+        GameObject go = new GameObject("DamageNumber");
+        TextMeshPro tmp = go.AddComponent<TextMeshPro>();
+        tmp.text = "10";
+        tmp.fontSize = 4f;
+        tmp.alignment = TextAlignmentOptions.Center;
+        tmp.color = new Color(1f, 0.85f, 0.25f);
+
+        go.AddComponent<Billboard>();
+        go.AddComponent<DamageNumber>();
+
+        SavePrefab(go, "DamageNumber");
         Object.DestroyImmediate(go);
     }
 

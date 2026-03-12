@@ -122,10 +122,9 @@ public class SpriteCharacter : MonoBehaviour
     private IEnumerator FlashCoroutine(float duration)
     {
         if (spriteRenderer == null) yield break;
-        Color originalColor = spriteRenderer.color;
-        spriteRenderer.color = new Color(1f, 0.2f, 0.2f); // Bright red
+        spriteRenderer.color = Color.red;
         yield return new WaitForSeconds(duration);
-        spriteRenderer.color = originalColor;
+        spriteRenderer.color = originalTint;
     }
     
     public void PlayDeathAnimation()

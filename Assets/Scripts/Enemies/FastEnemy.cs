@@ -9,7 +9,7 @@ public class FastEnemy : EnemyBase
     protected override void Awake()
     {
         base.Awake();
-        if (maxHP <= 0f)     maxHP     = 30f;
+        if (maxHP <= 0f)     maxHP     = 22f; // Weaker than chaser so upgrades feel stronger
         if (moveSpeed <= 0f) moveSpeed = 6f;
         if (xpDrop <= 0f)    xpDrop    = 8f;
     }

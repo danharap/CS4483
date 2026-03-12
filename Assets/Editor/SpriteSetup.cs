@@ -27,12 +27,32 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sBullet.png");
         ConfigureSingleSprite("Assets/Sprites/sGun.png");
         ConfigureSingleSprite("Assets/Sprites/sBg.png");
+        ConfigureSingleSprite("Assets/Sprites/sBg_Red.png");
         ConfigureSingleSprite("Assets/Sprites/sMap.png");
         ConfigureSingleSprite("Assets/Sprites/sMap_Arena2_Red.png");
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
         ConfigureSingleSprite("Assets/Sprites/sExperience.png"); // Custom XP orb
         ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
         ConfigureSingleSprite("Assets/Sprites/sdeadPlayer.png"); // Dead body prop
+        ConfigureSingleSprite("Assets/Sprites/sHeavyHead.png"); // Heavy enemy head (up/down)
+        ConfigureSingleSprite("Assets/Sprites/sHeavyHead_Right.png"); // Heavy enemy head (right)
+        ConfigureSingleSprite("Assets/Sprites/sObstacleBox.png"); // Obstacle box 40x40
+
+        // Heavy body frames (pre-cut individual PNGs in folders)
+        ConfigureSpritesInFolder("Assets/Sprites/TankWalking");
+        ConfigureSpritesInFolder("Assets/Sprites/Tank Walking Right");
+
+        // Bat enemies (pre-cut individual PNGs in folders)
+        ConfigureSpritesInFolder("Assets/Sprites/small Bat Fast");
+        ConfigureSpritesInFolder("Assets/Sprites/big Bat Fast");
+        ConfigureSpritesInFolder("Assets/Sprites/big Bat Fast Biting");
+
+        // Boss sprites (pre-cut individual PNGs in folders)
+        ConfigureSpritesInFolder("Assets/Sprites/Boss/Boss Body Walking");
+        ConfigureSpritesInFolder("Assets/Sprites/Boss/Boss Body Walking Right");
+        ConfigureSpritesInFolder("Assets/Sprites/Boss/Boss Body Attacking");
+        ConfigureSpritesInFolder("Assets/Sprites/Boss/Boss Head Walking");
+        ConfigureSpritesInFolder("Assets/Sprites/Boss/Boss Head Attacking");
 
         // Zap trap sheets (legacy) / pre-cut frames
         // If you use pre-cut frames, run CS4483 → ⚡ Setup ZapTrap Blue Frames (Pre-cut)
@@ -66,8 +86,40 @@ public static class SpriteSetup
         
         // Apply to enemy prefabs
         ApplySpriteToPrefab("Assets/Prefabs/Enemy_Chaser.prefab", enemy, deathSprite, Color.white); // No tint (default sprite color)
-        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", enemy, deathSprite, new Color(1f, 0.3f, 0.3f)); // Red tint
-        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Boss.prefab", enemy, deathSprite, new Color(0.7f, 0.2f, 1f)); // Purple tint
+        // Fast = small bat (no tint) - slightly larger
+        Sprite[] smallBatFast = LoadSpritesInFolder("Assets/Sprites/small Bat Fast");
+        if (smallBatFast.Length == 0) smallBatFast = enemy;
+        ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", smallBatFast, deathSprite, Color.white);
+        // Bump scale a bit vs default 1.5
+        using (var scope = new PrefabUtility.EditPrefabContentsScope("Assets/Prefabs/Enemy_Fast.prefab"))
+        {
+            GameObject root = scope.prefabContentsRoot;
+            SpriteCharacter sc = root.GetComponent<SpriteCharacter>();
+            if (sc != null) sc.spriteScale = new Vector3(1.65f, 1.65f, 1f);
+        }
+        // Boss uses Heavy-style Body+Head visuals + slam attack frames (no tint)
+        Sprite[] bossBodyWalk = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Body Walking");
+        Sprite[] bossBodyWalkRight = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Body Walking Right");
+        Sprite[] bossBodyAttack = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Body Attacking");
+        Sprite[] bossHeadWalk = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Head Walking");
+        Sprite[] bossHeadAttack = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Head Attacking");
+        ApplyBossSprites("Assets/Prefabs/Enemy_Boss.prefab", bossBodyWalk, bossBodyWalkRight, bossBodyAttack, bossHeadWalk, bossHeadAttack, deathSprite);
+        // Heavy: animated body from your custom tank frame folders + head sprites (flip when moving left)
+        // Put your folders inside the Unity project, e.g.:
+        //   Assets/Sprites/TankWalking/
+        //   Assets/Sprites/Tank Walking Right/
+        Sprite[] tankWalkUpDown = LoadSpritesInFolder("Assets/Sprites/TankWalking");
+        Sprite[] tankWalkRight  = LoadSpritesInFolder("Assets/Sprites/Tank Walking Right");
+        if (tankWalkUpDown.Length == 0 && tankWalkRight.Length == 0)
+            Debug.LogWarning("[SpriteSetup] Heavy tank body frames not found. Put frames in Assets/Sprites/TankWalking and Assets/Sprites/Tank Walking Right, then run step 1 + step 2 again.");
+        Sprite heavyHead = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sHeavyHead.png");
+        Sprite heavyHeadRight = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sHeavyHead_Right.png");
+        ApplyHeavyEnemySprites("Assets/Prefabs/Enemy_Heavy.prefab", tankWalkUpDown, tankWalkRight, heavyHead, heavyHeadRight);
+
+        // Big bat: normal flight + bite one-shot on contact
+        Sprite[] bigBatFast = LoadSpritesInFolder("Assets/Sprites/big Bat Fast");
+        Sprite[] bigBatBite = LoadSpritesInFolder("Assets/Sprites/big Bat Fast Biting");
+        ApplyBigBatSprites("Assets/Prefabs/Enemy_BigBat.prefab", bigBatFast, bigBatBite, deathSprite);
         
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
@@ -95,6 +147,10 @@ public static class SpriteSetup
         // Floor sprites
         theme.arena1FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
         theme.arena2FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
+
+        // Background sprites
+        theme.arena1BgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
+        theme.arena2BgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg_Red.png");
 
         // Trap animations
         theme.zapTrapBlueFrames = LoadZapTrapBlueFrames();
@@ -136,12 +192,12 @@ public static class SpriteSetup
         EnemyBase[] enemies = Object.FindObjectsOfType<EnemyBase>();
         foreach (EnemyBase e in enemies)
         {
-            Color tint = Color.white; // Default: no tint
-            if (e is FastEnemy) tint = new Color(1f, 0.3f, 0.3f); // Red tint
-            else if (e is BossEnemy) tint = new Color(0.7f, 0.2f, 1f); // Purple tint
-            // Chaser uses default (no tint)
-            
-            AddSpriteComponent(e.gameObject, enemy, deathSprite, tint);
+            if (e is HeavyEnemy) continue; // Heavy uses prefab Body+Head+HeavyEnemyVisualController, not SpriteCharacter
+            Color tint = Color.white;
+            Sprite[] frames = enemy;
+            if (e is FastEnemy) { tint = new Color(1f, 0.9f, 0.25f); }
+            else if (e is BossEnemy) { tint = new Color(0.7f, 0.2f, 1f); }
+            AddSpriteComponent(e.gameObject, frames, deathSprite, tint);
             count++;
         }
         
@@ -399,6 +455,159 @@ public static class SpriteSetup
             GameObject root = scope.prefabContentsRoot;
             AddSpriteComponent(root, frames, deathSprite, tint);
             Debug.Log($"[SpriteSetup] Applied sprite to {root.name}");
+        }
+    }
+
+    private static void ApplyHeavyEnemySprites(string prefabPath, Sprite[] bodyUpDownFrames, Sprite[] bodyRightFrames, Sprite headUpDown, Sprite headRight)
+    {
+        using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabPath))
+        {
+            GameObject root = scope.prefabContentsRoot;
+            Transform bodyT = root.transform.Find("Body");
+            if (bodyT == null)
+                bodyT = root.transform.Find("VisualRoot/Body");
+            if (bodyT != null)
+            {
+                SpriteRenderer bodySr = bodyT.GetComponent<SpriteRenderer>();
+                if (bodySr != null)
+                {
+                    // Set an initial sprite so it shows up immediately in prefab preview/play mode
+                    if (bodyUpDownFrames != null && bodyUpDownFrames.Length > 0)
+                        bodySr.sprite = bodyUpDownFrames[0];
+                    else if (bodyRightFrames != null && bodyRightFrames.Length > 0)
+                        bodySr.sprite = bodyRightFrames[0];
+                    bodySr.sortingOrder = 12; // Above head; also above floor/obstacles
+                }
+                Transform headT = bodyT.Find("Head");
+                if (headT != null)
+                {
+                    SpriteRenderer headSr = headT.GetComponent<SpriteRenderer>();
+                    if (headSr != null)
+                        headSr.sortingOrder = 11;
+                }
+            }
+            var vis = root.GetComponent<HeavyEnemyVisualController>();
+            if (vis != null)
+            {
+                if (bodyUpDownFrames != null && bodyUpDownFrames.Length > 0) vis.bodyUpDownFrames = bodyUpDownFrames;
+                if (bodyRightFrames != null && bodyRightFrames.Length > 0) vis.bodyRightFrames = bodyRightFrames;
+                if (headUpDown != null) vis.headUpDownSprite = headUpDown;
+                if (headRight != null) vis.headRightSprite = headRight;
+                vis.deathSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sEnemyDead.png");
+            }
+            Debug.Log($"[SpriteSetup] Applied body + head sprites to Heavy enemy prefab");
+        }
+    }
+
+    private static void ApplyBigBatSprites(string prefabPath, Sprite[] normalFrames, Sprite[] biteFrames, Sprite deathSprite)
+    {
+        using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabPath))
+        {
+            GameObject root = scope.prefabContentsRoot;
+
+            BatEnemyVisualController vis = root.GetComponent<BatEnemyVisualController>();
+            if (vis == null) vis = root.AddComponent<BatEnemyVisualController>();
+            vis.normalFrames = normalFrames;
+            vis.biteFrames = biteFrames;
+            vis.deathSprite = deathSprite;
+            // Slightly lower so it "sits" closer to the ground visually
+            vis.spriteLocalOffset = new Vector3(0f, -0.06f, 0f);
+
+            Debug.Log($"[SpriteSetup] Applied normal + bite sprites to BigBat prefab");
+        }
+    }
+
+    private static void ApplyBossSprites(
+        string prefabPath,
+        Sprite[] bodyWalk,
+        Sprite[] bodyWalkRight,
+        Sprite[] bodyAttack,
+        Sprite[] headWalk,
+        Sprite[] headAttack,
+        Sprite deathSprite)
+    {
+        using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabPath))
+        {
+            GameObject root = scope.prefabContentsRoot;
+
+            // Ensure no SpriteCharacter is left over from older setup
+            SpriteCharacter sc = root.GetComponent<SpriteCharacter>();
+            if (sc != null) Object.DestroyImmediate(sc);
+
+            BossVisualController vis = root.GetComponent<BossVisualController>();
+            if (vis == null) vis = root.AddComponent<BossVisualController>();
+            vis.bodyWalkUpDown = bodyWalk;
+            vis.bodyWalkRight = bodyWalkRight;
+            vis.bodyAttackFrames = bodyAttack;
+            vis.headWalkFrames = headWalk;
+            vis.headAttackFrames = headAttack;
+            vis.deathSprite = deathSprite;
+
+            // Set initial sprites so prefab preview isn't blank
+            Transform bodyT = root.transform.Find("Body");
+            if (bodyT != null)
+            {
+                SpriteRenderer bodySr = bodyT.GetComponent<SpriteRenderer>();
+                if (bodySr != null)
+                {
+                    if (bodyWalk != null && bodyWalk.Length > 0) bodySr.sprite = bodyWalk[0];
+                    else if (bodyWalkRight != null && bodyWalkRight.Length > 0) bodySr.sprite = bodyWalkRight[0];
+                    bodySr.sortingOrder = 20;
+                }
+                Transform headT = bodyT.Find("Head");
+                if (headT != null)
+                {
+                    SpriteRenderer headSr = headT.GetComponent<SpriteRenderer>();
+                    if (headSr != null)
+                    {
+                        if (headWalk != null && headWalk.Length > 0) headSr.sprite = headWalk[0];
+                        else if (headAttack != null && headAttack.Length > 0) headSr.sprite = headAttack[0];
+                        headSr.sortingOrder = 21;
+                    }
+                }
+            }
+
+            Debug.Log("[SpriteSetup] Applied boss body+head sprites to Boss prefab");
+        }
+    }
+
+    private static Sprite[] LoadSpritesInFolder(string folderPath)
+    {
+        if (!AssetDatabase.IsValidFolder(folderPath))
+            return new Sprite[0];
+
+        string[] guids = AssetDatabase.FindAssets("t:Sprite", new[] { folderPath });
+        var sprites = new List<Sprite>(guids.Length);
+        foreach (string guid in guids)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(assetPath);
+            if (s != null) sprites.Add(s);
+        }
+
+        sprites.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+        return sprites.ToArray();
+    }
+
+    private static void ConfigureSpritesInFolder(string folderPath)
+    {
+        if (!AssetDatabase.IsValidFolder(folderPath))
+            return;
+
+        string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { folderPath });
+        foreach (string guid in guids)
+        {
+            string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+            var importer = AssetImporter.GetAtPath(assetPath) as TextureImporter;
+            if (importer == null) continue;
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.filterMode = FilterMode.Point;
+            importer.spritePixelsPerUnit = 40;
+            importer.alphaSource = TextureImporterAlphaSource.FromInput;
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
         }
     }
     

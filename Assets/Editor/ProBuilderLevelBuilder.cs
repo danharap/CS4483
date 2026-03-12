@@ -17,8 +17,8 @@ public static class ProBuilderLevelBuilder
     private static Transform levelRoot;
     private static Material matFloor, matWall, matHub, matBoss, matObstacle;
 
-    private const string RocksSpritePath = "Assets/Sprites/Rocks.png";
-    private static UnityEngine.Sprite[] s_rockSprites;
+    private const string ObstacleSpritePath = "Assets/Sprites/sObstacleBox.png";
+    private static UnityEngine.Sprite s_obstacleSprite;
     const string Arena2RootName = "=== LEVEL (ProBuilder) Arena2 ===";
     const string Arena1RootName = "=== LEVEL (ProBuilder) ===";
     const float ArenaRadius = 38f;   // Circular wall radius (diameter = 76)
@@ -39,8 +39,6 @@ public static class ProBuilderLevelBuilder
 
         CreateFloor();
         CreateBoundaryWalls();
-        CreateCentralHub();
-        CreateBossArena();
         CreateRockObstacles();
         CreateTraps();
         CreateSpawnPoints();
@@ -59,7 +57,8 @@ public static class ProBuilderLevelBuilder
 
         EnsureMaterials();
         Material matFloor2 = GetOrCreateMat("M_Floor_Arena2",  new Color(0.25f, 0.22f, 0.35f));
-        Material matWall2  = GetOrCreateMat("M_Wall_Arena2",   new Color(0.35f, 0.25f, 0.45f));
+        // Arena 2 walls: similar dark metal tone so the circular border matches the map edge
+        Material matWall2  = GetOrCreateMat("M_Wall_Arena2",   new Color(0.18f, 0.20f, 0.24f));
 
         DestroyArena2IfExists();
 
@@ -73,23 +72,13 @@ public static class ProBuilderLevelBuilder
         walls.transform.SetParent(levelRoot);
         CreateCircularWalls(walls.transform, matWall2, ArenaRadius, 8f, 48);
 
-        GameObject hub = new GameObject("Central_Hub");
-        hub.transform.SetParent(levelRoot);
-        GameObject pillar = PBCube("Blue_Pillar", new Vector3(0, 3, 0), new Vector3(0.6f, 6f, 0.6f), null, hub.transform);
-        pillar.GetComponent<Renderer>().sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
-
-        GameObject bossP = new GameObject("Boss_Arena_South");
-        bossP.transform.SetParent(levelRoot);
-        GameObject bp = PBCube("Boss_Pillar", new Vector3(0, 3, -19), new Vector3(0.6f, 6f, 0.6f), matBoss, bossP.transform);
-        bp.GetComponent<Renderer>().sharedMaterial = matBoss;
-
         GameObject rocks = new GameObject("Rock_Obstacles");
         rocks.transform.SetParent(levelRoot);
-        CreateRockSprite(rocks.transform, "Rock1", new Vector3(10f, 0f, 10f),  2f,  1);
-        CreateRockSprite(rocks.transform, "Rock2", new Vector3(-10f, 0f, -12f), 2.25f, 2);
-        CreateRockSprite(rocks.transform, "Rock3", new Vector3(15f, 0f, -3f),  2.25f, 3);
-        CreateRockSprite(rocks.transform, "Rock4", new Vector3(-14f, 0f, 6f), 2.5f, 4);
-        CreateRockSprite(rocks.transform, "Rock5", new Vector3(0f, 0f, 8f),    2.5f, 5);
+        CreateObstacleSprite(rocks.transform, "Box1", new Vector3(10f, 0f, 10f),  2f);
+        CreateObstacleSprite(rocks.transform, "Box2", new Vector3(-10f, 0f, -12f), 2.25f);
+        CreateObstacleSprite(rocks.transform, "Box3", new Vector3(15f, 0f, -3f),  2.25f);
+        CreateObstacleSprite(rocks.transform, "Box4", new Vector3(-14f, 0f, 6f),  2.5f);
+        CreateObstacleSprite(rocks.transform, "Box5", new Vector3(0f, 0f, 8f),    2.5f);
 
         CreateTraps();
         CreateSpawnPoints();
@@ -134,7 +123,8 @@ public static class ProBuilderLevelBuilder
             AssetDatabase.CreateFolder("Assets", "Materials");
 
         matFloor    = GetOrCreateMat("M_Floor",    new Color(0.60f, 0.60f, 0.60f));
-        matWall     = GetOrCreateMat("M_Wall",     new Color(0.2f, 0.6f, 0.3f)); // Green walls
+        // Dark metal-ish border walls to match floor edge
+        matWall     = GetOrCreateMat("M_Wall",     new Color(0.16f, 0.18f, 0.22f));
         matHub      = GetOrCreateMat("M_Hub",      new Color(0.85f, 0.85f, 0.85f));
         matBoss     = GetOrCreateMat("M_Boss",     new Color(0.40f, 0.02f, 0.02f));
         matObstacle = GetOrCreateMat("M_Obstacle", new Color(0.45f, 0.40f, 0.35f));
@@ -242,82 +232,64 @@ public static class ProBuilderLevelBuilder
         pillar.GetComponent<Renderer>().sharedMaterial = matBoss;
     }
 
-    // ── Rock Obstacles (for cover and navigation) ─────────────────────────
-
-    /// <summary>Slice Rocks.png (72x48, 2x3 grid) into 6 sprites and cache. PPU 12 so 24px = 2 units.</summary>
-    static void EnsureRockSprites()
+    // ── Obstacle Boxes (for cover and navigation) ─────────────────────────
+    
+    /// <summary>Configure the obstacle box sprite as a single sprite with correct PPU and transparency.</summary>
+    static void EnsureObstacleSprite()
     {
-        if (s_rockSprites != null && s_rockSprites.Length == 6) return;
-        const string path = RocksSpritePath;
+        if (s_obstacleSprite != null) return;
+
+        const string path = ObstacleSpritePath;
         TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
         if (importer != null)
         {
-            Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
-            if (tex != null)
-            {
-                int cw = 24, ch = 24;
-                bool needReimport = importer.textureType != TextureImporterType.Sprite
-                    || importer.spriteImportMode != SpriteImportMode.Multiple
-                    || importer.spritesheet == null || importer.spritesheet.Length != 6;
-                if (needReimport)
-                {
-                    importer.textureType = TextureImporterType.Sprite;
-                    importer.spriteImportMode = SpriteImportMode.Multiple;
-                    importer.filterMode = FilterMode.Point;
-                    importer.spritePixelsPerUnit = 12f;
-                    importer.alphaIsTransparency = true;
-                    importer.spritesheet = new[]
-                    {
-                        new SpriteMetaData { name = "Rock0", rect = new Rect(0, 0, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
-                        new SpriteMetaData { name = "Rock1", rect = new Rect(24, 0, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
-                        new SpriteMetaData { name = "Rock2", rect = new Rect(48, 0, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
-                        new SpriteMetaData { name = "Rock3", rect = new Rect(0, 24, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
-                        new SpriteMetaData { name = "Rock4", rect = new Rect(24, 24, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
-                        new SpriteMetaData { name = "Rock5", rect = new Rect(48, 24, cw, ch), alignment = (int)SpriteAlignment.Center, pivot = new Vector2(0.5f, 0.5f) },
-                    };
-                    importer.SaveAndReimport();
-                }
-            }
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.filterMode = FilterMode.Point;
+            importer.spritePixelsPerUnit = 40f; // 40x40 sprite = 1 world unit at scale 1
+            importer.alphaIsTransparency = true;
+            importer.SaveAndReimport();
         }
-        Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
-        var list = new System.Collections.Generic.List<UnityEngine.Sprite>();
-        foreach (Object o in assets)
-        {
-            if (o is UnityEngine.Sprite s && s.name.StartsWith("Rock"))
-                list.Add(s);
-        }
-        list.Sort((a, b) => a.name.CompareTo(b.name));
-        s_rockSprites = list.Count >= 6 ? list.GetRange(0, 6).ToArray() : new UnityEngine.Sprite[0];
-    }
 
-    /// <summary>Create one rock obstacle using a sprite from the Rocks sheet. Same footprint as before, bullet + player collision.</summary>
-    static void CreateRockSprite(Transform parent, string name, Vector3 position, float scaleXZ, int spriteIndex)
+        s_obstacleSprite = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(path);
+    }
+    
+    /// <summary>Create one obstacle box using the box sprite. Same gameplay footprint as previous rocks.</summary>
+    static void CreateObstacleSprite(Transform parent, string name, Vector3 position, float scaleXZ)
     {
-        EnsureRockSprites();
-        if (s_rockSprites == null || s_rockSprites.Length == 0)
+        EnsureObstacleSprite();
+        if (s_obstacleSprite == null)
         {
-            Debug.LogWarning("[ProBuilderLevelBuilder] Rocks.png not found or not sliced; skipping rock " + name);
+            Debug.LogWarning("[ProBuilderLevelBuilder] Obstacle sprite not found; skipping obstacle " + name);
             return;
         }
-        UnityEngine.Sprite sprite = s_rockSprites[Mathf.Clamp(spriteIndex, 0, s_rockSprites.Length - 1)];
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent);
         go.transform.position = position;
-        go.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-        float s = scaleXZ / 2f;
-        go.transform.localScale = new Vector3(s, s, 1f);
+        go.transform.rotation = Quaternion.identity;
 
-        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-        sr.sprite = sprite;
-        sr.sortingOrder = 0;
+        // Visual (sprite) as a child so we can rotate/billboard it without messing up collider orientation.
+        // 40 PPU: 40px sprite at scale 1 = 1 world unit. Slightly smaller than before.
+        float visualSize = scaleXZ * 1.8f;
+        GameObject visual = new GameObject("Visual");
+        visual.transform.SetParent(go.transform);
+        visual.transform.localPosition = Vector3.zero;
+        visual.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        visual.transform.localScale = new Vector3(visualSize, visualSize, 1f);
 
+        SpriteRenderer sr = visual.AddComponent<SpriteRenderer>();
+        sr.sprite = s_obstacleSprite;
+        sr.sortingOrder = 1; // above floor/map
+        visual.AddComponent<Billboard>();
+
+        // Collider on parent (upright, not rotated): blocks player (CharacterController) and enemies.
+        // Size is in local space. We scale X/Z to match visual footprint, and keep Y as a reasonable height.
         BoxCollider col = go.AddComponent<BoxCollider>();
-        col.size = new Vector3(scaleXZ, 0.5f, scaleXZ);
-        col.center = new Vector3(0f, 0.25f, 0f);
+        col.size = new Vector3(visualSize, 1.2f, visualSize);
+        col.center = new Vector3(0f, col.size.y * 0.5f, 0f); // sit on ground
 
-        Rigidbody rb = go.AddComponent<Rigidbody>();
-        rb.isKinematic = true;
-        rb.useGravity = false;
+        // No Rigidbody: static collider so both CharacterController (player) and Rigidbody (enemies) collide with boxes
+        go.layer = LayerMask.NameToLayer("Default");
 
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
     }
@@ -326,12 +298,12 @@ public static class ProBuilderLevelBuilder
     {
         GameObject p = new GameObject("Rock_Obstacles");
         p.transform.SetParent(levelRoot);
-
-        CreateRockSprite(p.transform, "Rock1", new Vector3(-8, 0, 5),   2f,   0);
-        CreateRockSprite(p.transform, "Rock2", new Vector3(6, 0, 8),    2.25f, 1);
-        CreateRockSprite(p.transform, "Rock3", new Vector3(-10, 0, -8), 2.25f, 2);
-        CreateRockSprite(p.transform, "Rock4", new Vector3(12, 0, -5), 2.5f, 3);
-        CreateRockSprite(p.transform, "Rock5", new Vector3(5, 0, -10), 2.5f, 4);
+        
+        CreateObstacleSprite(p.transform, "Box1", new Vector3(-8, 0, 5),   2f);
+        CreateObstacleSprite(p.transform, "Box2", new Vector3(6, 0, 8),    2.25f);
+        CreateObstacleSprite(p.transform, "Box3", new Vector3(-10, 0, -8), 2.25f);
+        CreateObstacleSprite(p.transform, "Box4", new Vector3(12, 0, -5),  2.5f);
+        CreateObstacleSprite(p.transform, "Box5", new Vector3(5, 0, -10),  2.5f);
     }
 
     // ── Arena Traps (damage + stun on step) ─────────────────────────────────

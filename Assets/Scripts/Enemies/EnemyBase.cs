@@ -29,6 +29,9 @@ public abstract class EnemyBase : MonoBehaviour
     [SerializeField] private AudioClip deathSound;
     [SerializeField] [Range(0f, 1f)] private float deathVolume = 0.5f;
 
+    [Header("FX")]
+    [SerializeField] private GameObject damageNumberPrefab;
+
     // ── State ─────────────────────────────────────────────────────────────
     public float CurrentHP { get; protected set; }
     public bool  IsAlive   { get; private set; } = true;
@@ -125,6 +128,7 @@ public abstract class EnemyBase : MonoBehaviour
     {
         if (!IsAlive) return;
         CurrentHP -= amount;
+        SpawnDamageNumber(amount);
         StartCoroutine(HitFlash());
 
         if (CurrentHP <= 0f) Die();
@@ -157,12 +161,30 @@ public abstract class EnemyBase : MonoBehaviour
 
         EnemyRegistry.Unregister(this);
         
-        // Play death animation if sprite exists
+        // Play death animation if sprite component exists
         SpriteCharacter spriteChar = GetComponent<SpriteCharacter>();
+        HeavyEnemyVisualController heavyVis = GetComponent<HeavyEnemyVisualController>();
+        BatEnemyVisualController batVis = GetComponent<BatEnemyVisualController>();
+        BossVisualController bossVis = GetComponent<BossVisualController>();
         if (spriteChar != null)
         {
             spriteChar.PlayDeathAnimation();
-            Destroy(gameObject, 0.5f); // Delay destruction for death animation
+            Destroy(gameObject, 0.5f);
+        }
+        else if (heavyVis != null)
+        {
+            heavyVis.PlayDeathAnimation();
+            Destroy(gameObject, 0.5f);
+        }
+        else if (batVis != null)
+        {
+            batVis.PlayDeathAnimation();
+            Destroy(gameObject, 0.5f);
+        }
+        else if (bossVis != null)
+        {
+            bossVis.PlayDeathAnimation();
+            Destroy(gameObject, 0.6f);
         }
         else
         {
@@ -178,8 +200,17 @@ public abstract class EnemyBase : MonoBehaviour
         
         // Flash sprite red if it exists
         SpriteCharacter spriteChar = GetComponent<SpriteCharacter>();
+        HeavyEnemyVisualController heavyVis = GetComponent<HeavyEnemyVisualController>();
+        BatEnemyVisualController batVis = GetComponent<BatEnemyVisualController>();
+        BossVisualController bossVis = GetComponent<BossVisualController>();
         if (spriteChar != null)
             spriteChar.FlashRed(hitFlashDuration);
+        else if (heavyVis != null)
+            heavyVis.FlashRed(hitFlashDuration);
+        else if (batVis != null)
+            batVis.FlashRed(hitFlashDuration);
+        else if (bossVis != null)
+            bossVis.FlashRed(hitFlashDuration);
         
         yield return new WaitForSeconds(hitFlashDuration);
         RestoreColors();
@@ -201,5 +232,21 @@ public abstract class EnemyBase : MonoBehaviour
     {
         for (int i = 0; i < renderers.Length; i++)
             if (renderers[i] != null) renderers[i].material.color = originalColors[i];
+    }
+
+    private void SpawnDamageNumber(float amount)
+    {
+        if (damageNumberPrefab == null) return;
+        GameObject go = Instantiate(
+            damageNumberPrefab,
+            transform.position + Vector3.up * 1.4f,
+            Quaternion.identity);
+
+        DamageNumber dn = go.GetComponent<DamageNumber>();
+        if (dn != null)
+        {
+            // Soft yellow so it stands out on dark floor and red hit flash
+            dn.Initialize(amount, new Color(1f, 0.9f, 0.5f));
+        }
     }
 }
