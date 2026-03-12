@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 7403996441213075819}
   - component: {fileID: 2224426828353491057}
   - component: {fileID: 5783507493545557590}
+  - component: {fileID: 7448243516239522092}
   m_Layer: 0
   m_Name: HealthPack
   m_TagString: Untagged
@@ -70,6 +71,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   healAmount: 20
   lifetime: 10
+--- !u!114 &7448243516239522092
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1689341203663604844}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 23b5ad641fb53a3478f1a55fb04fbe43, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  pickupSprite: {fileID: 21300000, guid: 699da0d2ec8ff5045afabb3a9b81c2ec, type: 3}
+  spriteScale: {x: 1.5, y: 1.5, z: 1}
+  rotationSpeed: 45
+  bobSpeed: 2
+  bobAmount: 0.2
+  enableGlow: 1
+  glowColor: {r: 0.2, g: 1, b: 0.3, a: 1}
+  glowIntensity: 2.5
+  glowRange: 3.5
 --- !u!1 &2603918682234093203
 GameObject:
   m_ObjectHideFlags: 0

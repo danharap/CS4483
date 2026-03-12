@@ -21,6 +21,8 @@ public static class ProBuilderLevelBuilder
     private static UnityEngine.Sprite[] s_rockSprites;
     const string Arena2RootName = "=== LEVEL (ProBuilder) Arena2 ===";
     const string Arena1RootName = "=== LEVEL (ProBuilder) ===";
+    const float ArenaRadius = 38f;   // Circular wall radius (diameter = 76)
+    const float ArenaFloorSize = 78f; // Floor cube size to contain the circle
 
     [MenuItem("CS4483/1 - Build ProBuilder Graybox Level")]
     public static void BuildLevel()
@@ -65,14 +67,11 @@ public static class ProBuilderLevelBuilder
         root.SetActive(false);
         levelRoot = root.transform;
 
-        PBCube("Floor", new Vector3(0f, -0.2f, 0f), new Vector3(50f, 0.4f, 50f), matFloor2, levelRoot);
+        PBCube("Floor", new Vector3(0f, -0.2f, 0f), new Vector3(ArenaFloorSize, 0.4f, ArenaFloorSize), matFloor2, levelRoot);
 
         GameObject walls = new GameObject("Boundary_Walls");
         walls.transform.SetParent(levelRoot);
-        PBCube("Wall_North", new Vector3(0,    4,  25),  new Vector3(50f, 8f, 0.5f), matWall2, walls.transform);
-        PBCube("Wall_South", new Vector3(0,    4, -25),  new Vector3(50f, 8f, 0.5f), matWall2, walls.transform);
-        PBCube("Wall_East",  new Vector3(25,   4,   0),  new Vector3(0.5f, 8f, 50f), matWall2, walls.transform);
-        PBCube("Wall_West",  new Vector3(-25,  4,   0),  new Vector3(0.5f, 8f, 50f), matWall2, walls.transform);
+        CreateCircularWalls(walls.transform, matWall2, ArenaRadius, 8f, 48);
 
         GameObject hub = new GameObject("Central_Hub");
         hub.transform.SetParent(levelRoot);
@@ -187,8 +186,26 @@ public static class ProBuilderLevelBuilder
 
     static void CreateFloor()
     {
-        // Use a very flat cube for the floor (better collision than plane)
-        GameObject floor = PBCube("Floor", new Vector3(0f, -0.2f, 0f), new Vector3(50f, 0.4f, 50f), matFloor, levelRoot);
+        GameObject floor = PBCube("Floor", new Vector3(0f, -0.2f, 0f), new Vector3(ArenaFloorSize, 0.4f, ArenaFloorSize), matFloor, levelRoot);
+    }
+
+    /// <summary>Create a circular boundary wall from segments. radius and wallHeight in world units.</summary>
+    static void CreateCircularWalls(Transform parent, Material wallMat, float radius = 25f, float wallHeight = 8f, int segments = 48)
+    {
+        float angleStep = 360f / segments;
+        float segmentWidth = (2f * Mathf.PI * radius) / segments;
+        float wallThickness = 0.5f;
+        for (int i = 0; i < segments; i++)
+        {
+            float angleDeg = i * angleStep;
+            float angleRad = angleDeg * Mathf.Deg2Rad;
+            float x = radius * Mathf.Cos(angleRad);
+            float z = radius * Mathf.Sin(angleRad);
+            Vector3 pos = new Vector3(x, wallHeight * 0.5f, z);
+            Vector3 size = new Vector3(segmentWidth, wallHeight, wallThickness);
+            GameObject seg = PBCube($"Wall_Seg_{i}", pos, size, wallMat, parent);
+            seg.transform.rotation = Quaternion.Euler(0f, 90f - angleDeg, 0f);
+        }
     }
 
     // ── Boundary Walls ────────────────────────────────────────────────────
@@ -197,11 +214,7 @@ public static class ProBuilderLevelBuilder
     {
         GameObject p = new GameObject("Boundary_Walls");
         p.transform.SetParent(levelRoot);
-        
-        PBCube("Wall_North", new Vector3(0,    4,  25),  new Vector3(50f, 8f, 0.5f), matWall, p.transform);
-        PBCube("Wall_South", new Vector3(0,    4, -25),  new Vector3(50f, 8f, 0.5f), matWall, p.transform);
-        PBCube("Wall_East",  new Vector3(25,   4,   0),  new Vector3(0.5f, 8f, 50f), matWall, p.transform);
-        PBCube("Wall_West",  new Vector3(-25,  4,   0),  new Vector3(0.5f, 8f, 50f), matWall, p.transform);
+        CreateCircularWalls(p.transform, matWall, ArenaRadius, 8f, 48);
     }
 
     // ── Central Hub ───────────────────────────────────────────────────────
