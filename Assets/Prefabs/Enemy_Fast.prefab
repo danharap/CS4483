@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 8510092091489367726}
   - component: {fileID: 3860849746776456161}
   - component: {fileID: 3366895924449373630}
-  - component: {fileID: 6003502930402398021}
+  - component: {fileID: 3539094650226496785}
   m_Layer: 0
   m_Name: Enemy_Fast
   m_TagString: Untagged
@@ -183,7 +183,7 @@ MonoBehaviour:
   healthPackDropChance: 0.1
   deathSound: {fileID: 8300000, guid: fc6f79d2f98db4596b98804d2a93b5ca, type: 3}
   deathVolume: 0.5
---- !u!114 &6003502930402398021
+--- !u!114 &3539094650226496785
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

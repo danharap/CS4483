@@ -303,7 +303,7 @@ public static class SpriteSetup
         GameObject spriteObj = new GameObject("DeadBody_Sprite");
         spriteObj.transform.SetParent(root.transform);
         spriteObj.transform.localPosition = Vector3.zero;
-        spriteObj.transform.localScale = new Vector3(1.5f, 1.5f, 1f);
+        spriteObj.transform.localScale = new Vector3(0.2f, 0.2f, 1f); // Double of 0.1 (~20x20)
         SpriteRenderer sr = spriteObj.AddComponent<SpriteRenderer>();
         sr.sprite = deadBodySprite;
         sr.sortingOrder = 5;

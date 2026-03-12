@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 3276231741269776701}
   - component: {fileID: 692796274303923266}
   - component: {fileID: 7378265163322050451}
-  - component: {fileID: 185383026186340882}
+  - component: {fileID: 1872311411468598996}
   m_Layer: 0
   m_Name: Projectile
   m_TagString: Untagged
@@ -148,7 +148,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxTravelDistance: 30
---- !u!114 &185383026186340882
+--- !u!114 &1872311411468598996
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

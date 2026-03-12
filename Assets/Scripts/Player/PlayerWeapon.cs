@@ -21,7 +21,7 @@ public class PlayerWeapon : MonoBehaviour
     
     [Header("Audio")]
     [SerializeField] private AudioClip shootSound;
-    [SerializeField] [Range(0f, 1f)] private float shootVolume = 0.3f;
+    [SerializeField] [Range(0f, 1f)] private float shootVolume = 0.06f;
 
     // ── State ─────────────────────────────────────────────────────────────
     private float fireTimer;
