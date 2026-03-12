@@ -34,9 +34,9 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
         ConfigureSingleSprite("Assets/Sprites/sdeadPlayer.png"); // Dead body prop
 
-        // Zap trap sheets (6x2 = 12 frames)
-        SliceSpriteSheetGrid("Assets/Sprites/sZapTrap_Blue.png", 6, 2, 32);
-        SliceSpriteSheetGrid("Assets/Sprites/sZapTrap_Red.png", 6, 2, 32);
+        // Zap trap sheets (legacy) / pre-cut frames
+        // If you use pre-cut frames, run CS4483 → ⚡ Setup ZapTrap Blue Frames (Pre-cut)
+        // and SpriteSetup will load frames from Assets/Sprites/ZapTrapBlueFrames.
         
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -179,7 +179,7 @@ public static class SpriteSetup
         }
 
         // Apply zap trap animations (blue in Arena 1, red in Arena 2)
-        Sprite[] zapBlue = LoadSlicedSprites("sZapTrap_Blue");
+        Sprite[] zapBlue = LoadZapTrapBlueFrames();
         Sprite[] zapRed = LoadSlicedSprites("sZapTrap_Red");
         int trapCount = 0;
         foreach (ArenaTrap trap in Resources.FindObjectsOfTypeAll<ArenaTrap>())
@@ -231,6 +231,22 @@ public static class SpriteSetup
             t = t.parent;
         }
         return false;
+    }
+
+    private static Sprite[] LoadZapTrapBlueFrames()
+    {
+        // Prefer pre-cut frames in Assets/Sprites/ZapTrapBlueFrames/0..11.png
+        var list = new List<Sprite>();
+        for (int i = 0; i < 12; i++)
+        {
+            string path = $"Assets/Sprites/ZapTrapBlueFrames/{i}.png";
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s != null) list.Add(s);
+        }
+        if (list.Count == 12) return list.ToArray();
+
+        // Fallback: if frames aren’t present, try legacy sliced sheet
+        return LoadSlicedSprites("sZapTrap_Blue");
     }
     
     // ── Helper Methods ────────────────────────────────────────────────────

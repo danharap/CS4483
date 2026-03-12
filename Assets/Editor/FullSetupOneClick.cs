@@ -20,6 +20,9 @@ public static class FullSetupOneClick
             // 1) Ensure sprite import settings / slicing are correct
             SpriteSetup.SliceSpriteSheets();
 
+            // 1.5) Ensure pre-cut zap trap frames have correct pivot/settings
+            ZapTrapFrameSetup.SetupBlueFrames();
+
             // 2) Build / rebuild the full scene (this also creates Assets/Prefabs/*)
             SetupAll.SetupEverything();
 
