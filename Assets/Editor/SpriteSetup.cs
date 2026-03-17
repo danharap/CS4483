@@ -8,6 +8,10 @@ using System.Collections.Generic;
 /// </summary>
 public static class SpriteSetup
 {
+    // Global pixel-art scale target:
+    // - 40x40 sprites at PPU 20 = 2 world units (bigger, readable)
+    // - 1024x1024 arena map at PPU 20 = 51.2 world units (fits ~50 unit arena with small scale tweak)
+    private const float GlobalPPU = 20f;
     [MenuItem("CS4483/🎨 1. Slice Sprite Sheets")]
     public static void SliceSpriteSheets()
     {
@@ -90,12 +94,12 @@ public static class SpriteSetup
         Sprite[] smallBatFast = LoadSpritesInFolder("Assets/Sprites/small Bat Fast");
         if (smallBatFast.Length == 0) smallBatFast = enemy;
         ApplySpriteToPrefab("Assets/Prefabs/Enemy_Fast.prefab", smallBatFast, deathSprite, Color.white);
-        // Bump scale a bit vs default 1.5
+        // With GlobalPPU=20, keep Fast enemy at scale 1
         using (var scope = new PrefabUtility.EditPrefabContentsScope("Assets/Prefabs/Enemy_Fast.prefab"))
         {
             GameObject root = scope.prefabContentsRoot;
             SpriteCharacter sc = root.GetComponent<SpriteCharacter>();
-            if (sc != null) sc.spriteScale = new Vector3(1.65f, 1.65f, 1f);
+            if (sc != null) sc.spriteScale = Vector3.one;
         }
         // Boss uses Heavy-style Body+Head visuals + slam attack frames (no tint)
         Sprite[] bossBodyWalk = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Body Walking");
@@ -152,9 +156,10 @@ public static class SpriteSetup
         theme.arena1BgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
         theme.arena2BgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg_Red.png");
 
-        // Trap animations
-        theme.zapTrapBlueFrames = LoadZapTrapBlueFrames();
-        theme.zapTrapRedFrames = LoadZapTrapRedFrames();
+        // Trap animations (use unified spike trap frames for both arenas)
+        Sprite[] spikeFrames = LoadSpikeTrapFrames();
+        theme.zapTrapBlueFrames = spikeFrames;
+        theme.zapTrapRedFrames = spikeFrames;
     }
     
     [MenuItem("CS4483/🎨 3. Apply Sprites to Scene Objects")]
@@ -234,19 +239,14 @@ public static class SpriteSetup
             healthCount++;
         }
 
-        // Apply zap trap animations (blue in Arena 1, red in Arena 2)
-        Sprite[] zapBlue = LoadZapTrapBlueFrames();
-        Sprite[] zapRed = LoadZapTrapRedFrames();
+        // Apply spike trap sprites to all traps in scene (same frames for both arenas, from Assets/Sprites/Spike Trap)
+        Sprite[] spikeFrames = LoadSpikeTrapFrames();
         int trapCount = 0;
         foreach (ArenaTrap trap in Resources.FindObjectsOfTypeAll<ArenaTrap>())
         {
             if (trap == null) continue;
             // Skip prefabs/assets, only operate on scene objects
             if (EditorUtility.IsPersistent(trap.gameObject)) continue;
-
-            // Remove any legacy 3D pad visuals
-            Transform pad = trap.transform.Find("Pad");
-            if (pad != null) Object.DestroyImmediate(pad.gameObject);
 
             Transform visual = trap.transform.Find("TrapVisual");
             if (visual == null)
@@ -257,7 +257,7 @@ public static class SpriteSetup
                 visual = v.transform;
             }
 
-            // Ensure there is only ONE trap sprite renderer (fixes “frame 0 stuck” layering).
+            // Clean any old sprite renderers / children
             foreach (Transform child in visual)
             {
                 if (child.name == "Trap_Sprite")
@@ -268,11 +268,16 @@ public static class SpriteSetup
 
             TrapSpriteAnimator anim = visual.GetComponent<TrapSpriteAnimator>();
             if (anim == null) anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
-            anim.frameRate = 12f;
+            anim.frameRate = 18f;
             anim.sortingOrder = 2;
+            anim.playOnAwake = false; // stay on first frame until trap activates it
+            anim.SetFrames(spikeFrames);
 
-            bool isArena2 = IsUnderRootNamed(trap.gameObject, "=== LEVEL (ProBuilder) Arena2 ===");
-            anim.SetFrames(isArena2 ? zapRed : zapBlue);
+            // Wire animator back to ArenaTrap so it can toggle activation.
+            SerializedObject soTrap = new SerializedObject(trap);
+            soTrap.FindProperty("spriteAnimator").objectReferenceValue = anim;
+            soTrap.ApplyModifiedPropertiesWithoutUndo();
+
             trapCount++;
         }
         
@@ -299,36 +304,45 @@ public static class SpriteSetup
         return false;
     }
 
-    private static Sprite[] LoadZapTrapBlueFrames()
+    private static Sprite[] LoadSpikeTrapFrames()
     {
-        // Prefer pre-cut frames in Assets/Sprites/ZapTrapBlueFrames/0..11.png
-        var list = new List<Sprite>();
-        for (int i = 0; i < 12; i++)
+        // Frames placed as individual PNGs under Assets/Sprites/Spike Trap/0.png,1.png,...
+        // Ensure each texture is imported as a Sprite first.
+        string dir = "Assets/Sprites/Spike Trap";
+        string[] fileNames = System.IO.Directory.GetFiles(dir, "*.png");
+        foreach (string fsPath in fileNames)
         {
-            string path = $"Assets/Sprites/ZapTrapBlueFrames/{i}.png";
+            string unityPath = fsPath.Replace("\\", "/");
+            TextureImporter imp = AssetImporter.GetAtPath(unityPath) as TextureImporter;
+            if (imp != null && imp.textureType != TextureImporterType.Sprite)
+            {
+                imp.textureType = TextureImporterType.Sprite;
+                imp.spriteImportMode = SpriteImportMode.Single;
+                imp.filterMode = FilterMode.Point;
+                imp.spritePixelsPerUnit = GlobalPPU;
+                imp.mipmapEnabled = false;
+                imp.textureCompression = TextureImporterCompression.Uncompressed;
+                imp.crunchedCompression = false;
+                imp.npotScale = TextureImporterNPOTScale.None;
+                imp.alphaIsTransparency = true;
+                imp.SaveAndReimport();
+            }
+        }
+
+        var list = new List<Sprite>();
+        for (int i = 0; i < 32; i++)
+        {
+            string path = $"{dir}/{i}.png";
             Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             if (s != null) list.Add(s);
         }
-        if (list.Count == 12) return list.ToArray();
-
-        // Fallback: if frames aren’t present, try legacy sliced sheet
-        return LoadSlicedSprites("sZapTrap_Blue");
-    }
-
-    private static Sprite[] LoadZapTrapRedFrames()
-    {
-        // Prefer pre-cut frames in Assets/Sprites/ZapTrapRedFrames/0..11.png
-        var list = new List<Sprite>();
-        for (int i = 0; i < 12; i++)
+        if (list.Count == 0)
         {
-            string path = $"Assets/Sprites/ZapTrapRedFrames/{i}.png";
-            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
-            if (s != null) list.Add(s);
+            Debug.LogWarning("[SpriteSetup] No spike trap frames found in Assets/Sprites/Spike Trap; traps will stay on default frame.");
+            return System.Array.Empty<Sprite>();
         }
-        if (list.Count == 12) return list.ToArray();
-
-        // Fallback: legacy sliced sheet
-        return LoadSlicedSprites("sZapTrap_Red");
+        Debug.Log($"[SpriteSetup] Loaded {list.Count} spike trap frame(s) from '{dir}'.");
+        return list.ToArray();
     }
     
     // ── Helper Methods ────────────────────────────────────────────────────
@@ -341,7 +355,13 @@ public static class SpriteSetup
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Multiple;
         importer.filterMode = FilterMode.Point;
-        importer.spritePixelsPerUnit = 32; // Adjust for pixel art
+        importer.spritePixelsPerUnit = GlobalPPU;
+        importer.mipmapEnabled = false;
+        importer.textureCompression = TextureImporterCompression.Uncompressed;
+        importer.crunchedCompression = false;
+        importer.alphaSource = TextureImporterAlphaSource.FromInput;
+        importer.alphaIsTransparency = true;
+        importer.npotScale = TextureImporterNPOTScale.None;
         
         // Get texture dimensions
         Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
@@ -379,6 +399,10 @@ public static class SpriteSetup
         importer.spritePixelsPerUnit = ppu;
         importer.alphaSource = TextureImporterAlphaSource.FromInput;
         importer.alphaIsTransparency = true;
+        importer.mipmapEnabled = false;
+        importer.textureCompression = TextureImporterCompression.Uncompressed;
+        importer.crunchedCompression = false;
+        importer.npotScale = TextureImporterNPOTScale.None;
 
         Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         if (tex == null) return;
@@ -432,7 +456,8 @@ public static class SpriteSetup
         spriteChar.deathSprite = deathSprite;
         spriteChar.tintColor = tint;
         spriteChar.frameRate = 10f;
-        spriteChar.spriteScale = new Vector3(1.5f, 1.5f, 1f);
+        // With GlobalPPU=20, sprites are already larger in world units; keep scale at 1 for consistency.
+        spriteChar.spriteScale = Vector3.one;
     }
     
     private static void AddPlayerSpriteComponent(GameObject target, Sprite[] idleFrames, Sprite[] runFrames)
@@ -445,7 +470,7 @@ public static class SpriteSetup
         spriteChar.runFrames = runFrames;
         spriteChar.tintColor = Color.white;
         spriteChar.frameRate = 10f;
-        spriteChar.spriteScale = new Vector3(1.5f, 1.5f, 1f);
+        spriteChar.spriteScale = Vector3.one;
     }
     
     private static void ApplySpriteToPrefab(string prefabPath, Sprite[] frames, Sprite deathSprite, Color tint)
@@ -604,9 +629,14 @@ public static class SpriteSetup
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
             importer.filterMode = FilterMode.Point;
-            importer.spritePixelsPerUnit = 40;
+            importer.spritePixelsPerUnit = GlobalPPU;
             importer.alphaSource = TextureImporterAlphaSource.FromInput;
             importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.crunchedCompression = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.maxTextureSize = 8192;
             importer.SaveAndReimport();
         }
     }
@@ -619,9 +649,14 @@ public static class SpriteSetup
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Single;
         importer.filterMode = FilterMode.Point;
-        importer.spritePixelsPerUnit = 40; // Changed from 32 to 40 for 40x40 assets
+        importer.spritePixelsPerUnit = GlobalPPU;
         importer.alphaSource = TextureImporterAlphaSource.FromInput; // Preserve alpha channel
         importer.alphaIsTransparency = true; // Enable transparency
+        importer.mipmapEnabled = false;
+        importer.textureCompression = TextureImporterCompression.Uncompressed;
+        importer.crunchedCompression = false;
+        importer.npotScale = TextureImporterNPOTScale.None;
+        importer.maxTextureSize = (path.Contains("sMap") || path.Contains("sBg")) ? 8192 : 4096;
         importer.SaveAndReimport();
         
         Debug.Log($"[SpriteSetup] Configured single sprite with transparency: {path}");

@@ -12,7 +12,7 @@ public class CameraController : MonoBehaviour
     [SerializeField] private Transform target;
 
     [Header("Camera Offset (world-space)")]
-    [SerializeField] private Vector3 offset     = new Vector3(0f, 18f, -11f); // slightly more zoomed out by default
+    [SerializeField] private Vector3 offset     = new Vector3(0f, 20f, -10f);
 
     [Header("Zoom")]
     [SerializeField] private float defaultZoom = 1.0f;
@@ -43,8 +43,15 @@ public class CameraController : MonoBehaviour
         {
             // Try to find the player if not set
             GameObject p = GameObject.FindGameObjectWithTag("Player");
-            if (p != null) target = p.transform;
-            return;
+            if (p != null)
+            {
+                target = p.transform;
+            }
+            else
+            {
+                // No player found; keep camera where it is but don't spam logs.
+                return;
+            }
         }
 
         // Smooth zoom

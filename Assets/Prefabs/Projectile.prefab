@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 7380470901700320014}
   - component: {fileID: 5172333232175991638}
   - component: {fileID: 2322284841958537952}
-  - component: {fileID: 235125113562501193}
+  - component: {fileID: 694558430311944228}
   m_Layer: 0
   m_Name: Projectile
   m_TagString: Untagged
@@ -149,7 +149,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxTravelDistance: 30
   hitCheckRadius: 0.6
---- !u!114 &235125113562501193
+--- !u!114 &694558430311944228
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -162,4 +162,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   bulletSprite: {fileID: 21300000, guid: c5bca2ba06be79640b9a6f0bf9a26883, type: 3}
-  spriteScale: {x: 6, y: 6, z: 1}
+  spriteScale: {x: 1.6, y: 1.6, z: 1}

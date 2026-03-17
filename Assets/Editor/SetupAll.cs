@@ -160,12 +160,22 @@ public static class SetupAll
         {
             cam.gameObject.AddComponent<AudioListener>();
         }
-        cam.transform.position = new Vector3(0, 16f, -9f);
-        cam.transform.rotation = Quaternion.Euler(60f, 0f, 0f);
-        cam.fieldOfView = 60f;
+        // Use orthographic camera for crisp pixel art scaling.
+        cam.orthographic = true;
+        cam.orthographicSize = 12f; // more zoomed out (shows roughly twice the area)
+        cam.transform.position = new Vector3(0f, 18f, -14f);
+        cam.transform.rotation = Quaternion.Euler(48f, 0f, 0f);
 
-        if (cam.GetComponent<CameraController>() == null)
-            cam.gameObject.AddComponent<CameraController>();
+        CameraController cc = cam.GetComponent<CameraController>();
+        if (cc == null)
+            cc = cam.gameObject.AddComponent<CameraController>();
+
+        // Reset follow settings so camera reliably tracks the player from an angled top-down.
+        var so = new SerializedObject(cc);
+        so.FindProperty("offset").vector3Value = new Vector3(0f, 18f, -14f);
+        so.FindProperty("defaultZoom").floatValue = 1.0f;
+        so.FindProperty("followTargetY").boolValue = false;
+        so.ApplyModifiedPropertiesWithoutUndo();
 
         RenderSettings.fog = true;
         RenderSettings.fogColor = new Color(0.08f, 0.08f, 0.08f);

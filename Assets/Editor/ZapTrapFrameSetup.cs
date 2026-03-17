@@ -43,9 +43,13 @@ public static class ZapTrapFrameSetup
             if (importer.textureType != TextureImporterType.Sprite) { importer.textureType = TextureImporterType.Sprite; dirty = true; }
             if (importer.spriteImportMode != SpriteImportMode.Single) { importer.spriteImportMode = SpriteImportMode.Single; dirty = true; }
             if (importer.filterMode != FilterMode.Point) { importer.filterMode = FilterMode.Point; dirty = true; }
-            if (Mathf.Abs(importer.spritePixelsPerUnit - 32f) > 0.01f) { importer.spritePixelsPerUnit = 32f; dirty = true; }
+            if (Mathf.Abs(importer.spritePixelsPerUnit - 20f) > 0.01f) { importer.spritePixelsPerUnit = 20f; dirty = true; }
             if (importer.alphaSource != TextureImporterAlphaSource.FromInput) { importer.alphaSource = TextureImporterAlphaSource.FromInput; dirty = true; }
             if (!importer.alphaIsTransparency) { importer.alphaIsTransparency = true; dirty = true; }
+            if (importer.mipmapEnabled) { importer.mipmapEnabled = false; dirty = true; }
+            if (importer.textureCompression != TextureImporterCompression.Uncompressed) { importer.textureCompression = TextureImporterCompression.Uncompressed; dirty = true; }
+            if (importer.crunchedCompression) { importer.crunchedCompression = false; dirty = true; }
+            if (importer.npotScale != TextureImporterNPOTScale.None) { importer.npotScale = TextureImporterNPOTScale.None; dirty = true; }
 
             // Force bottom-center pivot so the base of the trap stays planted.
             TextureImporterSettings tis = new TextureImporterSettings();

@@ -8,7 +8,8 @@ public class ProjectileSprite : MonoBehaviour
 {
     [Header("Sprite Settings")]
     public Sprite bulletSprite;
-    public Vector3 spriteScale = new Vector3(6.0f, 6.0f, 1f); // Even larger bullets
+    // Slightly larger than default so bullets read clearly.
+    public Vector3 spriteScale = new Vector3(1.6f, 1.6f, 1f);
     
     private GameObject spriteObj;
     private SpriteRenderer spriteRenderer;

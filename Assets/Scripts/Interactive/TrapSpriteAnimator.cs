@@ -8,7 +8,8 @@ public class TrapSpriteAnimator : MonoBehaviour
 {
     [Header("Animation")]
     public Sprite[] frames;
-    public float frameRate = 12f;
+    public float frameRate = 18f;
+    // Slightly larger so spike traps are clearly visible.
     public Vector3 spriteScale = new Vector3(1.6f, 1.6f, 1f);
     public int sortingOrder = 1;
 
@@ -18,16 +19,23 @@ public class TrapSpriteAnimator : MonoBehaviour
     [Range(0f, 10f)] public float glowIntensity = 1.4f;
     [Range(0.1f, 10f)] public float glowRange = 2.2f;
 
+    [Header("Playback")]
+    public bool playOnAwake = true;
+
     private GameObject spriteObj;
     private SpriteRenderer sr;
     private Light glowLight;
     private float timer;
     private int frame;
+    private bool isActive;
 
     void Start()
     {
         CleanupStackedSprites();
         EnsureVisual();
+
+        // Start active only if requested; otherwise stay on first frame until explicitly activated.
+        isActive = playOnAwake;
     }
 
     void CleanupStackedSprites()
@@ -65,8 +73,8 @@ public class TrapSpriteAnimator : MonoBehaviour
         if (spriteObj != null) return;
         spriteObj = new GameObject("Trap_Sprite");
         spriteObj.transform.SetParent(transform);
-        // Slightly above the floor so it doesn't Z-fight / clip into floor
-        spriteObj.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+        // Raise well above the floor/map so it never hides underneath.
+        spriteObj.transform.localPosition = new Vector3(0f, 0.35f, 0f);
         spriteObj.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
         spriteObj.transform.localScale = spriteScale;
 
@@ -100,8 +108,22 @@ public class TrapSpriteAnimator : MonoBehaviour
             sr.sprite = frames[0];
     }
 
+    /// <summary>Enable or disable animation playback. When disabled, trap shows first frame.</summary>
+    public void SetActive(bool active)
+    {
+        if (!active)
+        {
+            frame = 0;
+            timer = 0f;
+            if (sr != null && frames != null && frames.Length > 0)
+                sr.sprite = frames[0];
+        }
+        isActive = active;
+    }
+
     void Update()
     {
+        if (!isActive) return;
         if (frames == null || frames.Length == 0) return;
         if (sr == null) return;
 

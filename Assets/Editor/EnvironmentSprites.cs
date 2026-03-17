@@ -89,9 +89,7 @@ public static class EnvironmentSprites
             // Position higher above background so it's clearly visible inside arena
             mapPlane.transform.position = new Vector3(0f, 0.1f, 0f);
             mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            // Arena is 50x50 units with walls at ±25. Scale to ~9.6f to fit within walls
-            // This leaves the border visible as the edge marker
-            mapPlane.transform.localScale = new Vector3(9.6f, 9.6f, 1f);
+            mapPlane.transform.localScale = Vector3.one;
         }
         
         // Add sprite renderer
@@ -102,6 +100,17 @@ public static class EnvironmentSprites
         sr.sprite = mapSprite;
         sr.sortingOrder = -50; // Above background (-100), below gameplay objects (0+)
         sr.drawMode = SpriteDrawMode.Simple; // Use simple mode, not tiled
+
+        // Fit sprite to arena interior. ProBuilder arena uses ArenaRadius=38 → diameter ≈ 76 world units.
+        // Uses sprite bounds so it adapts to PPU changes.
+        // Make the floor larger than the wall footprint so it fully covers the octagon interior.
+        float desiredWorldSize = 86f;
+        float spriteWorldSize = sr.sprite.bounds.size.x; // square map
+        if (spriteWorldSize > 0.001f)
+        {
+            float scale = desiredWorldSize / spriteWorldSize;
+            mapPlane.transform.localScale = new Vector3(scale, scale, 1f);
+        }
         
         Debug.Log("[EnvironmentSprites] ✓ Floor map applied (fits within borders, background visible outside)");
     }
