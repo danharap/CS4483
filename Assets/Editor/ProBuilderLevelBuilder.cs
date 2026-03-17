@@ -19,12 +19,13 @@ public static class ProBuilderLevelBuilder
 
     private const string ObstacleSpritePath = "Assets/Sprites/sObstacleBox.png";
     private static UnityEngine.Sprite s_obstacleSprite;
-    const string Arena2RootName = "=== LEVEL (ProBuilder) Arena2 ===";
-    const string Arena1RootName = "=== LEVEL (ProBuilder) ===";
+    const string Arena2RootName  = "=== LEVEL (ProBuilder) Arena2 ===";
+    const string Arena1RootName  = "=== LEVEL (ProBuilder) ===";
+    const string LobbyRootName   = "=== LEVEL (Lobby) ===";
     const float ArenaRadius = 38f;   // Circular wall radius (diameter = 76)
     const float ArenaFloorSize = 78f; // Floor cube size to contain the circle
 
-    [MenuItem("CS4483/1 - Build ProBuilder Graybox Level")]
+    // Called from SetupAll; no menu item (use Full Setup instead)
     public static void BuildLevel()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -49,7 +50,7 @@ public static class ProBuilderLevelBuilder
         Debug.Log("[ProBuilderLevelBuilder] ✓ ProBuilder graybox level built. Save scene (Ctrl+S) and bake NavMesh.");
     }
 
-    [MenuItem("CS4483/2 - Build Arena 2 (for wave 6+)")]
+    // Called from SetupAll; no menu item (use Full Setup instead)
     public static void BuildArena2()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -117,6 +118,18 @@ public static class ProBuilderLevelBuilder
         }
     }
 
+    static void DestroyLobbyIfExists()
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == LobbyRootName)
+            {
+                Object.DestroyImmediate(root);
+                Debug.Log("[ProBuilderLevelBuilder] Removed existing Lobby level root.");
+            }
+        }
+    }
+
     static void EnsureMaterials()
     {
         if (!AssetDatabase.IsValidFolder("Assets/Materials"))
@@ -180,6 +193,27 @@ public static class ProBuilderLevelBuilder
         GameObject floor = PBCube("Floor", new Vector3(0f, -0.2f, 0f), new Vector3(ArenaFloorSize, 0.4f, ArenaFloorSize), matFloor, levelRoot);
     }
 
+    // ── Lobby Level Builder ───────────────────────────────────────────────
+
+    // Called from SetupAll; builds a dedicated === LEVEL (Lobby) === root.
+    public static void BuildLobbyLevel()
+    {
+        Scene scene = EditorSceneManager.GetActiveScene();
+        Debug.Log("[ProBuilderLevelBuilder] Building Lobby level...");
+
+        EnsureMaterials();
+        DestroyLobbyIfExists();
+
+        GameObject root = new GameObject(LobbyRootName);
+        levelRoot = root.transform;
+
+        CreateLobbyGeometry();
+        CreateLighting();
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        Debug.Log("[ProBuilderLevelBuilder] ✓ Lobby level built.");
+    }
+
     /// <summary>Create a circular boundary wall from segments. radius and wallHeight in world units.</summary>
     static void CreateCircularWalls(Transform parent, Material wallMat, float radius = 25f, float wallHeight = 8f, int segments = 48)
     {
@@ -218,6 +252,85 @@ public static class ProBuilderLevelBuilder
         // Just a landmark pillar, no separate floor overlay
         GameObject pillar = PBCube("Blue_Pillar", new Vector3(0, 3, 0), new Vector3(0.6f, 6f, 0.6f), null, p.transform);
         pillar.GetComponent<Renderer>().sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
+    }
+
+    // ── Simple Lobby (gray square + square walls + portal to arena) ───────
+
+    // Builds lobby geometry under the current levelRoot.
+    static void CreateLobbyGeometry()
+    {
+        GameObject lobby = new GameObject("Lobby");
+        lobby.transform.SetParent(levelRoot);
+
+        float lobbyZ = 0f;
+
+        // Dedicated plain grey material for the lobby — never shared with arena floors
+        // so EnvironmentSprites or any other pass can't accidentally replace it.
+        Material matLobbyFloor = GetOrCreateMat("M_LobbyFloor", new Color(0.55f, 0.55f, 0.55f));
+
+        // Floor — placed at y=0.15 so it renders above the global Background_Plane (y=0.01)
+        // and Floor_Map (y=0.1) sprites that EnvironmentSprites places in the scene.
+        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        floor.name = "Lobby_Floor";
+        floor.transform.SetParent(lobby.transform);
+        floor.transform.position = new Vector3(0f, 0f, lobbyZ);
+        floor.transform.localScale = new Vector3(20f, 0.4f, 20f);
+        var floorRenderer = floor.GetComponent<Renderer>();
+        if (floorRenderer != null) floorRenderer.sharedMaterial = matLobbyFloor;
+
+        // Square walls around the floor
+        float wallHeight = 3f;
+        float halfSize = 10f;
+        float thickness = 0.5f;
+
+        // North wall (forward, where the portal will be)
+        GameObject wallN = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wallN.name = "Lobby_Wall_North";
+        wallN.transform.SetParent(lobby.transform);
+        wallN.transform.position = new Vector3(0f, wallHeight * 0.5f, lobbyZ + halfSize);
+        wallN.transform.localScale = new Vector3(20f, wallHeight, thickness);
+        wallN.GetComponent<Renderer>().sharedMaterial = matWall;
+
+        // South wall
+        GameObject wallS = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wallS.name = "Lobby_Wall_South";
+        wallS.transform.SetParent(lobby.transform);
+        wallS.transform.position = new Vector3(0f, wallHeight * 0.5f, lobbyZ - halfSize);
+        wallS.transform.localScale = new Vector3(20f, wallHeight, thickness);
+        wallS.GetComponent<Renderer>().sharedMaterial = matWall;
+
+        // East wall
+        GameObject wallE = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wallE.name = "Lobby_Wall_East";
+        wallE.transform.SetParent(lobby.transform);
+        wallE.transform.position = new Vector3(halfSize, wallHeight * 0.5f, lobbyZ);
+        wallE.transform.localScale = new Vector3(thickness, wallHeight, 20f);
+        wallE.GetComponent<Renderer>().sharedMaterial = matWall;
+
+        // West wall
+        GameObject wallW = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wallW.name = "Lobby_Wall_West";
+        wallW.transform.SetParent(lobby.transform);
+        wallW.transform.position = new Vector3(-halfSize, wallHeight * 0.5f, lobbyZ);
+        wallW.transform.localScale = new Vector3(thickness, wallHeight, 20f);
+        wallW.GetComponent<Renderer>().sharedMaterial = matWall;
+
+        // Portal embedded in the north wall, centered
+        GameObject portal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        portal.name = "LobbyToArena_Portal";
+        portal.transform.SetParent(lobby.transform);
+        portal.transform.position = new Vector3(0f, 1.5f, lobbyZ + halfSize - thickness * 0.5f - 0.01f);
+        portal.transform.localScale = new Vector3(2f, 3f, 0.3f);
+        var portalRenderer = portal.GetComponent<Renderer>();
+        if (portalRenderer != null) portalRenderer.sharedMaterial = matHub;
+
+        // Make portal trigger with BoxCollider + kinematic Rigidbody (no MeshCollider)
+        BoxCollider box = portal.GetComponent<BoxCollider>();
+        box.isTrigger = true;
+        Rigidbody rb = portal.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity = false;
+        portal.AddComponent<LobbyPortal>();
     }
 
     // ── Boss Arena ────────────────────────────────────────────────────────

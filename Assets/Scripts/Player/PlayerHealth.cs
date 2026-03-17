@@ -73,4 +73,13 @@ public class PlayerHealth : MonoBehaviour
         CurrentHP += amount; // also heal the added amount
         OnHealthChanged?.Invoke(CurrentHP, maxHP);
     }
+
+    /// <summary>
+    /// Restore HP back to max and clear any death state / screen tint.
+    /// </summary>
+    public void ResetHealthToMax()
+    {
+        CurrentHP = maxHP;
+        OnHealthChanged?.Invoke(CurrentHP, maxHP);
+    }
 }

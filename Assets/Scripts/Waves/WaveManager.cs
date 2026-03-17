@@ -6,7 +6,7 @@ using UnityEngine;
 /// Drives the wave loop: Wave -> Break -> Wave -> ... Boss every 5 waves.
 /// Exposes events consumed by HUDManager, GateDoor, and GameManager.
 /// </summary>
-public class WaveManager : MonoBehaviour
+    public class WaveManager : MonoBehaviour
 {
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Wave Settings")]
@@ -22,11 +22,13 @@ public class WaveManager : MonoBehaviour
 
     // ── State ─────────────────────────────────────────────────────────────
     public int   WaveIndex     { get; private set; }  // 0-based (display as +1)
-    public float WaveTimer     { get; private set; }
-    public bool  IsBreak       { get; private set; }
-    public bool  IsBossWave    { get; private set; }
-    private bool bossKilledThisWave;
-    private int  activeEnemies;
+        public float WaveTimer     { get; private set; }
+        public bool  IsBreak       { get; private set; }
+        public bool  IsBossWave    { get; private set; }
+        public bool  HasStarted    { get; private set; }
+        private bool bossKilledThisWave;
+        private int  activeEnemies;
+        private bool wavesRunning;
 
     // ── Events ────────────────────────────────────────────────────────────
     public event Action<int> OnWaveStart;    // waveIndex (0-based)
@@ -39,7 +41,33 @@ public class WaveManager : MonoBehaviour
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 
-    void Start() => StartCoroutine(WaveLoop());
+    void Start()
+    {
+        // Waves will be started explicitly (e.g. from Lobby portal) via BeginWaves().
+    }
+
+    public void BeginWaves()
+    {
+        if (wavesRunning) return;
+        wavesRunning = true;
+        HasStarted = true;
+        StartCoroutine(WaveLoop());
+    }
+
+    /// <summary>
+    /// Reset state so the next BeginWaves() starts at Wave 1 fresh.
+    /// </summary>
+    public void ResetToFirstWave()
+    {
+        StopAllCoroutines();
+        WaveIndex = 0;
+        WaveTimer = 0f;
+        IsBreak = false;
+        IsBossWave = false;
+        HasStarted = false;
+        wavesRunning = false;
+        activeEnemies = 0;
+    }
 
     // ── Main Loop ─────────────────────────────────────────────────────────
 

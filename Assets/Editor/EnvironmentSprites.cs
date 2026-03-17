@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Applies background and wall sprites to the ProBuilder level
@@ -7,6 +8,13 @@ using UnityEngine;
 /// </summary>
 public static class EnvironmentSprites
 {
+    /// <summary>Finds a root GameObject by name including inactive objects.</summary>
+    static GameObject FindRootByName(string name)
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+            if (root.name == name) return root;
+        return null;
+    }
     [MenuItem("CS4483/🎨 4. Apply Environment Sprites")]
     public static void ApplyEnvironmentSprites()
     {
@@ -36,8 +44,10 @@ public static class EnvironmentSprites
     
     static void ApplyBackground(Sprite bgSprite)
     {
-        // Hide the ProBuilder floor mesh so background is visible
-        GameObject levelRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        // Arena 1 level root — sprite planes are parented here so they deactivate with the arena.
+        // Use FindRootByName (not GameObject.Find) to locate it even when inactive.
+        GameObject levelRoot = FindRootByName("=== LEVEL (ProBuilder) ===");
+
         if (levelRoot != null)
         {
             Transform floor = levelRoot.transform.Find("Floor");
@@ -51,65 +61,65 @@ public static class EnvironmentSprites
                 }
             }
         }
-        
-        // Find or create background plane (outer area beyond walls)
-        GameObject bgPlane = GameObject.Find("Background_Plane");
+
+        // Find or create background plane — parented to Arena 1 root so it hides with the arena
+        Transform bgParent = levelRoot != null ? levelRoot.transform : null;
+        GameObject bgPlane = bgParent != null
+            ? bgParent.Find("Background_Plane")?.gameObject
+            : GameObject.Find("Background_Plane");
+
         if (bgPlane == null)
         {
             bgPlane = new GameObject("Background_Plane");
-            
-            // Position at floor level
+            if (bgParent != null) bgPlane.transform.SetParent(bgParent, false);
             bgPlane.transform.position = new Vector3(0f, 0.01f, 0f);
             bgPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            bgPlane.transform.localScale = new Vector3(15f, 15f, 1f); // Very large to show outside arena
+            bgPlane.transform.localScale = new Vector3(15f, 15f, 1f);
         }
-        
-        // Add sprite renderer
+
         SpriteRenderer sr = bgPlane.GetComponent<SpriteRenderer>();
-        if (sr == null)
-            sr = bgPlane.AddComponent<SpriteRenderer>();
-        
+        if (sr == null) sr = bgPlane.AddComponent<SpriteRenderer>();
         sr.sprite = bgSprite;
-        sr.sortingOrder = -100; // Far behind everything
+        sr.sortingOrder = -100;
         sr.drawMode = SpriteDrawMode.Tiled;
         sr.tileMode = SpriteTileMode.Continuous;
-        sr.size = new Vector2(100f, 100f); // Very large to show beyond walls
-        
-        Debug.Log("[EnvironmentSprites] ✓ Background applied (shows outside walls)");
+        sr.size = new Vector2(100f, 100f);
+
+        Debug.Log("[EnvironmentSprites] ✓ Background applied (parented to Arena 1 root)");
     }
-    
+
     static void ApplyFloorMap(Sprite mapSprite)
     {
-        // Find or create floor map plane (playable arena interior)
-        GameObject mapPlane = GameObject.Find("Floor_Map");
+        // Floor map is also parented to Arena 1 root (use FindRootByName for inactive objects)
+        GameObject levelRoot = FindRootByName("=== LEVEL (ProBuilder) ===");
+        Transform mapParent = levelRoot != null ? levelRoot.transform : null;
+
+        GameObject mapPlane = mapParent != null
+            ? mapParent.Find("Floor_Map")?.gameObject
+            : GameObject.Find("Floor_Map");
+
         if (mapPlane == null)
         {
             mapPlane = new GameObject("Floor_Map");
-            
-            // Position higher above background so it's clearly visible inside arena
+            if (mapParent != null) mapPlane.transform.SetParent(mapParent, false);
             mapPlane.transform.position = new Vector3(0f, 0.1f, 0f);
             mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            // Arena is 50x50 units with walls at ±25. Scale to ~9.6f to fit within walls
-            // This leaves the border visible as the edge marker
             mapPlane.transform.localScale = new Vector3(9.6f, 9.6f, 1f);
         }
-        
-        // Add sprite renderer
+
         SpriteRenderer sr = mapPlane.GetComponent<SpriteRenderer>();
-        if (sr == null)
-            sr = mapPlane.AddComponent<SpriteRenderer>();
-        
+        if (sr == null) sr = mapPlane.AddComponent<SpriteRenderer>();
         sr.sprite = mapSprite;
-        sr.sortingOrder = -50; // Above background (-100), below gameplay objects (0+)
-        sr.drawMode = SpriteDrawMode.Simple; // Use simple mode, not tiled
-        
-        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (fits within borders, background visible outside)");
+        sr.sortingOrder = -50;
+        sr.drawMode = SpriteDrawMode.Simple;
+
+        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (parented to Arena 1 root)");
     }
     
     static void EnableProBuilderWalls()
     {
         // Find all boundary wall objects and enable their 3D mesh renderers
-        GameObject levelRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        GameObject levelRoot = FindRootByName("=== LEVEL (ProBuilder) ===");
         if (levelRoot == null)
         {
             Debug.LogWarning("[EnvironmentSprites] Level root not found!");

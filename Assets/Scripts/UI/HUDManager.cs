@@ -54,7 +54,6 @@ public class HUDManager : MonoBehaviour
         if (gm.WaveManager != null)
         {
             gm.WaveManager.OnWaveStart += UpdateWaveNumber;
-            UpdateWaveNumber(0);
         }
     }
 
@@ -62,6 +61,13 @@ public class HUDManager : MonoBehaviour
     {
         var wm = GameManager.Instance?.WaveManager;
         if (wm == null) return;
+
+        if (!wm.HasStarted)
+        {
+            if (timerText) timerText.text = "";
+            if (waveText)  waveText.text  = "";
+            return;
+        }
 
         if (wm.IsBreak)
             timerText.text = "Break...";
