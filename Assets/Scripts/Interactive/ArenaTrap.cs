@@ -16,6 +16,9 @@ public class ArenaTrap : MonoBehaviour
     [Header("Optional")]
     [SerializeField] private string playerTag = "Player";
 
+    [Header("Spike Trap Animation (Optional)")]
+    [SerializeField] private TrapSpriteAnimator spriteAnimator;
+
     private float cooldownTimer;
 
     void OnTriggerEnter(Collider other)
@@ -32,6 +35,19 @@ public class ArenaTrap : MonoBehaviour
             controller.StunFor(stunDuration);
 
         cooldownTimer = cooldownAfterTrigger;
+
+        // Play spike animation while the player is on the trap.
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(true);
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (!other.CompareTag(playerTag)) return;
+
+        // Stop animation / return to idle frame when the player leaves the trap.
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(false);
     }
 
     void Update()

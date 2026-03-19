@@ -8,7 +8,8 @@ public class PickupSprite : MonoBehaviour
 {
     [Header("Sprite Settings")]
     public Sprite pickupSprite;
-    public Vector3 spriteScale = new Vector3(1.5f, 1.5f, 1f);
+    // With GlobalPPU=20 imports, keep scale at 1 for consistent world sizing.
+    public Vector3 spriteScale = Vector3.one;
     public float rotationSpeed = 45f; // Degrees per second
     public float bobSpeed = 2f; // Up/down bobbing speed
     public float bobAmount = 0.2f; // How much to bob

@@ -15,7 +15,7 @@ using Unity.AI.Navigation;
 public static class ProBuilderLevelBuilder
 {
     private static Transform levelRoot;
-    private static Material matFloor, matWall, matHub, matBoss, matObstacle;
+    private static Material matFloor, matWall, matHub, matBoss, matObstacle, matStands;
 
     private const string ObstacleSpritePath = "Assets/Sprites/sObstacleBox.png";
     private static UnityEngine.Sprite s_obstacleSprite;
@@ -40,6 +40,7 @@ public static class ProBuilderLevelBuilder
 
         CreateFloor();
         CreateBoundaryWalls();
+        CreateAudienceStands();
         CreateRockObstacles();
         CreateTraps();
         CreateSpawnPoints();
@@ -71,7 +72,7 @@ public static class ProBuilderLevelBuilder
 
         GameObject walls = new GameObject("Boundary_Walls");
         walls.transform.SetParent(levelRoot);
-        CreateCircularWalls(walls.transform, matWall2, ArenaRadius, 8f, 48);
+        CreateOctagonWalls(walls.transform, matWall2, ArenaRadius, 8f, 0.5f);
 
         GameObject rocks = new GameObject("Rock_Obstacles");
         rocks.transform.SetParent(levelRoot);
@@ -141,6 +142,8 @@ public static class ProBuilderLevelBuilder
         matHub      = GetOrCreateMat("M_Hub",      new Color(0.85f, 0.85f, 0.85f));
         matBoss     = GetOrCreateMat("M_Boss",     new Color(0.40f, 0.02f, 0.02f));
         matObstacle = GetOrCreateMat("M_Obstacle", new Color(0.45f, 0.40f, 0.35f));
+        // Dark, worn stone for colosseum-style audience stands
+        matStands   = GetOrCreateMat("M_Stands",   new Color(0.15f, 0.15f, 0.17f));
     }
 
     static Material GetOrCreateMat(string name, Color color)
@@ -165,24 +168,25 @@ public static class ProBuilderLevelBuilder
         go.transform.SetParent(parent);
         go.transform.position = position;
         go.transform.localScale = size;
-        
+
+        pbMesh.ToMesh();
+        pbMesh.Refresh();
+
+        // Apply material after mesh is final so it sticks to the rendered mesh
         if (material != null)
         {
             Renderer r = go.GetComponent<Renderer>();
             if (r != null) r.sharedMaterial = material;
         }
-        
-        pbMesh.ToMesh();
-        pbMesh.Refresh();
-        
+
         // Add collider for physics
         MeshCollider collider = go.AddComponent<MeshCollider>();
         collider.sharedMesh = go.GetComponent<MeshFilter>().sharedMesh;
         collider.convex = false;
-        
+
         // Mark as static for NavMesh baking
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
-        
+
         return go;
     }
 
@@ -214,22 +218,36 @@ public static class ProBuilderLevelBuilder
         Debug.Log("[ProBuilderLevelBuilder] ✓ Lobby level built.");
     }
 
-    /// <summary>Create a circular boundary wall from segments. radius and wallHeight in world units.</summary>
-    static void CreateCircularWalls(Transform parent, Material wallMat, float radius = 25f, float wallHeight = 8f, int segments = 48)
+    /// <summary>
+    /// Create an 8‑sided arena (regular octagon) with a flat top edge.
+    /// apothem = distance from center to the middle of each side (in world units).
+    /// </summary>
+    static void CreateOctagonWalls(Transform parent, Material wallMat, float apothem = 25f, float wallHeight = 8f, float wallThickness = 0.5f)
     {
-        float angleStep = 360f / segments;
-        float segmentWidth = (2f * Mathf.PI * radius) / segments;
-        float wallThickness = 0.5f;
-        for (int i = 0; i < segments; i++)
+        const int sides = 8;
+        float angleStep = 360f / sides;                 // 45°
+        float halfInteriorAngleRad = Mathf.PI / sides;  // π/8
+
+        // Side length for a regular polygon from apothem: s = 2 * a * tan(π/n)
+        float sideLength = 2f * apothem * Mathf.Tan(halfInteriorAngleRad);
+
+        for (int i = 0; i < sides; i++)
         {
+            // Flat edge at the top: center of top side at (0, 0, +apothem)
             float angleDeg = i * angleStep;
             float angleRad = angleDeg * Mathf.Deg2Rad;
-            float x = radius * Mathf.Cos(angleRad);
-            float z = radius * Mathf.Sin(angleRad);
+
+            float x = apothem * Mathf.Sin(angleRad);
+            float z = apothem * Mathf.Cos(angleRad);
+
             Vector3 pos = new Vector3(x, wallHeight * 0.5f, z);
-            Vector3 size = new Vector3(segmentWidth, wallHeight, wallThickness);
+            Vector3 size = new Vector3(sideLength, wallHeight, wallThickness);
+
             GameObject seg = PBCube($"Wall_Seg_{i}", pos, size, wallMat, parent);
-            seg.transform.rotation = Quaternion.Euler(0f, 90f - angleDeg, 0f);
+
+            // Long axis of the wall runs tangentially around the arena:
+            // rotate so the X axis is tangent (perpendicular to the radius vector).
+            seg.transform.rotation = Quaternion.Euler(0f, angleDeg, 0f);
         }
     }
 
@@ -239,7 +257,67 @@ public static class ProBuilderLevelBuilder
     {
         GameObject p = new GameObject("Boundary_Walls");
         p.transform.SetParent(levelRoot);
-        CreateCircularWalls(p.transform, matWall, ArenaRadius, 8f, 48);
+        CreateOctagonWalls(p.transform, matWall, ArenaRadius, 8f, 0.5f);
+    }
+
+    // ── Audience Stands (decorative colosseum seating) ────────────────────
+
+    static void CreateAudienceStands()
+    {
+        // Decorative only: no gameplay collision, just dark stepped stone rows behind the walls.
+        Transform wallsParent = levelRoot.Find("Boundary_Walls");
+        if (wallsParent == null)
+        {
+            Debug.LogWarning("[ProBuilderLevelBuilder] Boundary_Walls not found; audience stands not created.");
+            return;
+        }
+
+        GameObject standsRoot = new GameObject("Audience_Stands");
+        standsRoot.transform.SetParent(levelRoot);
+
+        // For each wall segment, build a few shallow steps just outside the wall, following its length.
+        const int stepsPerRing = 14;
+        const float stepHeight = 0.6f;
+        const float stepDepth  = 1.0f;
+        const float gapBehindWall = 0.5f; // small gap between wall and first row
+
+        foreach (Transform wall in wallsParent)
+        {
+            // Wall center on XZ plane
+            Vector3 wallPos = wall.position;
+            wallPos.y = 0f;
+
+            // Outward direction away from arena center, to push stands behind the wall
+            Vector3 outward = (wallPos - Vector3.zero);
+            outward.y = 0f;
+            if (outward.sqrMagnitude < 0.0001f)
+                continue;
+            outward.Normalize();
+
+            // Length and height of this wall segment from our PBCube sizing convention
+            float length = wall.localScale.x * 1.35f; // extra overhang to fully close gaps between segments
+            float wallHeight = wall.localScale.y;
+            float wallTopY = wallHeight; // top of wall (center at wallHeight * 0.5f)
+
+            for (int i = 0; i < stepsPerRing; i++)
+            {
+                float verticalCenter = wallTopY + (stepHeight * 0.5f) + (i * stepHeight * 0.9f);
+                float radialOffset   = ArenaRadius + gapBehindWall + (i * stepDepth);
+
+                Vector3 center = outward * radialOffset;
+                center.y = verticalCenter;
+
+                Vector3 size = new Vector3(length, stepHeight, stepDepth);
+                GameObject step = PBCube($"Stand_Step_{wall.name}_{i}", center, size, matStands, standsRoot.transform);
+
+                // Rotate to follow the wall tangent so the long edge lines up with the octagon edge.
+                step.transform.rotation = wall.rotation;
+
+                // Decorative only: disable collider so it doesn't affect NavMesh or gameplay.
+                MeshCollider mc = step.GetComponent<MeshCollider>();
+                if (mc != null) mc.enabled = false;
+            }
+        }
     }
 
     // ── Central Hub ───────────────────────────────────────────────────────
@@ -359,8 +437,13 @@ public static class ProBuilderLevelBuilder
             importer.textureType = TextureImporterType.Sprite;
             importer.spriteImportMode = SpriteImportMode.Single;
             importer.filterMode = FilterMode.Point;
-            importer.spritePixelsPerUnit = 40f; // 40x40 sprite = 1 world unit at scale 1
+            importer.spritePixelsPerUnit = 20f; // match GlobalPPU (40x40 sprite = 2 world units at scale 1)
             importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.crunchedCompression = false;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.maxTextureSize = 4096;
             importer.SaveAndReimport();
         }
 
@@ -382,13 +465,18 @@ public static class ProBuilderLevelBuilder
         go.transform.rotation = Quaternion.identity;
 
         // Visual (sprite) as a child so we can rotate/billboard it without messing up collider orientation.
-        // 40 PPU: 40px sprite at scale 1 = 1 world unit. Slightly smaller than before.
-        float visualSize = scaleXZ * 1.8f;
+        // Keep obstacle world footprint stable when PPU changes:
+        // spriteWorldSize = 40px / PPU. With GlobalPPU=20, spriteWorldSize = 2 world units at scale 1.
+        const float obstaclePixels = 40f;
+        const float ppu = 20f;
+        float spriteWorldSize = obstaclePixels / ppu;
+        float desiredWorldSize = scaleXZ * 1.8f;
+        float visualScale = desiredWorldSize / spriteWorldSize;
         GameObject visual = new GameObject("Visual");
         visual.transform.SetParent(go.transform);
         visual.transform.localPosition = Vector3.zero;
         visual.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        visual.transform.localScale = new Vector3(visualSize, visualSize, 1f);
+        visual.transform.localScale = new Vector3(visualScale, visualScale, 1f);
 
         SpriteRenderer sr = visual.AddComponent<SpriteRenderer>();
         sr.sprite = s_obstacleSprite;
@@ -398,7 +486,7 @@ public static class ProBuilderLevelBuilder
         // Collider on parent (upright, not rotated): blocks player (CharacterController) and enemies.
         // Size is in local space. We scale X/Z to match visual footprint, and keep Y as a reasonable height.
         BoxCollider col = go.AddComponent<BoxCollider>();
-        col.size = new Vector3(visualSize, 1.2f, visualSize);
+        col.size = new Vector3(desiredWorldSize, 1.2f, desiredWorldSize);
         col.center = new Vector3(0f, col.size.y * 0.5f, 0f); // sit on ground
 
         // No Rigidbody: static collider so both CharacterController (player) and Rigidbody (enemies) collide with boxes
@@ -447,7 +535,7 @@ public static class ProBuilderLevelBuilder
 
             ArenaTrap arenaTrap = trap.AddComponent<ArenaTrap>();
 
-            // Visual will be added by SpriteSetup (animated zap trap sprites)
+            // Visual child – sprite-based spike trap animation will be added by SpriteSetup.
             GameObject visual = new GameObject("TrapVisual");
             visual.transform.SetParent(trap.transform, false);
             visual.transform.localPosition = Vector3.zero;
@@ -512,11 +600,12 @@ public static class ProBuilderLevelBuilder
 
         GameObject dirLight = new GameObject("DirectionalLight");
         dirLight.transform.SetParent(lightRoot.transform);
-        dirLight.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+        dirLight.transform.rotation = Quaternion.Euler(65f, -35f, 0f);
         Light dir = dirLight.AddComponent<Light>();
         dir.type = LightType.Directional;
         dir.color = Color.white;
-        dir.intensity = 1.0f;
+        dir.intensity = 1.3f;
+        dir.shadows = LightShadows.Soft;
     }
 
     // ── Raised Platforms (removed - no jump mechanic) ────────────────────
