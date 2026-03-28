@@ -1,0 +1,305 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &2369181858412782232
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3415127552767251580}
+  - component: {fileID: 7902763196118926542}
+  - component: {fileID: 1160829305766759121}
+  - component: {fileID: 6971194246186091926}
+  - component: {fileID: 1191023163523456066}
+  - component: {fileID: 5798749194810602439}
+  - component: {fileID: 4612678444099678997}
+  m_Layer: 0
+  m_Name: Enemy_Satan
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3415127552767251580
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2369181858412782232}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7902763196118926542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2369181858412782232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a59468ff1c689a1419196ed4109cbab4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  awakeningFrames:
+  - {fileID: 21300000, guid: a26e5ed5a5660d84aa1a2a0e0db98019, type: 3}
+  - {fileID: 21300000, guid: 0fd017b3acf10f240a1adec30df99b56, type: 3}
+  - {fileID: 21300000, guid: 91d6998cb7ae36440acf7ac41854bf4c, type: 3}
+  - {fileID: 21300000, guid: 7d122abc9b2c5ac40900212bc0eec5f4, type: 3}
+  - {fileID: 21300000, guid: db5b0d945ee15024bb6178ca080b6bc7, type: 3}
+  - {fileID: 21300000, guid: 4b1e9ce70b9c811419ddf9f0b5035dc6, type: 3}
+  - {fileID: 21300000, guid: 2e7627b0aeb3364488bda6f29732fdb9, type: 3}
+  - {fileID: 21300000, guid: d2b3a3e2cefd46341ac8c4dd774f5718, type: 3}
+  - {fileID: 21300000, guid: 2e986ccc47af06e40bf1e7c1ff8debbf, type: 3}
+  awakeningFPS: 8
+  idleFrames:
+  - {fileID: 21300000, guid: 2e986ccc47af06e40bf1e7c1ff8debbf, type: 3}
+  idleFPS: 6
+  directAttackFrames:
+  - {fileID: 21300000, guid: 260ac54ef0d47f3449dbdc6e29646710, type: 3}
+  - {fileID: 21300000, guid: 3366beebe976dd24f9e912b76e47d64a, type: 3}
+  - {fileID: 21300000, guid: 2949f377870ae99419871a70dcd592ac, type: 3}
+  - {fileID: 21300000, guid: f5daf13482e07914caa6206b8ae74fba, type: 3}
+  - {fileID: 21300000, guid: a12249ea195a2674f9fe1be5dd75c460, type: 3}
+  - {fileID: 21300000, guid: 19b36f0d53df43d4684ce5515d3b026e, type: 3}
+  - {fileID: 21300000, guid: 720f0345b802a614db26dccc58a571d2, type: 3}
+  - {fileID: 21300000, guid: 894b080eedf15c646bdd2bc5d70bc8b3, type: 3}
+  - {fileID: 21300000, guid: d356ea447d37ca04d86b31c1c41ea717, type: 3}
+  directAttackFPS: 10
+  downBeamFrames:
+  - {fileID: 21300000, guid: 98d79e42b6afb62448a283fa6ef8bb62, type: 3}
+  - {fileID: 21300000, guid: 107722030e221f14cbecb8d1a655b6cb, type: 3}
+  - {fileID: 21300000, guid: 5cb71b6fc35ef7e408f864853acece45, type: 3}
+  - {fileID: 21300000, guid: 1ba3344de1fa83944ad414d7e0078e3e, type: 3}
+  - {fileID: 21300000, guid: 544227a0cdbc3b14eb78aa6d94f60497, type: 3}
+  - {fileID: 21300000, guid: 3f30d0e174d17ec468757cbb905204e0, type: 3}
+  - {fileID: 21300000, guid: 6fa7acdf74632f0478e052f07fd4ea49, type: 3}
+  - {fileID: 21300000, guid: 9e014f34ee8e7e64fbdceec8461e1cd7, type: 3}
+  - {fileID: 21300000, guid: 5c3ec766be29874499e50c0888312c6c, type: 3}
+  - {fileID: 21300000, guid: 83ff4ef2a38f66f4e9c9523b9e397bcc, type: 3}
+  downBeamFPS: 10
+  fanAttackFrames:
+  - {fileID: 21300000, guid: 348c45cef9b79dd42b3767e86ddb2d46, type: 3}
+  - {fileID: 21300000, guid: 2bc83eb6f256fa7469222657535b78cc, type: 3}
+  - {fileID: 21300000, guid: 6de0da813db872644968e093ac46485a, type: 3}
+  - {fileID: 21300000, guid: 03b7b16c88efbfa4ba8acbf6ac8a78c5, type: 3}
+  - {fileID: 21300000, guid: 4a6be2a776f92574984c75837312e32d, type: 3}
+  - {fileID: 21300000, guid: 9470a7f5602bf6d42855386af27545d8, type: 3}
+  - {fileID: 21300000, guid: d7f0ba9747cb75646888098a8f2deeee, type: 3}
+  - {fileID: 21300000, guid: 2bde761978db38f47bf86171a244e48f, type: 3}
+  fanAttackFPS: 10
+  dualHandBeamFrames:
+  - {fileID: 21300000, guid: 348c45cef9b79dd42b3767e86ddb2d46, type: 3}
+  - {fileID: 21300000, guid: 2bc83eb6f256fa7469222657535b78cc, type: 3}
+  - {fileID: 21300000, guid: 6de0da813db872644968e093ac46485a, type: 3}
+  - {fileID: 21300000, guid: 03b7b16c88efbfa4ba8acbf6ac8a78c5, type: 3}
+  - {fileID: 21300000, guid: 4a6be2a776f92574984c75837312e32d, type: 3}
+  - {fileID: 21300000, guid: 9470a7f5602bf6d42855386af27545d8, type: 3}
+  - {fileID: 21300000, guid: d7f0ba9747cb75646888098a8f2deeee, type: 3}
+  - {fileID: 21300000, guid: 2bde761978db38f47bf86171a244e48f, type: 3}
+  dualHandBeamFPS: 10
+  deathFrames:
+  - {fileID: 21300000, guid: 05cdf674dce0e514e990568a02e3533f, type: 3}
+  - {fileID: 21300000, guid: 1a8f3e4cd4d438d43ac57e690d8005e8, type: 3}
+  - {fileID: 21300000, guid: 52f048af594e9ed4c8089300fa3ce338, type: 3}
+  - {fileID: 21300000, guid: b858111958b6aa145935b60af44052bd, type: 3}
+  - {fileID: 21300000, guid: 85e577682c60e344aafb320d85983b95, type: 3}
+  - {fileID: 21300000, guid: 50e768f6551f2f04daeeef10d4dc69d6, type: 3}
+  - {fileID: 21300000, guid: 7755eb98f55aefd47bfd6321ba862cfe, type: 3}
+  - {fileID: 21300000, guid: 7f2e06a71a7c4004186a8aa23394c79a, type: 3}
+  - {fileID: 21300000, guid: 7f44567d67af7e4429c638b48baa2653, type: 3}
+  - {fileID: 21300000, guid: cfc65459cfc9e0947845c3bc11d3b7fb, type: 3}
+  - {fileID: 21300000, guid: 58c500ce6aebde341857e09200f3cdfc, type: 3}
+  - {fileID: 21300000, guid: def6bffcea999f340910989acabb3b49, type: 3}
+  deathFPS: 7
+  spriteScale: 2.4
+  hitFlashDuration: 0.12
+--- !u!114 &1160829305766759121
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2369181858412782232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c153aebd4f83b374b9432cb5190d0209, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  timeBetweenAttacks: 2
+  antiRepeatWindow: 2
+  hopDistance: 3.5
+  hopDuration: 0.35
+  hopArcHeight: 1.2
+  hopBiasTowardPlayer: 0.5
+  bulletPrefab: {fileID: 0}
+  bulletSprite: {fileID: 21300000, guid: f01b7e4e2c4da8542aa1b73fc30b5bd8, type: 3}
+  directBulletSpeed: 10
+  directBulletCount: 5
+  directSpreadAngle: 30
+  directDamage: 15
+  directDelayBeforeFire: 0.3
+  directVolleys: 1
+  directVolleyDelay: 0.4
+  directCooldown: 5
+  downBeamPrefab: {fileID: 0}
+  downBeamChargeDuration: 0.5
+  downBeamDuration: 1.5
+  downBeamWidth: 1.2
+  downBeamDamagePerTick: 12
+  downBeamTickRate: 0.25
+  downBeamCooldown: 7
+  fanBulletSpeed: 9
+  fanBulletCount: 16
+  fanWaves: 2
+  fanWaveDelay: 0.35
+  fanAngleOffset: 0
+  fanDamage: 12
+  fanCooldown: 8
+  handBeamPrefab: {fileID: 0}
+  dualChargeDuration: 0.6
+  dualBeamDuration: 2.5
+  dualInwardSpeed: 2.5
+  dualMinCenterGap: 2.5
+  dualBeamWidth: 1.5
+  dualBeamDamagePerTick: 10
+  dualBeamTickRate: 0.2
+  dualBeamStartX: 8
+  dualCooldown: 9
+--- !u!114 &6971194246186091926
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2369181858412782232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e24300f41329e9428ed51b33aa56958, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxHP: 1500
+  footPhaseHPThreshold: 0.35
+  spawnOffset: {x: 0, y: 0, z: 16}
+  waitForFallenKillBeforeAwakening: 0
+  autoAwakenDelay: 1.5
+  satanArenaTopZ: 14
+  satanXRange: 4
+  footPhase: {fileID: 5798749194810602439}
+  damageNumberPrefab: {fileID: 7687715987023145794, guid: 6ffd80c52447ca049bdcf42f0fc7a4ec, type: 3}
+--- !u!114 &1191023163523456066
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2369181858412782232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a59468ff1c689a1419196ed4109cbab4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  awakeningFrames: []
+  awakeningFPS: 8
+  idleFrames: []
+  idleFPS: 6
+  directAttackFrames: []
+  directAttackFPS: 10
+  downBeamFrames: []
+  downBeamFPS: 10
+  fanAttackFrames: []
+  fanAttackFPS: 10
+  dualHandBeamFrames: []
+  dualHandBeamFPS: 10
+  deathFrames: []
+  deathFPS: 7
+  spriteScale: 2.4
+  hitFlashDuration: 0.12
+--- !u!114 &5798749194810602439
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2369181858412782232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6cbfc552374152946b686ae8fbd8654e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  footSprite: {fileID: 21300000, guid: 90446dc283542a941858cd74e0983887, type: 3}
+  footSpriteScale: 3
+  footDescentHeight: 18
+  stompsPerSequence: 4
+  warningDuration: 1.2
+  delayBetweenStomps: 0.8
+  stompLingerDuration: 0.4
+  descentSpeed: 25
+  retractSpeed: 20
+  stompDamage: 35
+  stompRadius: 2.5
+  shakeIntensity: 0.4
+  shakeDuration: 0.3
+  timeBetweenSequences: 3
+  telegraphLineWidth: 0.1
+  telegraphColor: {r: 1, g: 0.3, b: 0.1, a: 0.85}
+--- !u!114 &4612678444099678997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2369181858412782232}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c153aebd4f83b374b9432cb5190d0209, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  timeBetweenAttacks: 2
+  antiRepeatWindow: 2
+  hopDistance: 3.5
+  hopDuration: 0.35
+  hopArcHeight: 1.2
+  hopBiasTowardPlayer: 0.5
+  bulletPrefab: {fileID: 4696597189757001852, guid: 4164d04f25c14e44e9c78ac83986204f, type: 3}
+  bulletSprite: {fileID: 0}
+  directBulletSpeed: 10
+  directBulletCount: 5
+  directSpreadAngle: 30
+  directDamage: 15
+  directDelayBeforeFire: 0.3
+  directVolleys: 1
+  directVolleyDelay: 0.4
+  directCooldown: 5
+  downBeamPrefab: {fileID: 0}
+  downBeamChargeDuration: 0.5
+  downBeamDuration: 1.5
+  downBeamWidth: 1.2
+  downBeamDamagePerTick: 12
+  downBeamTickRate: 0.25
+  downBeamCooldown: 7
+  fanBulletSpeed: 9
+  fanBulletCount: 16
+  fanWaves: 2
+  fanWaveDelay: 0.35
+  fanAngleOffset: 0
+  fanDamage: 12
+  fanCooldown: 8
+  handBeamPrefab: {fileID: 0}
+  dualChargeDuration: 0.6
+  dualBeamDuration: 2.5
+  dualInwardSpeed: 2.5
+  dualMinCenterGap: 2.5
+  dualBeamWidth: 1.5
+  dualBeamDamagePerTick: 10
+  dualBeamTickRate: 0.2
+  dualBeamStartX: 8
+  dualCooldown: 9

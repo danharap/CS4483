@@ -4,35 +4,87 @@ using UnityEngine.SceneManagement;
 using Unity.AI.Navigation;
 
 /// <summary>
-/// After wave 5 is cleared, spawns a portal. When the player enters it, transitions to Arena 2
-/// (different arena root with different obstacles and background). Also supports debug: spawn portal on F5.
+/// Manages the stage 1 → 2 portal transition.
+///
+/// Flow:
+///   1. Wave 5 boss dies → SpawnPortal() called
+///   2. Portal scale-in animation plays at top of arena
+///   3. Player walks in → FadeOut → arena swap → FadeIn
+///   4. Arrival portal appears in arena 2 and auto-despawns after arrivalPortalLifetime
+///   5. Player input re-enabled
+///
+/// F5 in play mode skips the wave requirement for testing.
 /// </summary>
 public class ArenaPortalManager : MonoBehaviour
 {
     public static ArenaPortalManager Instance { get; private set; }
 
+    // ── Arena refs ────────────────────────────────────────────────────────
+
     [Header("Arena Roots")]
     [SerializeField] private GameObject arena1Root;
     [SerializeField] private GameObject arena2Root;
 
-    [Header("Portal")]
-    [SerializeField] private Vector3 portalSpawnPosition = new Vector3(0f, 1f, -10f);
-    [SerializeField] private Vector3 portalScale = new Vector3(3f, 3f, 0.5f);
-    [SerializeField] private Color portalColor = new Color(0.4f, 0.2f, 0.8f, 0.9f);
-
-    [Header("Arena 2 Player Spawn")]
-    [SerializeField] private Vector3 arena2PlayerSpawnPosition = new Vector3(0f, 1.1f, 0f);
-
     [Header("References")]
     [SerializeField] private EnemySpawner spawner;
 
+    // ── Portal spawn ──────────────────────────────────────────────────────
+
+    [Header("Portal – Spawn")]
+    [Tooltip("Where the portal appears in Arena 1. Top-middle of the arena, away from player.")]
+    [SerializeField] private Vector3 portalSpawnPosition = new Vector3(0f, 0.5f, 14f);
+    [Tooltip("Seconds after boss death before the portal appears.")]
+    [SerializeField] private float portalSpawnDelay = 1.2f;
+    [Tooltip("Seconds the portal takes to scale in on appearance.")]
+    [SerializeField] private float portalScaleInDuration = 0.7f;
+
+    // ── Portal visuals ────────────────────────────────────────────────────
+
+    [Header("Portal – Visuals")]
+    [SerializeField] private Vector3 portalScale   = new Vector3(3.5f, 3.5f, 0.3f);
+    [SerializeField] private Color   portalColor   = new Color(0.35f, 0.05f, 0.6f, 1f);
+    [SerializeField] private Color   portalGlow    = new Color(0.6f,  0.0f, 1.0f, 1f);
+    [SerializeField] private float   portalPulseSpeed     = 1.8f;
+    [SerializeField] private float   portalPulseAmplitude = 0.06f;
+
+    // ── Transition ────────────────────────────────────────────────────────
+
+    [Header("Transition")]
+    [SerializeField] private float fadeOutDuration  = 0.7f;
+    [SerializeField] private float fadeInDuration   = 0.8f;
+    [Tooltip("Extra black-screen hold between fade-out and arena swap (feels more dramatic).")]
+    [SerializeField] private float blackHoldDuration = 0.3f;
+    [Tooltip("Player input is locked for this long after arrival.")]
+    [SerializeField] private float arrivalLockDuration = 1.5f;
+
+    // ── Arena 2 arrival ───────────────────────────────────────────────────
+
+    [Header("Arena 2 – Arrival")]
+    [Tooltip("Where the player appears in Arena 2. Slightly below the arrival portal.")]
+    [SerializeField] private Vector3 arena2PlayerSpawn = new Vector3(0f, 1.1f, 10f);
+    [Tooltip("Where the arrival portal spawns in Arena 2 (player emerges from here).")]
+    [SerializeField] private Vector3 arena2PortalSpawn = new Vector3(0f, 0.5f, 14f);
+    [Tooltip("Seconds before the arrival portal disappears.")]
+    [SerializeField] private float arrivalPortalLifetime = 3f;
+
+    // ── Audio ─────────────────────────────────────────────────────────────
+
     [Header("Audio")]
     [SerializeField] private AudioClip portalTransitionSound;
+    [SerializeField] private AudioClip portalOpenSound;
 
-    private GameObject portalInstance;
+    // ── Internal ──────────────────────────────────────────────────────────
+
+    private GameObject departurePortal;
+    private GameObject arrivalPortal;
+    private bool       transitionLocked;
+
     private const string Arena1Name = "=== LEVEL (ProBuilder) ===";
     private const string Arena2Name = "=== LEVEL (ProBuilder) Arena2 ===";
-    private const int PortalAfterWaveIndex = 4; // 0-based: wave 5 cleared
+    private const int    PortalAfterWaveIndex = 4; // 0-based: after wave 5
+
+    // ─────────────────────────────────────────────────────────────────────
+    #region Unity Lifecycle
 
     void Awake()
     {
@@ -44,124 +96,124 @@ public class ArenaPortalManager : MonoBehaviour
     {
         if (arena1Root == null) arena1Root = FindRootByName(Arena1Name);
         if (arena2Root == null) arena2Root = FindRootByName(Arena2Name);
-        if (spawner == null) spawner = FindFirstObjectByType<EnemySpawner>();
+        if (spawner    == null) spawner    = FindFirstObjectByType<EnemySpawner>();
 
         WaveManager wm = GameManager.Instance?.WaveManager;
-        if (wm != null)
-            wm.OnWaveCleared += OnWaveCleared;
-    }
-
-    /// <summary>
-    /// Find a root GameObject by name. Works for inactive objects (unlike GameObject.Find).
-    /// </summary>
-    private static GameObject FindRootByName(string name)
-    {
-        Scene scene = SceneManager.GetActiveScene();
-        foreach (GameObject root in scene.GetRootGameObjects())
-        {
-            if (root.name == name) return root;
-        }
-        return null;
+        if (wm != null) wm.OnWaveCleared += OnWaveCleared;
     }
 
     void OnDestroy()
     {
         if (Instance == this) Instance = null;
         var wm = GameManager.Instance?.WaveManager;
-        if (wm != null)
-            wm.OnWaveCleared -= OnWaveCleared;
+        if (wm != null) wm.OnWaveCleared -= OnWaveCleared;
     }
 
     void Update()
     {
-        // Debug: F5 = spawn portal to test without playing 5 waves
-        if (Input.GetKeyDown(KeyCode.F5))
-            SpawnPortalForDebug();
+#if UNITY_EDITOR
+        if (Input.GetKeyDown(KeyCode.F5)) SpawnPortalForDebug();
+#endif
     }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────
+    #region Portal Spawn
 
     private void OnWaveCleared(int waveIndex)
     {
         if (waveIndex == PortalAfterWaveIndex)
-            SpawnPortal();
+            StartCoroutine(DelayedPortalSpawn());
     }
 
-    /// <summary>
-    /// Call from menu or F5 to test the portal without clearing 5 waves.
-    /// </summary>
-    public void SpawnPortalForDebug()
+    public void SpawnPortalForDebug() => StartCoroutine(DelayedPortalSpawn(0f));
+
+    private IEnumerator DelayedPortalSpawn(float overrideDelay = -1f)
     {
-        SpawnPortal();
+        if (departurePortal != null) yield break; // already spawned
+
+        float delay = overrideDelay >= 0f ? overrideDelay : portalSpawnDelay;
+        yield return new WaitForSeconds(delay);
+
+        if (portalOpenSound != null)
+            AudioSource.PlayClipAtPoint(portalOpenSound, portalSpawnPosition, 0.9f);
+
+        departurePortal = BuildPortalObject("Portal_Departure", portalSpawnPosition);
+        yield return StartCoroutine(ScaleIn(departurePortal, portalScale, portalScaleInDuration));
+        StartCoroutine(PulsePortal(departurePortal));
     }
 
-    private void SpawnPortal()
-    {
-        if (portalInstance != null) return;
+    #endregion
 
-        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        go.name = "Portal";
-        go.transform.position = portalSpawnPosition;
-        go.transform.localScale = portalScale;
+    // ─────────────────────────────────────────────────────────────────────
+    #region Transition
 
-        Collider c = go.GetComponent<Collider>();
-        if (c != null) c.isTrigger = true;
-
-        // Trigger events need a Rigidbody on at least one side; player has CharacterController, so add kinematic Rigidbody to portal
-        Rigidbody rb = go.AddComponent<Rigidbody>();
-        rb.isKinematic = true;
-        rb.useGravity = false;
-
-        Renderer r = go.GetComponent<Renderer>();
-        if (r != null)
-        {
-            Material mat = new Material(Shader.Find("Standard"));
-            mat.color = portalColor;
-            r.material = mat;
-        }
-
-        go.AddComponent<Portal>();
-        portalInstance = go;
-    }
-
-    /// <summary>
-    /// Called by Portal when the player enters. Switches to Arena 2 and teleports the player.
-    /// </summary>
+    /// <summary>Called by Portal trigger when player enters.</summary>
     public void TransitionToArena2()
     {
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        Vector3 playPosition = player != null ? player.transform.position : portalSpawnPosition;
+        if (transitionLocked) return;
+        transitionLocked = true;
+        StartCoroutine(TransitionRoutine());
+    }
+
+    private IEnumerator TransitionRoutine()
+    {
+        // Lock player input during transition
+        PlayerController pc = GameManager.Instance?.PlayerController;
+        if (pc != null) pc.enabled = false;
+
         if (portalTransitionSound != null)
-            AudioSource.PlayClipAtPoint(portalTransitionSound, playPosition, 1f);
+            AudioSource.PlayClipAtPoint(portalTransitionSound, portalSpawnPosition, 1f);
+
+        // Fade to black
+        ScreenFadeController fade = ScreenFadeController.Instance;
+        if (fade != null)
+        {
+            bool done = false;
+            fade.FadeOut(fadeOutDuration, () => done = true);
+            yield return new WaitUntil(() => done);
+        }
+
+        yield return new WaitForSeconds(blackHoldDuration);
+
+        // ── Swap arenas ───────────────────────────────────────────────────
+        if (arena1Root == null) arena1Root = FindRootByName(Arena1Name);
+        if (arena2Root == null) arena2Root = FindRootByName(Arena2Name);
 
         if (arena2Root == null)
         {
-            arena2Root = FindRootByName(Arena2Name);
-            if (arena2Root == null)
-            {
-                Debug.LogWarning("[ArenaPortalManager] Arena 2 not found. Build it via CS4483 → 2 - Build Arena 2, then run Setup Everything.");
-                return;
-            }
+            Debug.LogWarning("[ArenaPortalManager] Arena 2 not found — transition aborted.");
+            if (pc != null) pc.enabled = true;
+            transitionLocked = false;
+            yield break;
         }
 
-        if (arena1Root == null) arena1Root = FindRootByName(Arena1Name);
-
-        // Disable Arena 1, enable Arena 2
         if (arena1Root != null) arena1Root.SetActive(false);
         arena2Root.SetActive(true);
 
-        // Bake NavMesh for Arena 2 so enemies can path (once at first transition)
-        NavMeshSurface surface = arena2Root.GetComponent<NavMeshSurface>();
-        if (surface != null)
-            surface.BuildNavMesh();
+        // Bake NavMesh for Arena 2
+        NavMeshSurface nav = arena2Root.GetComponent<NavMeshSurface>();
+        if (nav != null) nav.BuildNavMesh();
 
-        // Teleport player to Arena 2 spawn
+        // Move player to arrival spot
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
-            player.transform.position = arena2PlayerSpawnPosition;
+            player.transform.position = arena2PlayerSpawn;
 
-        // Switch spawner to Arena 2 spawn points
-        if (spawner != null)
-            spawner.UseArena2Spawns();
+        // Remove departure portal
+        if (departurePortal != null) { Destroy(departurePortal); departurePortal = null; }
 
-        // Set wave index so next wave is 6 (break will increment to 5, then wave 6 runs)
+        // Arrival portal appears in Arena 2
+        arrivalPortal = BuildPortalObject("Portal_Arrival", arena2PortalSpawn);
+        arrivalPortal.transform.localScale = portalScale; // no scale-in anim needed
+        StartCoroutine(PulsePortal(arrivalPortal));
+        StartCoroutine(DespawnArrivalPortal(arrivalPortalLifetime));
+
+        // Switch wave spawner to Arena 2 spawn points
+        if (spawner != null) spawner.UseArena2Spawns();
+
+        // Advance wave counter
         WaveManager wm = GameManager.Instance?.WaveManager;
         if (wm != null)
         {
@@ -169,18 +221,148 @@ public class ArenaPortalManager : MonoBehaviour
             GameManager.Instance?.HUD?.UpdateWaveNumber(5);
         }
 
-        // Remove portal (one-time transition)
-        if (portalInstance != null)
+        // Apply Arena 2 floor/theme
+        ArenaThemeController theme = FindFirstObjectByType<ArenaThemeController>();
+        if (theme != null) theme.ApplyArena2Theme();
+
+        // ── Fade back in ──────────────────────────────────────────────────
+        if (fade != null)
         {
-            Destroy(portalInstance);
-            portalInstance = null;
+            bool done = false;
+            fade.FadeIn(fadeInDuration, () => done = true);
+            yield return new WaitUntil(() => done);
         }
 
-        // Swap visuals to Arena 2 theme (red floor + red zap traps)
-        ArenaThemeController theme = FindFirstObjectByType<ArenaThemeController>();
-        if (theme != null)
-            theme.ApplyArena2Theme();
+        // Show arrival message
+        GameManager.Instance?.HUD?.ShowTransition("You enter the Nether Colosseum…");
 
-        GameManager.Instance?.HUD?.ShowTransition("Arena 2! Survive...");
+        // Briefly lock movement so the arrival moment reads cleanly, then unlock
+        yield return new WaitForSeconds(arrivalLockDuration);
+        if (pc != null) pc.enabled = true;
     }
+
+    private IEnumerator DespawnArrivalPortal(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (arrivalPortal == null) yield break;
+
+        // Quickly scale out then destroy
+        float t = 0f;
+        float dur = 0.4f;
+        Vector3 full = arrivalPortal.transform.localScale;
+        while (t < dur)
+        {
+            t += Time.deltaTime;
+            float u = 1f - Mathf.Clamp01(t / dur);
+            arrivalPortal.transform.localScale = full * u;
+            yield return null;
+        }
+        Destroy(arrivalPortal);
+        arrivalPortal = null;
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────
+    #region Portal Visual Helpers
+
+    /// <summary>Builds a portal GameObject: flat cylinder disc with emissive-style material.</summary>
+    private GameObject BuildPortalObject(string goName, Vector3 position)
+    {
+        // Use a cylinder rotated flat (90° on X) as the portal disc
+        GameObject portal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        portal.name = goName;
+        portal.transform.position = position;
+        portal.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        portal.transform.localScale = Vector3.zero; // starts invisible (scale-in plays separately)
+
+        // Remove collider — Portal.cs handles trigger detection on a separate child
+        Destroy(portal.GetComponent<Collider>());
+
+        // Portal disc material
+        Renderer rend = portal.GetComponent<Renderer>();
+        if (rend != null)
+        {
+            Material mat = new Material(Shader.Find("Standard"));
+            mat.color = portalColor;
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", portalGlow * 1.5f);
+            rend.material = mat;
+        }
+
+        // Outer ring (slightly larger, different colour for depth)
+        GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        ring.name = "Ring";
+        ring.transform.SetParent(portal.transform, false);
+        ring.transform.localScale = new Vector3(1.12f, 0.06f, 1.12f); // thin ring
+        ring.transform.localPosition = Vector3.zero;
+        Destroy(ring.GetComponent<Collider>());
+        Renderer ringRend = ring.GetComponent<Renderer>();
+        if (ringRend != null)
+        {
+            Material ringMat = new Material(Shader.Find("Standard"));
+            ringMat.color = new Color(0.8f, 0.6f, 1f, 1f);
+            ringMat.EnableKeyword("_EMISSION");
+            ringMat.SetColor("_EmissionColor", new Color(1f, 0.8f, 2f));
+            ringRend.material = ringMat;
+        }
+
+        // Trigger collider on a separate child so Portal.cs can detect the player
+        GameObject triggerChild = new GameObject("Trigger");
+        triggerChild.transform.SetParent(portal.transform, false);
+        CapsuleCollider trigger = triggerChild.AddComponent<CapsuleCollider>();
+        trigger.isTrigger = true;
+        trigger.radius    = 1.8f;
+        trigger.height    = 2f;
+        trigger.direction = 1; // Y-axis
+
+        Rigidbody rb = triggerChild.AddComponent<Rigidbody>();
+        rb.isKinematic = true;
+        rb.useGravity  = false;
+
+        triggerChild.AddComponent<Portal>();
+
+        return portal;
+    }
+
+    private IEnumerator ScaleIn(GameObject go, Vector3 targetScale, float duration)
+    {
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float u = Mathf.SmoothStep(0f, 1f, t / duration);
+            go.transform.localScale = targetScale * u;
+            yield return null;
+        }
+        go.transform.localScale = targetScale;
+    }
+
+    private IEnumerator PulsePortal(GameObject go)
+    {
+        while (go != null)
+        {
+            float pulse = 1f + Mathf.Sin(Time.time * portalPulseSpeed) * portalPulseAmplitude;
+            if (go != null) go.transform.localScale = portalScale * pulse;
+            yield return null;
+        }
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────
+    #region Helpers
+
+    private static GameObject FindRootByName(string name)
+    {
+        Scene scene = SceneManager.GetActiveScene();
+        foreach (GameObject root in scene.GetRootGameObjects())
+            if (root.name == name) return root;
+        return null;
+    }
+
+    public WaveManager WaveManager => GameManager.Instance?.WaveManager;
+    public HUDManager  HUD         => GameManager.Instance?.HUD;
+
+    #endregion
 }

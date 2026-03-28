@@ -37,6 +37,9 @@ public static class FullSetupOneClick
             // 5) Apply floor/background layering
             EnvironmentSprites.ApplyEnvironmentSprites();
 
+            // 6) Generate colosseum crowd on the stands
+            GenerateCrowd();
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -46,6 +49,26 @@ public static class FullSetupOneClick
         {
             Debug.LogError("[FullSetupOneClick] FULL SETUP failed:\n" + ex);
         }
+    }
+
+    private static void GenerateCrowd()
+    {
+        // Find or create a dedicated Crowd_Manager GameObject under the arena root.
+        const string managerName = "Crowd_Manager";
+        GameObject arenaRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        Transform parent = arenaRoot != null ? arenaRoot.transform : null;
+
+        // Reuse existing manager if already there, otherwise create one.
+        ColosseumCrowdGenerator gen = Object.FindFirstObjectByType<ColosseumCrowdGenerator>();
+        if (gen == null)
+        {
+            GameObject go = new GameObject(managerName);
+            if (parent != null) go.transform.SetParent(parent, false);
+            gen = go.AddComponent<ColosseumCrowdGenerator>();
+        }
+
+        gen.GenerateCrowd();
+        Debug.Log("[FullSetupOneClick] ✓ Colosseum crowd generated.");
     }
 }
 

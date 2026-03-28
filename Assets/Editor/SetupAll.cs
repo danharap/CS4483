@@ -37,9 +37,13 @@ public static class SetupAll
     private static Transform[]      spawnPointTransforms;
 
     // UI
-    private static Slider   hpSlider, xpSlider;
-    private static TMP_Text hpText, levelText, waveText, timerText, transitionText;
-    private static Image    damageOverlay;
+    private static Slider      hpSlider, xpSlider;
+    private static TMP_Text    hpText, levelText, waveText, timerText, transitionText;
+    private static Image       damageOverlay;
+    // Boss HP bar
+    private static GameObject  bossHpPanel;
+    private static Slider      bossHpSlider;
+    private static TMP_Text    bossHpText, bossNameText;
 
     private const string LevelUpButtonSpritePath = "Assets/Sprites/LevelUpButton.png";
     private static Sprite s_levelUpButtonSprite;
@@ -306,6 +310,27 @@ public static class SetupAll
         RectTransform ort = overlayGO.GetComponent<RectTransform>();
         ort.anchorMin = Vector2.zero; ort.anchorMax = Vector2.one; ort.sizeDelta = Vector2.zero;
 
+        // ── Boss HP bar (top-center, hidden until a boss is active) ──────
+        bossHpPanel = BuildBossHpBar(root, out bossHpSlider, out bossHpText, out bossNameText);
+        bossHpPanel.SetActive(false); // HUDManager.ShowBossHP() activates it
+
+        // ── Screen-fade overlay (black, used for arena transition) ────────
+        // Renders above everything; ScreenFadeController manages its alpha.
+        GameObject fadeGO = new GameObject("ScreenFade");
+        fadeGO.transform.SetParent(root, false);
+        Image fadeImg = fadeGO.AddComponent<Image>();
+        fadeImg.color = new Color(0f, 0f, 0f, 0f); // start transparent
+        RectTransform frt = fadeGO.GetComponent<RectTransform>();
+        frt.anchorMin = Vector2.zero; frt.anchorMax = Vector2.one; frt.sizeDelta = Vector2.zero;
+        fadeGO.SetActive(false); // hidden until first fade
+
+        // Attach controller to the canvas root so it persists easily
+        ScreenFadeController fadeCtrl = canvasGO.GetComponent<ScreenFadeController>();
+        if (fadeCtrl == null) fadeCtrl = canvasGO.AddComponent<ScreenFadeController>();
+        var soFade = new SerializedObject(fadeCtrl);
+        soFade.FindProperty("fadeImage").objectReferenceValue = fadeImg;
+        soFade.ApplyModifiedPropertiesWithoutUndo();
+
         // ── Upgrade panel ─────────────────────────────────────────────────
         upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0f)); // Transparent: just the buttons, no overlay
         // Force this panel to render on top by moving it to last sibling
@@ -374,6 +399,7 @@ public static class SetupAll
         GameObject chaserPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
         GameObject fastPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
         GameObject bossPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject satanPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Satan.prefab");
         GameObject heavyPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Heavy.prefab");
         GameObject bigBatPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_BigBat.prefab");
 
@@ -422,6 +448,8 @@ public static class SetupAll
         Wire(esComp, "heavyPrefab",  heavyPrefab);
         Wire(esComp, "bossPrefab",   bossPrefab);
         Wire(esComp, "bigBatPrefab", bigBatPrefab);
+        if (satanPrefab != null)
+            Wire(esComp, "satanPrefab", satanPrefab);
 
         // Debug spawn hotkeys (1/2/3 and function keys) live on the MANAGERS object
         GameObject mgrRoot = GameObject.Find("=== MANAGERS ===");
@@ -477,6 +505,10 @@ public static class SetupAll
         Wire(hudComp, "waveText",        waveText);
         Wire(hudComp, "timerText",       timerText);
         Wire(hudComp, "transitionText",  transitionText);
+        Wire(hudComp, "bossHpPanel",     bossHpPanel);
+        Wire(hudComp, "bossHpSlider",    bossHpSlider);
+        Wire(hudComp, "bossHpText",      bossHpText);
+        Wire(hudComp, "bossNameText",    bossNameText);
 
         // ── UpgradeUI ─────────────────────────────────────────────────────
         Wire(upgradeUIComp, "upgradePanel", upgradePanel);
@@ -569,6 +601,25 @@ public static class SetupAll
             }
         }
         
+        // Wire damageNumberPrefab to Satan boss prefab (not EnemyBase, wired separately)
+        string satanPath = "Assets/Prefabs/Enemy_Satan.prefab";
+        if (!string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(satanPath)) && damageNumberPrefab != null)
+        {
+            using (var scope = new PrefabUtility.EditPrefabContentsScope(satanPath))
+            {
+                if (scope.prefabContentsRoot != null)
+                {
+                    SatanBossController sb = scope.prefabContentsRoot.GetComponent<SatanBossController>();
+                    if (sb != null)
+                    {
+                        var so = new SerializedObject(sb);
+                        so.FindProperty("damageNumberPrefab").objectReferenceValue = damageNumberPrefab;
+                        so.ApplyModifiedProperties();
+                    }
+                }
+            }
+        }
+
         AssetDatabase.SaveAssets();
         Debug.Log("[SetupAll] XPOrb, HealthPack, and Audio wired to all enemy prefabs and player weapon.");
     }
@@ -594,6 +645,67 @@ public static class SetupAll
     }
 
     // ── UI Factory Helpers ────────────────────────────────────────────────
+
+    static GameObject BuildBossHpBar(Transform parent,
+                                      out Slider slider, out TMP_Text hpText, out TMP_Text nameText)
+    {
+        // Panel: dark semi-transparent background, anchored to top-center
+        GameObject panel = new GameObject("BossHP_Panel");
+        panel.transform.SetParent(parent, false);
+        Image panelImg = panel.AddComponent<Image>();
+        panelImg.color = new Color(0f, 0f, 0f, 0.7f);
+        RectTransform panelRt = panel.GetComponent<RectTransform>();
+        panelRt.anchorMin = new Vector2(0.5f, 1f);
+        panelRt.anchorMax = new Vector2(0.5f, 1f);
+        panelRt.pivot     = new Vector2(0.5f, 1f);
+        panelRt.anchoredPosition = new Vector2(0f, -8f);
+        panelRt.sizeDelta = new Vector2(600f, 60f);
+
+        // Boss name label
+        nameText = MakeTMP(panel.transform, "Boss_Name",
+            new Vector2(0f, -8f), new Vector2(580f, 22f), "BOSS", 20f);
+        nameText.color = new Color(1f, 0.85f, 0.2f);
+        nameText.fontStyle = FontStyles.Bold;
+
+        // The red HP slider
+        GameObject sliderGO = new GameObject("BossHP_Slider");
+        sliderGO.transform.SetParent(panel.transform, false);
+        slider = sliderGO.AddComponent<Slider>();
+        slider.interactable = false;
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value    = 1f;
+
+        RectTransform sliderRt = sliderGO.GetComponent<RectTransform>();
+        sliderRt.anchorMin = new Vector2(0.5f, 0f);
+        sliderRt.anchorMax = new Vector2(0.5f, 0f);
+        sliderRt.pivot     = new Vector2(0.5f, 0f);
+        sliderRt.anchoredPosition = new Vector2(0f, 6f);
+        sliderRt.sizeDelta = new Vector2(560f, 22f);
+
+        GameObject bg = new GameObject("BG");
+        bg.transform.SetParent(sliderGO.transform, false);
+        bg.AddComponent<Image>().color = new Color(0.1f, 0.1f, 0.1f);
+        StretchRect(bg.GetComponent<RectTransform>());
+
+        GameObject fa = new GameObject("FillArea");
+        fa.transform.SetParent(sliderGO.transform, false);
+        StretchRect(fa.AddComponent<RectTransform>());
+
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fa.transform, false);
+        fill.AddComponent<Image>().color = new Color(0.85f, 0.1f, 0.1f);
+        RectTransform fillRt = fill.GetComponent<RectTransform>();
+        StretchRect(fillRt);
+        slider.fillRect = fillRt;
+
+        // HP text over slider
+        hpText = MakeTMP(sliderGO.transform, "BossHP_Text",
+            Vector2.zero, new Vector2(560f, 22f), "", 14f);
+        hpText.color = Color.white;
+
+        return panel;
+    }
 
     static Slider MakeHealthBarBottom(Transform parent, out TMP_Text hpText)
     {

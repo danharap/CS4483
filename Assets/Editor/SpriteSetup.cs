@@ -34,6 +34,7 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sBg_Red.png");
         ConfigureSingleSprite("Assets/Sprites/sMap.png");
         ConfigureSingleSprite("Assets/Sprites/sMap_Arena2_Red.png");
+        ConfigureSingleSprite("Assets/Sprites/sMap2.png"); // Arena 2 floor
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
         ConfigureSingleSprite("Assets/Sprites/sExperience.png"); // Custom XP orb
         ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
@@ -61,6 +62,15 @@ public static class SpriteSetup
         // Zap trap sheets (legacy) / pre-cut frames
         // If you use pre-cut frames, run CS4483 → ⚡ Setup ZapTrap Blue Frames (Pre-cut)
         // and SpriteSetup will load frames from Assets/Sprites/ZapTrapBlueFrames.
+
+        // ── Final Boss (Satan) sprites ────────────────────────────────────
+        ConfigureSpritesInFolder("Assets/Sprites/Final Boss/Satan Awakening");
+        ConfigureSpritesInFolder("Assets/Sprites/Final Boss/Satan Death");
+        ConfigureSpritesInFolder("Assets/Sprites/Final Boss/Satan Direct Attack");
+        ConfigureSpritesInFolder("Assets/Sprites/Final Boss/Satan Down Beam Attack");
+        ConfigureSpritesInFolder("Assets/Sprites/Final Boss/Satan Fan Attack or Dual Hand Beam Attack");
+        ConfigureSingleSprite("Assets/Sprites/Final Boss/Satan Foot.png");
+        ConfigureSingleSprite("Assets/Sprites/Final Boss/Bullets.png");
         
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -108,6 +118,9 @@ public static class SpriteSetup
         Sprite[] bossHeadWalk = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Head Walking");
         Sprite[] bossHeadAttack = LoadSpritesInFolder("Assets/Sprites/Boss/Boss Head Attacking");
         ApplyBossSprites("Assets/Prefabs/Enemy_Boss.prefab", bossBodyWalk, bossBodyWalkRight, bossBodyAttack, bossHeadWalk, bossHeadAttack, deathSprite);
+
+        // ── Satan Final Boss sprites ──────────────────────────────────────
+        ApplySatanSprites();
         // Heavy: animated body from your custom tank frame folders + head sprites (flip when moving left)
         // Put your folders inside the Unity project, e.g.:
         //   Assets/Sprites/TankWalking/
@@ -150,7 +163,9 @@ public static class SpriteSetup
 
         // Floor sprites
         theme.arena1FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
-        theme.arena2FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
+        // Prefer sMap2.png for arena 2 floor; fall back to the red variant if not present
+        Sprite map2 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap2.png");
+        theme.arena2FloorSprite = map2 != null ? map2 : AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
 
         // Background sprites
         theme.arena1BgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
@@ -595,6 +610,171 @@ public static class SpriteSetup
             Debug.Log("[SpriteSetup] Applied boss body+head sprites to Boss prefab");
         }
     }
+
+    // ── Satan Sprite Application ──────────────────────────────────────────
+
+    private static void ApplySatanSprites()
+    {
+        const string base_dir = "Assets/Sprites/Final Boss";
+        const string prefabPath = "Assets/Prefabs/Enemy_Satan.prefab";
+        const string bulletPrefabPath = "Assets/Prefabs/SatanBullet.prefab";
+
+        if (!System.IO.File.Exists(prefabPath))
+        {
+            Debug.LogWarning("[SpriteSetup] Enemy_Satan.prefab not found. Run CS4483 → 3 - Create Prefabs first.");
+            return;
+        }
+
+        // Load all frame arrays (numerically sorted so 10 comes after 9)
+        Sprite[] awakening   = LoadSatanFrames($"{base_dir}/Satan Awakening");
+        Sprite[] death       = LoadSatanFrames($"{base_dir}/Satan Death");
+        Sprite[] direct      = LoadSatanFrames($"{base_dir}/Satan Direct Attack");
+        Sprite[] downBeam    = LoadSatanFrames($"{base_dir}/Satan Down Beam Attack");
+        Sprite[] fan         = LoadSatanFrames($"{base_dir}/Satan Fan Attack or Dual Hand Beam Attack");
+        Sprite   footSprite  = AssetDatabase.LoadAssetAtPath<Sprite>($"{base_dir}/Satan Foot.png");
+        Sprite   bulletSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"{base_dir}/Bullets.png");
+
+        // Report what was found
+        Debug.Log($"[SpriteSetup] Satan frames — Awakening:{awakening.Length} Death:{death.Length} " +
+                  $"Direct:{direct.Length} DownBeam:{downBeam.Length} Fan:{fan.Length} " +
+                  $"Foot:{(footSprite != null ? "OK" : "MISSING")} Bullet:{(bulletSprite != null ? "OK" : "MISSING")}");
+
+        // ── Apply to Enemy_Satan prefab ────────────────────────────────────
+        using (var scope = new PrefabUtility.EditPrefabContentsScope(prefabPath))
+        {
+            GameObject root = scope.prefabContentsRoot;
+            if (root == null)
+            {
+                Debug.LogWarning("[SpriteSetup] Could not open Enemy_Satan.prefab — skipping Satan sprite application.");
+            }
+            else
+            {
+                SatanAnimationController anim = root.GetComponent<SatanAnimationController>();
+                if (anim == null)
+                {
+                    Debug.LogWarning("[SpriteSetup] SatanAnimationController not found on Enemy_Satan prefab.");
+                }
+                else
+                {
+                    var so = new SerializedObject(anim);
+
+                    SetSpriteArray(so, "awakeningFrames",    awakening);
+                    // Idle loops the last awakening frame while in combat
+                    SetSpriteArray(so, "idleFrames",         awakening.Length > 0 ? new[] { awakening[awakening.Length - 1] } : new Sprite[0]);
+                    SetSpriteArray(so, "directAttackFrames", direct);
+                    SetSpriteArray(so, "downBeamFrames",     downBeam);
+                    SetSpriteArray(so, "fanAttackFrames",    fan);
+                    SetSpriteArray(so, "dualHandBeamFrames", fan); // same folder covers dual hand beam
+                    SetSpriteArray(so, "deathFrames",        death);
+
+                so.ApplyModifiedPropertiesWithoutUndo();
+                Debug.Log("[SpriteSetup] ✓ Applied Satan animation sprites to Enemy_Satan prefab.");
+            }
+
+            // Wire bullet sprite into SatanAttacks so bullets show Bullets.png at runtime
+            SatanAttacks satanAttacks = root.GetComponent<SatanAttacks>();
+            if (satanAttacks != null && bulletSprite != null)
+            {
+                var soAtk = new SerializedObject(satanAttacks);
+                soAtk.FindProperty("bulletSprite").objectReferenceValue = bulletSprite;
+                soAtk.ApplyModifiedPropertiesWithoutUndo();
+                Debug.Log("[SpriteSetup] ✓ Wired Bullets.png into SatanAttacks.bulletSprite.");
+            }
+
+                // Wire foot sprite into SatanFootPhase
+                SatanFootPhase footPhase = root.GetComponent<SatanFootPhase>();
+                if (footPhase != null && footSprite != null)
+                {
+                    var soFoot = new SerializedObject(footPhase);
+                    soFoot.FindProperty("footSprite").objectReferenceValue = footSprite;
+                    soFoot.ApplyModifiedPropertiesWithoutUndo();
+                    Debug.Log("[SpriteSetup] ✓ Applied Satan Foot sprite to SatanFootPhase.");
+                }
+            }
+        }
+
+        // ── Apply Bullets.png to SatanBullet prefab ───────────────────────
+        if (bulletSprite == null)
+        {
+            Debug.LogWarning("[SpriteSetup] Bullets.png not loaded as sprite. Run Step 1 (Slice Sprite Sheets) first.");
+        }
+        else
+        {
+            string bulletGUID = AssetDatabase.AssetPathToGUID(bulletPrefabPath);
+            if (string.IsNullOrEmpty(bulletGUID))
+            {
+                Debug.LogWarning("[SpriteSetup] SatanBullet.prefab not found in AssetDatabase. Run CS4483 → 3 - Create Prefabs first.");
+            }
+            else
+            {
+                using (var scope = new PrefabUtility.EditPrefabContentsScope(bulletPrefabPath))
+                {
+                    GameObject root = scope.prefabContentsRoot;
+                    if (root == null)
+                    {
+                        Debug.LogWarning("[SpriteSetup] Could not open SatanBullet.prefab — skipping bullet sprite.");
+                    }
+                    else
+                    {
+                        SpriteRenderer sr = root.GetComponent<SpriteRenderer>();
+                        if (sr == null) sr = root.AddComponent<SpriteRenderer>();
+                        if (sr != null)
+                        {
+                            sr.sprite       = bulletSprite;
+                            sr.sortingOrder = 15;
+                        }
+                        if (root.GetComponent<Billboard>() == null)
+                            root.AddComponent<Billboard>();
+                        Debug.Log("[SpriteSetup] ✓ Applied Bullets.png to SatanBullet prefab.");
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Load sprites from a folder sorted numerically by filename (0, 1, 2 … 9, 10, 11)
+    /// instead of alphabetically (0, 1, 10, 11, 2 …).
+    /// </summary>
+    private static Sprite[] LoadSatanFrames(string folderPath)
+    {
+        if (!AssetDatabase.IsValidFolder(folderPath)) return new Sprite[0];
+
+        string[] guids = AssetDatabase.FindAssets("t:Sprite", new[] { folderPath });
+        var list = new List<(int idx, Sprite sprite)>();
+
+        foreach (string guid in guids)
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s == null) continue;
+
+            string fileName = System.IO.Path.GetFileNameWithoutExtension(path);
+            int.TryParse(fileName, out int idx);
+            list.Add((idx, s));
+        }
+
+        list.Sort((a, b) => a.idx.CompareTo(b.idx));
+        Sprite[] result = new Sprite[list.Count];
+        for (int i = 0; i < list.Count; i++) result[i] = list[i].sprite;
+        return result;
+    }
+
+    /// <summary>Set a Sprite[] serialized property from a managed array.</summary>
+    private static void SetSpriteArray(SerializedObject so, string propertyName, Sprite[] sprites)
+    {
+        SerializedProperty prop = so.FindProperty(propertyName);
+        if (prop == null)
+        {
+            Debug.LogWarning($"[SpriteSetup] Property '{propertyName}' not found on {so.targetObject.name}.");
+            return;
+        }
+        prop.arraySize = sprites.Length;
+        for (int i = 0; i < sprites.Length; i++)
+            prop.GetArrayElementAtIndex(i).objectReferenceValue = sprites[i];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
 
     private static Sprite[] LoadSpritesInFolder(string folderPath)
     {

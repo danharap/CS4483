@@ -48,6 +48,8 @@ public class BossEnemy : EnemyBase
         vis = GetComponent<BossVisualController>();
         bossAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
         bossRb = GetComponent<Rigidbody>();
+        // Show boss health bar as soon as the boss spawns
+        HUDManager.Instance?.ShowBossHP("BOSS", maxHP, maxHP);
         visualRoot = transform.Find("VisualRoot");
         cam = Camera.main != null ? Camera.main.GetComponent<CameraController>() : null;
 
@@ -263,8 +265,15 @@ public class BossEnemy : EnemyBase
         if (impactFx != null) impactFx.enabled = false;
     }
 
+    public override void TakeDamage(float amount)
+    {
+        base.TakeDamage(amount);
+        HUDManager.Instance?.UpdateBossHP(CurrentHP, maxHP);
+    }
+
     protected override void Die()
     {
+        HUDManager.Instance?.HideBossHP();
         base.Die(); // handles XP drop, registry, destroy
 
         // Signal the WaveManager that the boss is dead

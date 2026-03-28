@@ -18,7 +18,8 @@ public class Projectile : MonoBehaviour
     private float   damage;
     private int     pierceLeft;   // how many additional enemies to pierce through
     private float   travelled;
-    private HashSet<EnemyBase> hitEnemies = new HashSet<EnemyBase>();
+    private HashSet<EnemyBase>            hitEnemies   = new HashSet<EnemyBase>();
+    private HashSet<SatanBossController>  hitSatans    = new HashSet<SatanBossController>();
 
     public void Init(Vector3 dir, float dmg, float spd, int pierce)
     {
@@ -62,19 +63,29 @@ public class Projectile : MonoBehaviour
         foreach (Collider c in hits)
         {
             if (c.isTrigger && c.CompareTag("Player")) continue;
+
+            // Regular enemies (EnemyBase subclasses)
             EnemyBase enemy = c.GetComponent<EnemyBase>();
             if (enemy != null && enemy.IsAlive && !hitEnemies.Contains(enemy))
             {
                 hitEnemies.Add(enemy);
                 enemy.TakeDamage(damage);
-                if (pierceLeft <= 0)
-                {
-                    Destroy(gameObject);
-                    return;
-                }
+                if (pierceLeft <= 0) { Destroy(gameObject); return; }
                 pierceLeft--;
                 continue;
             }
+
+            // Satan boss (not an EnemyBase subclass — handled separately)
+            SatanBossController satan = c.GetComponent<SatanBossController>();
+            if (satan != null && satan.IsAlive && !hitSatans.Contains(satan))
+            {
+                hitSatans.Add(satan);
+                satan.TakeDamage(damage);
+                if (pierceLeft <= 0) { Destroy(gameObject); return; }
+                pierceLeft--;
+                continue;
+            }
+
             // Block on solid (non-trigger) obstacles
             if (!c.isTrigger && !c.CompareTag("Player"))
             {
@@ -84,8 +95,19 @@ public class Projectile : MonoBehaviour
         }
     }
 
+    /// <summary>Called from SatanBossController.OnTriggerEnter as secondary hit detection.</summary>
+    public void TryHitSatan(SatanBossController satan)
+    {
+        if (satan == null || !satan.IsAlive || hitSatans.Contains(satan)) return;
+        hitSatans.Add(satan);
+        satan.TakeDamage(damage);
+        if (pierceLeft <= 0) Destroy(gameObject);
+        else pierceLeft--;
+    }
+
     void OnTriggerEnter(Collider other)
     {
+        // Regular enemies
         EnemyBase enemy = other.GetComponent<EnemyBase>();
         if (enemy != null)
         {
@@ -94,13 +116,17 @@ public class Projectile : MonoBehaviour
             {
                 hitEnemies.Add(enemy);
                 enemy.TakeDamage(damage);
-            }
-            // Only consume pierce when we actually hit a new enemy.
-            if (didHitNewEnemy)
-            {
                 if (pierceLeft <= 0) Destroy(gameObject);
                 else pierceLeft--;
             }
+            return;
+        }
+
+        // Satan boss
+        SatanBossController satan = other.GetComponent<SatanBossController>();
+        if (satan != null)
+        {
+            TryHitSatan(satan);
             return;
         }
 
