@@ -157,6 +157,31 @@ public class ArenaPortalManager : MonoBehaviour
         StartCoroutine(TransitionRoutine());
     }
 
+    /// <summary>
+    /// Called on respawn to reset the portal manager back to its initial state
+    /// so the stage 1 → 2 transition can be used again in the new run.
+    /// </summary>
+    public void ResetForRespawn()
+    {
+        transitionLocked = false;
+
+        // Clean up any in-flight portal objects
+        if (departurePortal != null)
+        {
+            CleanupPortalPhysics(departurePortal);
+            Destroy(departurePortal);
+            departurePortal = null;
+        }
+        if (arrivalPortal != null)
+        {
+            CleanupPortalPhysics(arrivalPortal);
+            Destroy(arrivalPortal);
+            arrivalPortal = null;
+        }
+
+        StopAllCoroutines();
+    }
+
     private IEnumerator TransitionRoutine()
     {
         // Lock player input during transition
@@ -189,21 +214,50 @@ public class ArenaPortalManager : MonoBehaviour
             yield break;
         }
 
-        // Always disable every root named Arena 1 (fixes stale refs / duplicate roots; avoids Stage 1 floor still rendering).
+        // ── Step 1: Disable every Arena 1 root (handles duplicate refs) ─────
         SetAllSceneRootsActive(Arena1Name, false);
+
+        // Step 2: Explicitly suppress any Floor_Map / Background_Plane renderers
+        // that might be floating at scene-root level (outside any arena hierarchy).
+        // This prevents stale Stage 1 floor sprites from showing through Stage 2.
+        SuppressStrayFloorRenderers(arena2Root);
+
+        // Step 3: Activate Arena 2 and apply its floor theme BEFORE fading in.
         arena2Root.SetActive(true);
 
-        // Bake NavMesh for Arena 2
+        // Apply Arena 2 floor/theme now, while the screen is still black.
+        // Include inactive — MANAGERS may be inactive in some editor setups.
+        ArenaThemeController[] themes = FindObjectsByType<ArenaThemeController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (themes != null && themes.Length > 0)
+            themes[0].ApplyArena2Theme();
+        else
+            Debug.LogWarning("[ArenaPortalManager] No ArenaThemeController found — Stage 2 floor may not swap.");
+
+        // Bake NavMesh for Arena 2.
+        // Arena 1 is now disabled, so CollectObjects.All only picks up Arena 2 geometry.
+        // If the surface uses CollectObjects.Children, only Arena 2's own colliders are included
+        // regardless — either way, the bake is clean at this point.
         NavMeshSurface nav = arena2Root.GetComponent<NavMeshSurface>();
-        if (nav != null) nav.BuildNavMesh();
+        if (nav != null)
+        {
+            nav.BuildNavMesh();
+            Debug.Log("[ArenaPortalManager] Arena 2 NavMesh baked.");
+        }
+        else
+            Debug.LogWarning("[ArenaPortalManager] No NavMeshSurface on Arena 2 root — enemies may not navigate.");
 
         // Move player to arrival spot
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
             player.transform.position = arena2PlayerSpawn;
 
-        // Remove departure portal
-        if (departurePortal != null) { Destroy(departurePortal); departurePortal = null; }
+        // Remove departure portal — disable physics first so no residual collider/obstacle lingers
+        if (departurePortal != null)
+        {
+            CleanupPortalPhysics(departurePortal);
+            Destroy(departurePortal);
+            departurePortal = null;
+        }
 
         // Arrival portal appears in Arena 2
         arrivalPortal = BuildPortalObject("Portal_Arrival", arena2PortalSpawn);
@@ -221,13 +275,6 @@ public class ArenaPortalManager : MonoBehaviour
             wm.SetWaveIndex(4);
             GameManager.Instance?.HUD?.UpdateWaveNumber(5);
         }
-
-        // Apply Arena 2 floor/theme (include inactive — MANAGERS may be inactive in some setups)
-        ArenaThemeController[] themes = FindObjectsByType<ArenaThemeController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
-        if (themes != null && themes.Length > 0)
-            themes[0].ApplyArena2Theme();
-        else
-            Debug.LogWarning("[ArenaPortalManager] No ArenaThemeController found — Stage 2 floor sprite may not swap.");
 
         // ── Fade back in ──────────────────────────────────────────────────
         if (fade != null)
@@ -249,6 +296,9 @@ public class ArenaPortalManager : MonoBehaviour
     {
         yield return new WaitForSeconds(delay);
         if (arrivalPortal == null) yield break;
+
+        // Disable physics immediately so enemies are not blocked during the visual scale-out
+        CleanupPortalPhysics(arrivalPortal);
 
         // Quickly scale out then destroy
         float t = 0f;
@@ -308,7 +358,11 @@ public class ArenaPortalManager : MonoBehaviour
         if (rend != null)
             rend.material = CreatePortalDiscMaterial(portalColor, portalGlow * 1.2f);
 
-        // Trigger collider on a separate child so Portal.cs can detect the player
+        // Trigger collider on a separate child so Portal.cs can detect the player.
+        // No Rigidbody here — the player's own Rigidbody is enough to fire OnTriggerEnter
+        // on a static trigger collider.  Adding a kinematic Rigidbody to the portal would
+        // register it as a NavMesh local-avoidance obstacle, causing enemies to steer around
+        // the invisible portal area even after it disappears.
         GameObject triggerChild = new GameObject("Trigger");
         triggerChild.transform.SetParent(portal.transform, false);
         CapsuleCollider trigger = triggerChild.AddComponent<CapsuleCollider>();
@@ -316,10 +370,6 @@ public class ArenaPortalManager : MonoBehaviour
         trigger.radius    = 1.8f;
         trigger.height    = 2f;
         trigger.direction = 1; // Y-axis
-
-        Rigidbody rb = triggerChild.AddComponent<Rigidbody>();
-        rb.isKinematic = true;
-        rb.useGravity  = false;
 
         triggerChild.AddComponent<Portal>();
 
@@ -369,6 +419,52 @@ public class ArenaPortalManager : MonoBehaviour
         foreach (GameObject root in scene.GetRootGameObjects())
             if (root.name == rootName)
                 root.SetActive(active);
+    }
+
+    /// <summary>
+    /// Disable any SpriteRenderer named "Floor_Map" or "Background_Plane" that is NOT a
+    /// descendant of <paramref name="validArena"/>. This catches objects that ended up at
+    /// scene-root level through editor quirks, preventing Stage 1 floor from showing in Stage 2.
+    /// </summary>
+    static void SuppressStrayFloorRenderers(GameObject validArena)
+    {
+        if (validArena == null) return;
+        foreach (SpriteRenderer sr in FindObjectsByType<SpriteRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            string n = sr.gameObject.name;
+            if (n != "Floor_Map" && n != "Background_Plane") continue;
+            if (IsDescendantOf(sr.transform, validArena.transform)) continue;
+
+            // Disable the renderer so the sprite can no longer show, but leave the object
+            // in place so the hierarchy reference isn't broken.
+            sr.enabled = false;
+            Debug.Log($"[ArenaPortalManager] Suppressed stray floor renderer '{sr.gameObject.name}' " +
+                      $"(parent: {(sr.transform.parent != null ? sr.transform.parent.name : "scene root")})");
+        }
+    }
+
+    static bool IsDescendantOf(Transform child, Transform parent)
+    {
+        Transform t = child;
+        while (t != null)
+        {
+            if (t == parent) return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Disable all colliders (and any lingering Rigidbodies) on a portal before destroying it.
+    /// This ensures no physics/NavMesh obstacle remains active during Unity's deferred Destroy frame.
+    /// </summary>
+    private static void CleanupPortalPhysics(GameObject portal)
+    {
+        if (portal == null) return;
+        foreach (Collider col in portal.GetComponentsInChildren<Collider>(true))
+            col.enabled = false;
+        foreach (Rigidbody rb in portal.GetComponentsInChildren<Rigidbody>(true))
+            rb.detectCollisions = false;
     }
 
     public WaveManager WaveManager => GameManager.Instance?.WaveManager;

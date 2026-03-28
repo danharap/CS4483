@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 1160829305766759121}
   - component: {fileID: 6971194246186091926}
   - component: {fileID: 4812240995918654357}
-  - component: {fileID: 5798749194810602439}
+  - component: {fileID: 6976211367266585335}
   - component: {fileID: 8824460237223125574}
   m_Layer: 0
   m_Name: Enemy_Satan
@@ -134,8 +134,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c153aebd4f83b374b9432cb5190d0209, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timeBetweenAttacks: 2
+  timeBetweenAttacks: 1.2
+  initialCombatDelay: 2
   antiRepeatWindow: 2
+  lingerDirect: 0.35
+  lingerDownBeam: 0.5
+  lingerFan: 0.35
+  lingerDualBeam: 0.5
   hopDistance: 3.5
   hopDuration: 0.35
   hopArcHeight: 1.2
@@ -175,6 +180,10 @@ MonoBehaviour:
   dualBeamTickRate: 0.2
   dualBeamStartX: 8
   dualCooldown: 9
+  dualHandOffsetY: 1.5
+  dualHandOffsetZ: 1
+  dualBeamLength: 36
+  dualBeamColor: {r: 1, g: 0.35, b: 0, a: 0.85}
 --- !u!114 &6971194246186091926
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -188,13 +197,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   maxHP: 1500
-  footPhaseHPThreshold: 0.35
+  phase2MaxHP: 800
   spawnOffset: {x: 0, y: 0, z: 16}
   waitForFallenKillBeforeAwakening: 0
   autoAwakenDelay: 1.5
   satanArenaTopZ: 14
   satanXRange: 4
-  footPhase: {fileID: 5798749194810602439}
+  fakeDeathPause: 1.5
+  riseOffScreenTime: 2.5
+  footPhaseController: {fileID: 6976211367266585335}
   damageNumberPrefab: {fileID: 7687715987023145794, guid: 6ffd80c52447ca049bdcf42f0fc7a4ec, type: 3}
 --- !u!114 &4812240995918654357
 MonoBehaviour:
@@ -224,7 +235,7 @@ MonoBehaviour:
   deathFPS: 7
   spriteScale: 2.4
   hitFlashDuration: 0.12
---- !u!114 &5798749194810602439
+--- !u!114 &6976211367266585335
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -233,25 +244,32 @@ MonoBehaviour:
   m_GameObject: {fileID: 2369181858412782232}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6cbfc552374152946b686ae8fbd8654e, type: 3}
+  m_Script: {fileID: 11500000, guid: 1095e702e9cb6614d9aa34938cb1616c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  footSprite: {fileID: 21300000, guid: 90446dc283542a941858cd74e0983887, type: 3}
-  footSpriteScale: 3
-  footDescentHeight: 18
-  stompsPerSequence: 4
+  maxActiveFeet: 2
+  stompsPerWave: 4
+  delayBetweenStomps: 1.8
+  restBetweenWaves: 3.5
   warningDuration: 1.2
-  delayBetweenStomps: 0.8
-  stompLingerDuration: 0.4
-  descentSpeed: 25
-  retractSpeed: 20
-  stompDamage: 35
+  groundedDuration: 1.6
+  descentSpeed: 28
+  retractSpeed: 22
+  descentHeight: 20
+  footSprite: {fileID: 21300000, guid: 90446dc283542a941858cd74e0983887, type: 3}
+  footScale: 3
+  footSpriteOffset: {x: 0, y: 0, z: 0}
+  stompDamage: 30
   stompRadius: 2.5
-  shakeIntensity: 0.4
-  shakeDuration: 0.3
-  timeBetweenSequences: 3
-  telegraphLineWidth: 0.1
-  telegraphColor: {r: 1, g: 0.3, b: 0.1, a: 0.85}
+  aimScatter: 2
+  aimScatterZMultiplier: 0.5
+  predictionTime: 0.55
+  predictionStrength: 0.65
+  predictionMaxLead: 5
+  warningColor: {r: 1, g: 0.25, b: 0.05, a: 0.9}
+  warningLineWidth: 0.12
+  shakeIntensity: 0.35
+  shakeDuration: 0.28
 --- !u!114 &8824460237223125574
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -264,8 +282,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c153aebd4f83b374b9432cb5190d0209, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  timeBetweenAttacks: 2
+  timeBetweenAttacks: 1.2
+  initialCombatDelay: 2
   antiRepeatWindow: 2
+  lingerDirect: 0.35
+  lingerDownBeam: 0.5
+  lingerFan: 0.35
+  lingerDualBeam: 0.5
   hopDistance: 3.5
   hopDuration: 0.35
   hopArcHeight: 1.2
@@ -305,3 +328,7 @@ MonoBehaviour:
   dualBeamTickRate: 0.2
   dualBeamStartX: 8
   dualCooldown: 9
+  dualHandOffsetY: 1.5
+  dualHandOffsetZ: 1
+  dualBeamLength: 36
+  dualBeamColor: {r: 1, g: 0.35, b: 0, a: 0.85}

@@ -692,14 +692,14 @@ public static class SpriteSetup
                 Debug.Log("[SpriteSetup] ✓ Wired Bullets.png into SatanAttacks.bulletSprite.");
             }
 
-                // Wire foot sprite into SatanFootPhase
-                SatanFootPhase footPhase = root.GetComponent<SatanFootPhase>();
+                // Wire foot sprite into SatanFootPhaseController
+                SatanFootPhaseController footPhase = root.GetComponent<SatanFootPhaseController>();
                 if (footPhase != null && footSprite != null)
                 {
                     var soFoot = new SerializedObject(footPhase);
                     soFoot.FindProperty("footSprite").objectReferenceValue = footSprite;
                     soFoot.ApplyModifiedPropertiesWithoutUndo();
-                    Debug.Log("[SpriteSetup] ✓ Applied Satan Foot sprite to SatanFootPhase.");
+                    Debug.Log("[SpriteSetup] ✓ Applied Satan Foot sprite to SatanFootPhaseController.");
                 }
             }
         }

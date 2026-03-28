@@ -3,8 +3,13 @@ using UnityEngine;
 
 /// <summary>
 /// Main state machine for the Satan boss.
-/// Controls state transitions, phase logic, health thresholds, and attack sequencing.
-/// Attach to the Satan prefab root alongside SatanAnimationController and SatanAttacks.
+///
+/// PHASE 1  – Normal combat. Player depletes HP to zero.
+/// FAKE-OUT  – Satan plays a death animation, then RISES off-screen instead of dying.
+///             The player should think the fight is over. Phase 2 begins.
+/// PHASE 2  – Foot stomp phase managed by SatanFootPhaseController.
+///             Feet are the only damageable targets. Damage is routed here via TakeDamagePhase2.
+/// FINAL DEATH – Phase 2 HP pool empties → true final defeat.
 /// </summary>
 [RequireComponent(typeof(SatanAnimationController))]
 [RequireComponent(typeof(SatanAttacks))]
@@ -15,57 +20,74 @@ public class SatanBossController : MonoBehaviour
     public enum BossState
     {
         None,
-        Spawning,         // just instantiated, first frame
-        StatueIdle,       // frozen on frame 0 of Awakening sprite
-        WaitingForFallen, // same visual, waiting for Fallen death signal
-        Awakening,        // playing the rest of the Awakening animation
-        CombatPhase,      // main attack loop
-        TransitionToFootPhase,
-        FootPhase,        // stomp-only second phase
-        Dying,
+        Spawning,
+        StatueIdle,
+        WaitingForFallen,
+        Awakening,
+        CombatPhase,
+        FakeDying,          // HP hit 0 – playing "death" anim before rising
+        TransitionToPhase2, // rising off-screen
+        FootPhase,          // stomp second phase
+        FinalDying,         // true final death
         Dead
     }
 
-    // ── Serialized Fields ─────────────────────────────────────────────────
+    // ── Phase 1 Health ────────────────────────────────────────────────────
 
-    [Header("Health")]
+    [Header("Phase 1 Health")]
     [SerializeField] public float maxHP = 1500f;
-    [SerializeField] [Range(0f, 1f)]
-    private float footPhaseHPThreshold = 0.35f; // transition at 35% HP
+
+    // ── Phase 2 Health ────────────────────────────────────────────────────
+
+    [Header("Phase 2 Health (Foot Phase)")]
+    [Tooltip("Shared HP pool drained by foot hits. Player wins when this hits 0.")]
+    [SerializeField] private float phase2MaxHP = 800f;
+
+    // ── Spawn ─────────────────────────────────────────────────────────────
 
     [Header("Spawn")]
-    [Tooltip("World position where Satan spawns. Override per scene if needed.")]
-    [SerializeField] private Vector3 spawnOffset = new Vector3(0f, 0f, 16f); // top of arena
+    [SerializeField] private Vector3 spawnOffset = new Vector3(0f, 0f, 16f);
+
+    // ── Fallen Integration ────────────────────────────────────────────────
 
     [Header("Fallen Integration")]
-    [Tooltip("If true, Satan waits on frame 0 until NotifyFallenDefeated() is called. " +
-             "Set false to test the full fight immediately.")]
     [SerializeField] private bool waitForFallenKillBeforeAwakening = false;
-    [Tooltip("Time before auto-awakening when waitForFallenKillBeforeAwakening = false.")]
     [SerializeField] private float autoAwakenDelay = 1.5f;
 
-    [Header("Arena Bounds (for positioning)")]
-    [Tooltip("Satan stays near the top of the arena. Controls X wander range.")]
+    // ── Arena Bounds ──────────────────────────────────────────────────────
+
+    [Header("Arena Bounds")]
     [SerializeField] private float satanArenaTopZ = 14f;
-    [SerializeField] private float satanXRange = 4f;
+    [SerializeField] private float satanXRange    = 4f;
+
+    // ── Fake-Death Transition ─────────────────────────────────────────────
+
+    [Header("Fake-Death Transition")]
+    [Tooltip("Pause after the fake-death anim plays — dramatic beat before Satan rises.")]
+    [SerializeField] private float fakeDeathPause   = 1.5f;
+    [Tooltip("Time Satan takes to float up and off-screen before foot phase begins.")]
+    [SerializeField] private float riseOffScreenTime = 2.5f;
+
+    // ── References ────────────────────────────────────────────────────────
 
     [Header("References")]
-    [SerializeField] private SatanFootPhase footPhase;
+    [SerializeField] private SatanFootPhaseController footPhaseController;
     [SerializeField] private GameObject damageNumberPrefab;
 
     // ── Runtime State ─────────────────────────────────────────────────────
 
-    public BossState CurrentState { get; private set; } = BossState.None;
-    public float CurrentHP        { get; private set; }
-    public bool  IsAlive          { get; private set; } = true;
-    public Transform Player       { get; private set; }
+    public BossState CurrentState  { get; private set; } = BossState.None;
+    public float     CurrentHP     { get; private set; }
+    public float     Phase2HP      { get; private set; }
+    /// <summary>True only while the Phase 1 body is alive and targetable.</summary>
+    public bool      IsAlive       { get; private set; } = true;
+    /// <summary>True once Phase 2 foot stomp begins.</summary>
+    public bool      Phase2Active  { get; private set; }
+    public Transform Player        { get; private set; }
 
     private SatanAnimationController anim;
-    private SatanAttacks attacks;
-    private CameraController cam;
-    private bool deathTriggered;
-
-    // ── Events (for future wiring) ────────────────────────────────────────
+    private SatanAttacks             attacks;
+    private bool                     phase1Ended; // guards against double-trigger
 
     public event System.Action OnBossDefeated;
 
@@ -77,26 +99,19 @@ public class SatanBossController : MonoBehaviour
         CurrentHP = maxHP;
         anim      = GetComponent<SatanAnimationController>();
         attacks   = GetComponent<SatanAttacks>();
-        cam       = Camera.main != null ? Camera.main.GetComponent<CameraController>() : null;
 
-        // ── Layer: Boss (enemies ignore Boss vs Enemy in GameplayLayerSetup) ─
         int bossLayer = LayerMask.NameToLayer("Boss");
-        if (bossLayer >= 0)
-            gameObject.layer = bossLayer;
+        if (bossLayer >= 0) gameObject.layer = bossLayer;
 
-        // ── Collider setup ────────────────────────────────────────────────
-        // Remove non-trigger colliders on root and children so nothing blocks enemy Rigidbodies.
+        // Phase 1 hurtbox – trigger only so it never blocks enemy Rigidbodies.
         foreach (Collider col in GetComponentsInChildren<Collider>(true))
-        {
-            if (!col.isTrigger)
-                Destroy(col);
-        }
-        // Trigger hurtbox for player projectiles / overlap checks only (no physical blocking).
-        CapsuleCollider hitbox = gameObject.AddComponent<CapsuleCollider>();
-        hitbox.isTrigger = true;
-        hitbox.radius    = 2.5f;
-        hitbox.height    = 5f;
-        hitbox.center    = new Vector3(0f, 2.5f, 0f);
+            if (!col.isTrigger) Destroy(col);
+
+        CapsuleCollider hb = gameObject.AddComponent<CapsuleCollider>();
+        hb.isTrigger = true;
+        hb.radius    = 2.5f;
+        hb.height    = 5f;
+        hb.center    = new Vector3(0f, 2.5f, 0f);
     }
 
     private void Start()
@@ -104,18 +119,8 @@ public class SatanBossController : MonoBehaviour
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) Player = p.transform;
 
-        // Show boss HP bar immediately (bar hides itself until boss awakens)
         HUDManager.Instance?.ShowBossHP("SATAN", maxHP, maxHP);
-
         StartCoroutine(SpawnSequence());
-    }
-
-    private void Update()
-    {
-        if (CurrentState == BossState.CombatPhase)
-        {
-            CheckPhaseTransition();
-        }
     }
 
     #endregion
@@ -126,24 +131,16 @@ public class SatanBossController : MonoBehaviour
     private IEnumerator SpawnSequence()
     {
         SetState(BossState.Spawning);
-        yield return null; // let Awake/Start finish
+        yield return null;
 
-        // Position Satan at top of arena
-        Vector3 spawnPos = new Vector3(spawnOffset.x, spawnOffset.y, satanArenaTopZ);
-        transform.position = spawnPos;
-
-        // Show frame 0 of Awakening — frozen statue
+        transform.position = new Vector3(spawnOffset.x, spawnOffset.y, satanArenaTopZ);
         anim.SetStatueFrame();
         SetState(BossState.StatueIdle);
 
         if (waitForFallenKillBeforeAwakening)
-        {
-            // Remain frozen until NotifyFallenDefeated() is called externally
             SetState(BossState.WaitingForFallen);
-        }
         else
         {
-            // Auto-awaken after delay (testing mode)
             yield return new WaitForSeconds(autoAwakenDelay);
             StartCoroutine(AwakenSequence());
         }
@@ -163,47 +160,75 @@ public class SatanBossController : MonoBehaviour
         StartCoroutine(attacks.CombatLoop(this));
     }
 
-    private void CheckPhaseTransition()
-    {
-        if (!IsAlive) return;
-        if (CurrentHP / maxHP <= footPhaseHPThreshold)
-            StartCoroutine(TransitionToFootPhase());
-    }
+    // ─────────────────────────────────────────────────────────────────────
 
-    private IEnumerator TransitionToFootPhase()
+    private IEnumerator FakeDeathTransition()
     {
-        // Only trigger once
-        if (CurrentState == BossState.TransitionToFootPhase ||
-            CurrentState == BossState.FootPhase ||
-            CurrentState == BossState.Dying ||
-            CurrentState == BossState.Dead) yield break;
+        if (phase1Ended) yield break;
+        phase1Ended = true;
 
-        SetState(BossState.TransitionToFootPhase);
+        Debug.Log("[Satan] Phase 1 HP = 0 → Fake-death transition begins.");
+        SetState(BossState.FakeDying);
+        IsAlive = false; // phase 1 body no longer targetable
         attacks.StopAttacking();
 
-        // Brief dramatic pause, then move Satan off-screen upward
-        yield return new WaitForSeconds(0.5f);
-        yield return StartCoroutine(FloatUpward(2.5f));
+        // Player sees the HP bar empty and a death animation – thinks boss died.
+        HUDManager.Instance?.HideBossHP();
+        yield return StartCoroutine(anim.PlayDeath());
+        yield return new WaitForSeconds(fakeDeathPause);
 
-        // Hide Satan body — foot phase takes over
+        // TWIST: Satan rises instead of dying.
+        Debug.Log("[Satan] Rising off-screen – Phase 2 begins!");
+        SetState(BossState.TransitionToPhase2);
+        yield return StartCoroutine(FloatUpward(riseOffScreenTime));
+
+        // Body disappears – foot stomp takes over.
         anim.HideAll();
+        Phase2Active = true;
+        Phase2HP     = phase2MaxHP;
         SetState(BossState.FootPhase);
 
-        if (footPhase != null)
-            footPhase.Begin(this);
+        HUDManager.Instance?.ShowBossHP("SATAN", phase2MaxHP, phase2MaxHP);
+
+        if (footPhaseController != null)
+            footPhaseController.Begin(this);
         else
-            Debug.LogWarning("[Satan] footPhase reference not assigned on SatanBossController.");
+            Debug.LogWarning("[Satan] footPhaseController not assigned – foot phase will not start!");
     }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    private IEnumerator FinalDeathSequence()
+    {
+        if (CurrentState == BossState.FinalDying || CurrentState == BossState.Dead) yield break;
+
+        Debug.Log("[Satan] FINAL DEFEAT – Phase 2 HP depleted!");
+        SetState(BossState.FinalDying);
+        Phase2Active = false;
+
+        footPhaseController?.Stop();
+        HUDManager.Instance?.HideBossHP();
+
+        yield return new WaitForSeconds(0.8f);
+
+        SetState(BossState.Dead);
+        OnBossDefeated?.Invoke();
+        GameManager.Instance?.WaveManager?.NotifyBossKilled();
+
+        Destroy(gameObject, 0.5f);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
 
     private IEnumerator FloatUpward(float duration)
     {
         Vector3 start = transform.position;
-        Vector3 end   = start + new Vector3(0f, 12f, 0f);
+        Vector3 end   = start + new Vector3(0f, 16f, 0f);
         float   t     = 0f;
         while (t < duration)
         {
             t += Time.deltaTime;
-            transform.position = Vector3.Lerp(start, end, t / duration);
+            transform.position = Vector3.Lerp(start, end, Mathf.SmoothStep(0f, 1f, t / duration));
             yield return null;
         }
     }
@@ -211,63 +236,57 @@ public class SatanBossController : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────
-    #region Damage & Death
+    #region Damage
 
+    /// <summary>Phase 1 damage – only accepted while the body is alive and active.</summary>
     public void TakeDamage(float amount)
     {
-        if (!IsAlive || deathTriggered) return;
-        if (CurrentState == BossState.StatueIdle ||
+        if (!IsAlive || phase1Ended) return;
+        if (CurrentState == BossState.StatueIdle   ||
             CurrentState == BossState.WaitingForFallen ||
-            CurrentState == BossState.Spawning ||
-            CurrentState == BossState.Awakening) return; // invincible until active
+            CurrentState == BossState.Spawning     ||
+            CurrentState == BossState.Awakening) return;
 
         CurrentHP = Mathf.Max(0f, CurrentHP - amount);
         anim.FlashRed();
-        SpawnDamageNumber(amount);
+        SpawnDamageNumber(amount, transform.position + Vector3.up * 3f);
         HUDManager.Instance?.UpdateBossHP(CurrentHP, maxHP);
 
-        if (CurrentHP <= 0f) StartCoroutine(DeathSequence());
+        if (CurrentHP <= 0f)
+            StartCoroutine(FakeDeathTransition());
     }
 
-    private void SpawnDamageNumber(float amount)
+    /// <summary>
+    /// Phase 2 damage routed here by SatanFootController when a grounded foot is hit.
+    /// Reduces the shared Phase 2 HP pool.
+    /// </summary>
+    public void TakeDamagePhase2(float amount)
+    {
+        if (!Phase2Active ||
+            CurrentState == BossState.FinalDying ||
+            CurrentState == BossState.Dead) return;
+
+        Phase2HP = Mathf.Max(0f, Phase2HP - amount);
+        SpawnDamageNumber(amount, transform.position + Vector3.up * 3f);
+        HUDManager.Instance?.UpdateBossHP(Phase2HP, phase2MaxHP);
+        Debug.Log($"[Satan P2] Foot hit! -{amount}  Phase2HP={Phase2HP}/{phase2MaxHP}");
+
+        if (Phase2HP <= 0f)
+            StartCoroutine(FinalDeathSequence());
+    }
+
+    private void SpawnDamageNumber(float amount, Vector3 pos)
     {
         if (damageNumberPrefab == null) return;
-        Vector3 pos = transform.position + Vector3.up * 3f;
         GameObject go = Object.Instantiate(damageNumberPrefab, pos, Quaternion.identity);
         go.GetComponent<DamageNumber>()?.Initialize(amount, new Color(1f, 0.5f, 0.1f));
     }
 
     private void OnTriggerEnter(Collider other)
     {
-        // Player projectiles use Projectile.cs overlap-sphere which now handles Satan directly.
-        // This OnTriggerEnter is a secondary catch for any projectile that slips through.
         Projectile proj = other.GetComponent<Projectile>();
         if (proj != null)
             proj.TryHitSatan(this);
-    }
-
-    private IEnumerator DeathSequence()
-    {
-        if (deathTriggered) yield break;
-        deathTriggered = true;
-        IsAlive        = false;
-
-        SetState(BossState.Dying);
-        attacks.StopAttacking();
-
-        if (footPhase != null) footPhase.Stop();
-        HUDManager.Instance?.HideBossHP();
-
-        yield return StartCoroutine(anim.PlayDeath());
-
-        // Float upward and despawn
-        yield return StartCoroutine(FloatUpward(1.8f));
-
-        SetState(BossState.Dead);
-        OnBossDefeated?.Invoke();
-        GameManager.Instance?.WaveManager?.NotifyBossKilled();
-
-        Destroy(gameObject, 0.1f);
     }
 
     #endregion
@@ -275,20 +294,13 @@ public class SatanBossController : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────
     #region Public API
 
-    /// <summary>
-    /// Call this when The Fallen enemy is defeated to trigger Satan's awakening.
-    /// Wire from FallenEnemy.Die() in the future.
-    /// </summary>
     public void NotifyFallenDefeated()
     {
         if (CurrentState != BossState.WaitingForFallen) return;
         StartCoroutine(AwakenSequence());
     }
 
-    public void SetState(BossState state)
-    {
-        CurrentState = state;
-    }
+    public void SetState(BossState state) => CurrentState = state;
 
     public bool InCombat => CurrentState == BossState.CombatPhase;
 

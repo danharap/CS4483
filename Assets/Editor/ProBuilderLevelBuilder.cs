@@ -145,13 +145,13 @@ public static class ProBuilderLevelBuilder
             AssetDatabase.CreateFolder("Assets", "Materials");
 
         matFloor    = GetOrCreateMat("M_Floor",    new Color(0.60f, 0.60f, 0.60f));
-        // Dark metal-ish border walls to match floor edge
-        matWall     = GetOrCreateMat("M_Wall",     new Color(0.16f, 0.18f, 0.22f));
+        // Warm earthy brown stone for colosseum-style arena walls (Stage 1)
+        matWall     = GetOrCreateMat("M_Wall",     new Color(0.55f, 0.35f, 0.15f));
         matHub      = GetOrCreateMat("M_Hub",      new Color(0.85f, 0.85f, 0.85f));
         matBoss     = GetOrCreateMat("M_Boss",     new Color(0.40f, 0.02f, 0.02f));
         matObstacle = GetOrCreateMat("M_Obstacle", new Color(0.45f, 0.40f, 0.35f));
-        // Dark, worn stone for colosseum-style audience stands
-        matStands   = GetOrCreateMat("M_Stands",   new Color(0.15f, 0.15f, 0.17f));
+        // Warm neutral grey stone for Stage 1 audience stands — distinct from walls, fits sMap floor
+        matStands   = GetOrCreateMat("M_Stands",   new Color(0.48f, 0.46f, 0.42f));
         matStandsArena2 = GetOrCreateMat("M_Stands_Arena2", new Color(0.16f, 0.07f, 0.09f)); // nether / darker stone
     }
 
@@ -163,6 +163,12 @@ public static class ProBuilderLevelBuilder
         {
             mat = new Material(Shader.Find("Standard")) { color = color };
             AssetDatabase.CreateAsset(mat, path);
+        }
+        else
+        {
+            // Always sync the color so re-running the builder reflects updated values
+            mat.color = color;
+            EditorUtility.SetDirty(mat);
         }
         return mat;
     }

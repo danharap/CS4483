@@ -105,6 +105,23 @@ public class Projectile : MonoBehaviour
         else pierceLeft--;
     }
 
+    /// <summary>
+    /// The raw damage value this projectile carries. Read by SatanFootController to
+    /// route foot damage to the Phase 2 HP pool.
+    /// </summary>
+    public float DamageAmount => damage;
+
+    /// <summary>
+    /// Called by SatanFootController when a grounded foot registers a hit.
+    /// Handles pierce decrement and self-destruction so the caller does not need
+    /// to destroy the projectile directly.
+    /// </summary>
+    public void NotifyHit()
+    {
+        if (pierceLeft <= 0) Destroy(gameObject);
+        else pierceLeft--;
+    }
+
     void OnTriggerEnter(Collider other)
     {
         // Regular enemies

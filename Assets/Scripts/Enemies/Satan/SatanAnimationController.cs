@@ -159,6 +159,17 @@ public class SatanAnimationController : MonoBehaviour
         sr.enabled = false;
     }
 
+    /// <summary>
+    /// Hold the sprite on its current frame for <paramref name="duration"/> seconds.
+    /// Does NOT stop a running loop — call StopLoop or PlayIdleLoop after if needed.
+    /// Used by SatanAttacks to linger on the last attack frame before returning to idle.
+    /// </summary>
+    public IEnumerator HoldLastFrame(float duration)
+    {
+        if (duration > 0f)
+            yield return new WaitForSeconds(duration);
+    }
+
     /// <summary>Brief red tint hit-confirm. Non-blocking.</summary>
     public void FlashRed()
     {

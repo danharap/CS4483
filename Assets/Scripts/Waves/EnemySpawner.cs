@@ -35,6 +35,19 @@ public class EnemySpawner : MonoBehaviour
     [Header("Big Bat Unlock Wave")]
     [SerializeField] private int bigBatUnlockWave = 5;       // 0-based index (Wave 6 = after wave 5)
 
+    [Header("Spawn Jitter")]
+    [Tooltip("Random XZ offset added to every spawn position to prevent enemies from stacking at the same point.")]
+    [SerializeField] private float spawnJitter = 1.2f;
+
+    // ── Internal ──────────────────────────────────────────────────────────
+
+    private Transform[] arena1SpawnPoints; // preserved so ResetToArena1Spawns() works after UseArena2Spawns()
+
+    void Awake()
+    {
+        arena1SpawnPoints = spawnPoints;
+    }
+
     // ── Spawn ─────────────────────────────────────────────────────────────
 
     public void SpawnForWave(int waveIndex)
@@ -45,7 +58,8 @@ public class EnemySpawner : MonoBehaviour
         Transform sp = PickSpawnPoint();
         if (sp == null) return;
 
-        GameObject enemy = Instantiate(prefab, sp.position, Quaternion.identity);
+        Vector3 pos = ApplyJitter(sp.position);
+        GameObject enemy = Instantiate(prefab, pos, Quaternion.identity);
         ScaleEnemyHP(enemy, waveIndex);
         GameManager.Instance?.WaveManager?.NotifyEnemySpawned();
     }
@@ -56,7 +70,7 @@ public class EnemySpawner : MonoBehaviour
         Transform sp = PickSpawnPoint();
         if (sp == null) return;
 
-        Instantiate(bossPrefab, sp.position, Quaternion.identity);
+        Instantiate(bossPrefab, ApplyJitter(sp.position), Quaternion.identity);
         GameManager.Instance?.WaveManager?.NotifyEnemySpawned();
     }
 
@@ -67,6 +81,23 @@ public class EnemySpawner : MonoBehaviour
     {
         if (spawnPointsArena2 != null && spawnPointsArena2.Length > 0)
             spawnPoints = spawnPointsArena2;
+    }
+
+    /// <summary>
+    /// Restore Arena 1 spawn points after a respawn.
+    /// </summary>
+    public void ResetToArena1Spawns()
+    {
+        if (arena1SpawnPoints != null && arena1SpawnPoints.Length > 0)
+            spawnPoints = arena1SpawnPoints;
+    }
+
+    private Vector3 ApplyJitter(Vector3 pos)
+    {
+        return new Vector3(
+            pos.x + Random.Range(-spawnJitter, spawnJitter),
+            pos.y,
+            pos.z + Random.Range(-spawnJitter, spawnJitter));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

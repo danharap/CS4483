@@ -237,7 +237,7 @@ public static class SetupAll
         playerGO = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         playerGO.name = "Player";
         playerGO.tag  = "Player";
-        // Spawn in Lobby level center; portal there leads into Arena 1
+        // Spawn in Lobby level center; portal leads into Arena 1
         playerGO.transform.position = new Vector3(0f, 1.1f, 0f);
 
         Object.DestroyImmediate(playerGO.GetComponent<CapsuleCollider>());

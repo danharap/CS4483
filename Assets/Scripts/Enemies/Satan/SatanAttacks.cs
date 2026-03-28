@@ -22,9 +22,20 @@ public class SatanAttacks : MonoBehaviour
     #region Serialized Tunables
 
     [Header("Combat Pacing")]
-    [SerializeField] private float timeBetweenAttacks = 2.0f;
+    [Tooltip("Idle time between attacks (wait AFTER linger, BEFORE hop into next attack).")]
+    [SerializeField] private float timeBetweenAttacks = 1.2f;
+    [Tooltip("Initial delay before Satan's first attack after entering combat.")]
+    [SerializeField] private float initialCombatDelay = 2.0f;
     [Tooltip("Minimum gap between using the same attack twice in a row.")]
     [SerializeField] private int   antiRepeatWindow   = 2;
+
+    [Header("Post-Attack Last-Frame Linger")]
+    [Tooltip("How long to hold the last attack frame before returning to idle. " +
+             "Laser attacks should be longer; burst attacks can be short.")]
+    [SerializeField] private float lingerDirect      = 0.35f;
+    [SerializeField] private float lingerDownBeam    = 0.5f;  // on top of beam duration
+    [SerializeField] private float lingerFan         = 0.35f;
+    [SerializeField] private float lingerDualBeam    = 0.5f;  // on top of beam duration
 
     [Header("Mini Hop (pre-attack repositioning)")]
     [SerializeField] private float hopDistance  = 3.5f;
@@ -75,16 +86,24 @@ public class SatanAttacks : MonoBehaviour
     // ── Dual Hand Beam ────────────────────────────────────────────────────
 
     [Header("Dual Hand Beam")]
-    [SerializeField] private GameObject handBeamPrefab;    // beam visual prefab (see notes)
+    [SerializeField] private GameObject handBeamPrefab;
     [SerializeField] private float      dualChargeDuration  = 0.6f;
     [SerializeField] private float      dualBeamDuration    = 2.5f;
-    [SerializeField] private float      dualInwardSpeed     = 2.5f; // units/sec each beam moves
-    [SerializeField] private float      dualMinCenterGap    = 2.5f; // safe zone in middle
-    [SerializeField] private float      dualBeamWidth       = 1.5f;
+    [SerializeField] private float      dualInwardSpeed     = 2.5f;
+    [SerializeField] private float      dualMinCenterGap    = 2.5f; // safe gap between beams
+    [SerializeField] private float      dualBeamWidth       = 1.5f; // actual damaging width of each beam
     [SerializeField] private float      dualBeamDamagePerTick = 10f;
     [SerializeField] private float      dualBeamTickRate     = 0.2f;
-    [SerializeField] private float      dualBeamStartX       = 8f;  // initial X offset from center
+    [SerializeField] private float      dualBeamStartX       = 8f;  // initial X offset from Satan's center
     [SerializeField] private float      dualCooldown         = 9f;
+
+    [Tooltip("Height of Satan's hands relative to Satan's Y. Beams visually originate here.")]
+    [SerializeField] private float      dualHandOffsetY      = 1.5f;
+    [Tooltip("Z offset of hands in front of Satan's body (positive = toward player).")]
+    [SerializeField] private float      dualHandOffsetZ      = 1.0f;
+    [Tooltip("How far the beam covers in the -Z (toward player) direction from the hand.")]
+    [SerializeField] private float      dualBeamLength       = 36f;
+    [SerializeField] private Color      dualBeamColor        = new Color(1f, 0.35f, 0f, 0.85f);
 
     #endregion
 
@@ -137,16 +156,16 @@ public class SatanAttacks : MonoBehaviour
         running = true;
 
         anim.PlayIdleLoop();
+        yield return new WaitForSeconds(initialCombatDelay);
 
         while (running && boss.InCombat)
         {
-            yield return new WaitForSeconds(timeBetweenAttacks);
             if (!running || !boss.InCombat) break;
 
             int choice = ChooseAttack();
             if (choice < 0)
             {
-                // All on cooldown – idle
+                // All on cooldown – idle briefly
                 yield return new WaitForSeconds(0.5f);
                 continue;
             }
@@ -161,7 +180,25 @@ public class SatanAttacks : MonoBehaviour
                 case 3: yield return StartCoroutine(DualHandBeam());    break;
             }
 
+            // Hold the last attack frame for a tunable duration, then go idle.
+            float linger = GetAttackLinger(choice);
+            yield return StartCoroutine(anim.HoldLastFrame(linger));
             anim.PlayIdleLoop();
+
+            // Short idle gap before the next attack hop.
+            yield return new WaitForSeconds(timeBetweenAttacks);
+        }
+    }
+
+    private float GetAttackLinger(int attackIndex)
+    {
+        switch (attackIndex)
+        {
+            case 0: return lingerDirect;
+            case 1: return lingerDownBeam;
+            case 2: return lingerFan;
+            case 3: return lingerDualBeam;
+            default: return 0.3f;
         }
     }
 
@@ -314,16 +351,19 @@ public class SatanAttacks : MonoBehaviour
         yield return StartCoroutine(PerformHop(false));
         yield return StartCoroutine(anim.PlayAttackAnim(AttackAnimType.DualHandBeam));
 
-        // Charge telegraph
         yield return new WaitForSeconds(dualChargeDuration);
 
-        float leftX  = transform.position.x - dualBeamStartX;
-        float rightX = transform.position.x + dualBeamStartX;
-        float beamZ  = transform.position.z;
+        // Hand positions: slightly elevated and in front of Satan
+        float cx      = transform.position.x;
+        float handY   = transform.position.y + dualHandOffsetY;
+        float handZ   = transform.position.z - dualHandOffsetZ; // negative Z = toward player
 
-        // Spawn two beam GameObjects
-        GameObject leftBeam  = SpawnHandBeam(new Vector3(leftX,  0.5f, beamZ), false);
-        GameObject rightBeam = SpawnHandBeam(new Vector3(rightX, 0.5f, beamZ), true);
+        float leftX  = cx - dualBeamStartX;
+        float rightX = cx + dualBeamStartX;
+
+        // Spawn beams anchored at each hand, extending toward the player (-Z)
+        GameObject leftBeam  = SpawnDualBeamVisual(new Vector3(leftX,  handY, handZ));
+        GameObject rightBeam = SpawnDualBeamVisual(new Vector3(rightX, handY, handZ));
 
         float elapsed   = 0f;
         float tickTimer = 0f;
@@ -333,28 +373,29 @@ public class SatanAttacks : MonoBehaviour
             elapsed   += Time.deltaTime;
             tickTimer += Time.deltaTime;
 
-            // Move beams inward, stopping at safe gap
+            // Move beams inward until they reach the center gap
             float halfGap = dualMinCenterGap * 0.5f;
-            float cx      = transform.position.x;
-
             leftX  = Mathf.Min(leftX  + dualInwardSpeed * Time.deltaTime, cx - halfGap);
             rightX = Mathf.Max(rightX - dualInwardSpeed * Time.deltaTime, cx + halfGap);
 
-            if (leftBeam  != null) leftBeam.transform.position  = new Vector3(leftX,  0.5f, beamZ);
-            if (rightBeam != null) rightBeam.transform.position = new Vector3(rightX, 0.5f, beamZ);
+            if (leftBeam  != null) leftBeam.transform.position  = new Vector3(leftX,  handY, handZ);
+            if (rightBeam != null) rightBeam.transform.position = new Vector3(rightX, handY, handZ);
 
-            // Damage tick
+            // ── Damage tick ──────────────────────────────────────────────
+            // Only damage when the player is INSIDE an actual beam strip.
+            // Safe zones: center gap between beams, and areas outside both beams.
             if (tickTimer >= dualBeamTickRate)
             {
                 tickTimer = 0f;
                 if (player != null)
                 {
-                    float px = player.position.x;
-                    // Left beam zone: any X to the left of leftX
-                    if (px <= leftX + dualBeamWidth * 0.5f)
-                        player.GetComponent<PlayerHealth>()?.TakeDamage(dualBeamDamagePerTick);
-                    // Right beam zone: any X to the right of rightX
-                    else if (px >= rightX - dualBeamWidth * 0.5f)
+                    float px    = player.position.x;
+                    float halfW = dualBeamWidth * 0.5f;
+
+                    bool inLeftBeam  = px >= leftX  - halfW && px <= leftX  + halfW;
+                    bool inRightBeam = px >= rightX - halfW && px <= rightX + halfW;
+
+                    if (inLeftBeam || inRightBeam)
                         player.GetComponent<PlayerHealth>()?.TakeDamage(dualBeamDamagePerTick);
                 }
             }
@@ -364,6 +405,54 @@ public class SatanAttacks : MonoBehaviour
 
         if (leftBeam  != null) Destroy(leftBeam);
         if (rightBeam != null) Destroy(rightBeam);
+    }
+
+    /// <summary>
+    /// Creates a hand-beam visual: a flat lane that starts at the hand position and
+    /// extends along -Z (toward the player), anchored at the hand's Y height.
+    /// The beam is wide on X (dualBeamWidth), thin on Y (flat in 3D), and long on Z (dualBeamLength).
+    /// Moving this object's X position sweeps the beam inward correctly.
+    /// </summary>
+    private GameObject SpawnDualBeamVisual(Vector3 handPos)
+    {
+        if (handBeamPrefab != null)
+        {
+            return Instantiate(handBeamPrefab, handPos, Quaternion.identity);
+        }
+
+        // Runtime fallback: flat beam lane extending from the hand toward the player
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        go.name = "SatanHandBeam";
+        Destroy(go.GetComponent<Collider>());
+
+        // Center the cube so its back edge starts at handPos and extends forward (-Z)
+        go.transform.position   = handPos + Vector3.back * dualBeamLength * 0.5f;
+        go.transform.localScale = new Vector3(dualBeamWidth, 0.3f, dualBeamLength);
+
+        Renderer rend = go.GetComponent<Renderer>();
+        if (rend != null)
+        {
+            Material mat = new Material(Shader.Find("Sprites/Default"));
+            mat.color = dualBeamColor;
+            rend.material = mat;
+        }
+
+        // Small glow emitter at the hand origin point so the beam reads as "fired from hand"
+        GameObject emitter = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        emitter.name = "HandEmitter";
+        emitter.transform.SetParent(go.transform, false);
+        emitter.transform.position   = handPos;
+        emitter.transform.localScale = Vector3.one * dualBeamWidth * 1.6f;
+        Destroy(emitter.GetComponent<Collider>());
+        Renderer er = emitter.GetComponent<Renderer>();
+        if (er != null)
+        {
+            Material em = new Material(Shader.Find("Sprites/Default"));
+            em.color = new Color(dualBeamColor.r, dualBeamColor.g * 0.6f, 0f, 1f);
+            er.material = em;
+        }
+
+        return go;
     }
 
     #endregion
@@ -490,22 +579,6 @@ public class SatanAttacks : MonoBehaviour
         }
         // Fallback: primitive beam using a scaled cube
         return CreatePrimitiveBeam(origin, direction, width, 30f, Color.red);
-    }
-
-    private GameObject SpawnHandBeam(Vector3 position, bool mirrored)
-    {
-        if (handBeamPrefab != null)
-        {
-            GameObject b = Instantiate(handBeamPrefab, position, Quaternion.identity);
-            if (mirrored)
-            {
-                Vector3 s = b.transform.localScale;
-                b.transform.localScale = new Vector3(-s.x, s.y, s.z);
-            }
-            return b;
-        }
-        // Fallback primitive beam going downward (-Z)
-        return CreatePrimitiveBeam(position, Vector3.back, dualBeamWidth, 40f, new Color(1f, 0.3f, 0f, 0.8f));
     }
 
     private GameObject CreatePrimitiveBeam(Vector3 pos, Vector3 dir, float width, float length, Color color)

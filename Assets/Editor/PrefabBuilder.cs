@@ -366,11 +366,11 @@ public static class PrefabBuilder
         GameObject root = new GameObject("Enemy_Satan");
         root.AddComponent<SatanBossController>();
         root.AddComponent<SatanAnimationController>();
-        SatanFootPhase foot = root.AddComponent<SatanFootPhase>();
+        SatanFootPhaseController foot = root.AddComponent<SatanFootPhaseController>();
         SatanAttacks attacks = root.AddComponent<SatanAttacks>();
 
         SerializedObject soBoss = new SerializedObject(root.GetComponent<SatanBossController>());
-        soBoss.FindProperty("footPhase").objectReferenceValue = foot;
+        soBoss.FindProperty("footPhaseController").objectReferenceValue = foot;
         soBoss.ApplyModifiedPropertiesWithoutUndo();
 
         SerializedObject soAtk = new SerializedObject(attacks);

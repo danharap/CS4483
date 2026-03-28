@@ -27,6 +27,29 @@ public class PlayerWeapon : MonoBehaviour
     private float fireTimer;
     private AudioSource audioSource;
 
+    private float baseDamage;
+    private float baseFireRate;
+    private int   basePierceCount;
+    private int   baseProjectileCount;
+
+    void Awake()
+    {
+        baseDamage          = damage;
+        baseFireRate        = fireRate;
+        basePierceCount     = pierceCount;
+        baseProjectileCount = projectileCount;
+    }
+
+    /// <summary>Undo all upgrade-applied stat changes, returning weapon to its serialized defaults.</summary>
+    public void ResetToBase()
+    {
+        damage          = baseDamage;
+        fireRate        = baseFireRate;
+        pierceCount     = basePierceCount;
+        projectileCount = baseProjectileCount;
+        fireTimer       = 0f;
+    }
+
     void Start()
     {
         // Setup audio source for shooting sounds
