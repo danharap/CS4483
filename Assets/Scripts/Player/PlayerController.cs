@@ -29,10 +29,25 @@ public class PlayerController : MonoBehaviour
     // ── Ground detection ──────────────────────────────────────────────────
     private int groundLayer;
 
+    private float baseMoveSpeed;
+    private float baseDashCooldown;
+
     void Awake()
     {
         cc = GetComponent<CharacterController>();
         groundLayer = LayerMask.GetMask("Default", "Ground");
+        baseMoveSpeed    = moveSpeed;
+        baseDashCooldown = dashCooldown;
+    }
+
+    /// <summary>Undo all upgrade-applied stat changes, returning movement to serialized defaults.</summary>
+    public void ResetToBase()
+    {
+        moveSpeed    = baseMoveSpeed;
+        dashCooldown = baseDashCooldown;
+        isDashing    = false;
+        stunTimer    = 0f;
+        velocity     = Vector3.zero;
     }
 
     void Update()

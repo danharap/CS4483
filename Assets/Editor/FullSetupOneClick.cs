@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// One-click workflow for rapid iteration.
@@ -37,6 +38,9 @@ public static class FullSetupOneClick
             // 5) Apply floor/background layering
             EnvironmentSprites.ApplyEnvironmentSprites();
 
+            // 6) Generate colosseum crowd on the stands
+            GenerateCrowd();
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
@@ -46,6 +50,43 @@ public static class FullSetupOneClick
         {
             Debug.LogError("[FullSetupOneClick] FULL SETUP failed:\n" + ex);
         }
+    }
+
+    private static void GenerateCrowd()
+    {
+        const string managerName = "Crowd_Manager";
+        // Same stand geometry in both stages; GameObject.Find misses inactive arena roots — use scene roots.
+        EnsureCrowdOnArena("=== LEVEL (ProBuilder) ===", managerName);
+        EnsureCrowdOnArena("=== LEVEL (ProBuilder) Arena2 ===", managerName);
+    }
+
+    static GameObject FindRootByName(string name)
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+            if (root.name == name) return root;
+        return null;
+    }
+
+    static void EnsureCrowdOnArena(string arenaRootName, string managerName)
+    {
+        GameObject arenaRoot = FindRootByName(arenaRootName);
+        if (arenaRoot == null)
+        {
+            Debug.LogWarning($"[FullSetupOneClick] {arenaRootName} not found — crowd skipped.");
+            return;
+        }
+
+        Transform existing = arenaRoot.transform.Find(managerName);
+        ColosseumCrowdGenerator gen = existing != null ? existing.GetComponent<ColosseumCrowdGenerator>() : null;
+        if (gen == null)
+        {
+            GameObject go = new GameObject(managerName);
+            go.transform.SetParent(arenaRoot.transform, false);
+            gen = go.AddComponent<ColosseumCrowdGenerator>();
+        }
+
+        gen.GenerateCrowd();
+        Debug.Log($"[FullSetupOneClick] ✓ Colosseum crowd generated for {arenaRootName}.");
     }
 }
 

@@ -27,6 +27,8 @@ public static class PrefabBuilder
         CreateFastEnemyPrefab();
         CreateBigBatPrefab();
         CreateBossPrefab();
+        CreateSatanBulletPrefab();
+        CreateSatanBossPrefab();
         CreateHeavyEnemyPrefab();
         CreateDamageNumberPrefab();
 
@@ -319,6 +321,63 @@ public static class PrefabBuilder
         vis.headRenderer = headSr;
 
         SavePrefab(root, "Enemy_Boss");
+        Object.DestroyImmediate(root);
+    }
+
+    // ── Satan Boss (F10 debug) ────────────────────────────────────────────
+
+    static void CreateSatanBulletPrefab()
+    {
+        GameObject go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        go.name = "SatanBullet";
+        go.transform.localScale = Vector3.one * 0.35f;
+
+        Renderer r = go.GetComponent<Renderer>();
+        if (r != null) r.enabled = false;
+
+        Object.DestroyImmediate(go.GetComponent<SphereCollider>());
+        SphereCollider col = go.AddComponent<SphereCollider>();
+        col.isTrigger = true;
+        col.radius    = 1f;
+
+        Rigidbody rb = go.AddComponent<Rigidbody>();
+        rb.useGravity  = false;
+        rb.isKinematic = true;
+        rb.constraints = RigidbodyConstraints.FreezeRotation;
+
+        go.AddComponent<SatanBullet>();
+
+        int bp = LayerMask.NameToLayer("BossProjectile");
+        if (bp >= 0) go.layer = bp;
+
+        SavePrefab(go, "SatanBullet");
+        Object.DestroyImmediate(go);
+    }
+
+    static void CreateSatanBossPrefab()
+    {
+        GameObject bulletAsset = AssetDatabase.LoadAssetAtPath<GameObject>($"{PrefabDir}/SatanBullet.prefab");
+        if (bulletAsset == null)
+        {
+            Debug.LogWarning("[PrefabBuilder] SatanBullet.prefab missing; run Create Prefabs again.");
+            return;
+        }
+
+        GameObject root = new GameObject("Enemy_Satan");
+        root.AddComponent<SatanBossController>();
+        root.AddComponent<SatanAnimationController>();
+        SatanFootPhaseController foot = root.AddComponent<SatanFootPhaseController>();
+        SatanAttacks attacks = root.AddComponent<SatanAttacks>();
+
+        SerializedObject soBoss = new SerializedObject(root.GetComponent<SatanBossController>());
+        soBoss.FindProperty("footPhaseController").objectReferenceValue = foot;
+        soBoss.ApplyModifiedPropertiesWithoutUndo();
+
+        SerializedObject soAtk = new SerializedObject(attacks);
+        soAtk.FindProperty("bulletPrefab").objectReferenceValue = bulletAsset;
+        soAtk.ApplyModifiedPropertiesWithoutUndo();
+
+        SavePrefab(root, "Enemy_Satan");
         Object.DestroyImmediate(root);
     }
 

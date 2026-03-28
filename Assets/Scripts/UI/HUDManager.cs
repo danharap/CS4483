@@ -28,6 +28,12 @@ public class HUDManager : MonoBehaviour
     [SerializeField] private TMP_Text transitionText;
     [SerializeField] private float    transitionDuration = 2.5f;
 
+    [Header("Boss HP Bar")]
+    [SerializeField] private GameObject bossHpPanel;
+    [SerializeField] private Slider     bossHpSlider;
+    [SerializeField] private TMP_Text   bossHpText;
+    [SerializeField] private TMP_Text   bossNameText;
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -54,7 +60,6 @@ public class HUDManager : MonoBehaviour
         if (gm.WaveManager != null)
         {
             gm.WaveManager.OnWaveStart += UpdateWaveNumber;
-            UpdateWaveNumber(0);
         }
     }
 
@@ -62,6 +67,13 @@ public class HUDManager : MonoBehaviour
     {
         var wm = GameManager.Instance?.WaveManager;
         if (wm == null) return;
+
+        if (!wm.HasStarted)
+        {
+            if (timerText) timerText.text = "";
+            if (waveText)  waveText.text  = "";
+            return;
+        }
 
         if (wm.IsBreak)
             timerText.text = "Break...";
@@ -94,6 +106,29 @@ public class HUDManager : MonoBehaviour
     {
         StopAllCoroutines();
         StartCoroutine(TransitionRoutine(message));
+    }
+
+    // ── Boss HP Bar ───────────────────────────────────────────────────────
+
+    /// <summary>Show the boss health bar with the given boss name and HP values.</summary>
+    public void ShowBossHP(string bossDisplayName, float current, float max)
+    {
+        if (bossHpPanel != null) bossHpPanel.SetActive(true);
+        if (bossNameText != null) bossNameText.text = bossDisplayName;
+        UpdateBossHP(current, max);
+    }
+
+    /// <summary>Update the boss HP values without changing visibility.</summary>
+    public void UpdateBossHP(float current, float max)
+    {
+        if (bossHpSlider != null) bossHpSlider.value = max > 0f ? current / max : 0f;
+        if (bossHpText != null)   bossHpText.text    = $"{Mathf.CeilToInt(current)} / {Mathf.CeilToInt(max)}";
+    }
+
+    /// <summary>Hide the boss health bar (called on boss death).</summary>
+    public void HideBossHP()
+    {
+        if (bossHpPanel != null) bossHpPanel.SetActive(false);
     }
 
     private IEnumerator TransitionRoutine(string msg)

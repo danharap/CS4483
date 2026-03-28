@@ -26,7 +26,14 @@ public class GameOverUI : MonoBehaviour
     void Awake()
     {
         if (gameOverPanel) gameOverPanel.SetActive(false);
-        restartButton?.onClick.AddListener(() => GameManager.Instance?.RestartGame());
+
+        // Label the primary button as RESPawn and send player back to Lobby
+        if (restartButton != null)
+        {
+            var label = restartButton.GetComponentInChildren<TMP_Text>();
+            if (label != null) label.text = "RESPAWN";
+            restartButton.onClick.AddListener(() => GameManager.Instance?.RespawnToLobby());
+        }
         menuButton?.onClick.AddListener(() => GameManager.Instance?.GoToMainMenu());
     }
 

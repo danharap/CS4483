@@ -13,7 +13,7 @@ public static class ImageResizer
         
         ResizeTexture("Assets/Sprites/sExperience.png", 40, 40);
         ResizeTexture("Assets/Sprites/sMedkit.png", 40, 40);
-        ResizeTexture("Assets/Sprites/sObstacleBox.png", 40, 40);
+        // Obstacle art is sBox.png (run Sprite Setup for import settings; do not force-resize here)
         
         AssetDatabase.Refresh();
         Debug.Log("[ImageResizer] ✓ Pickup and obstacle sprites resized to 40x40!");

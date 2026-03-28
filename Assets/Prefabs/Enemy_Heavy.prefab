@@ -228,9 +228,9 @@ MonoBehaviour:
   bodyFrameRate: 6
   headUpDownSprite: {fileID: 21300000, guid: 8bc38d00ad0b2a64b964623772b9c44b, type: 3}
   headRightSprite: {fileID: 21300000, guid: 107c28247d629d84096e2371bd504261, type: 3}
-  headOffsetUpDown: {x: 0, y: 0.48, z: 0}
-  headOffsetRight: {x: 0.08, y: 0.48, z: 0}
-  headOffsetLeft: {x: -0.08, y: 0.48, z: 0}
+  headOffsetUpDown: {x: 0, y: 0.56, z: 0}
+  headOffsetRight: {x: 0.08, y: 0.56, z: 0}
+  headOffsetLeft: {x: -0.08, y: 0.56, z: 0}
   deathSprite: {fileID: 21300000, guid: eb49c372bad7e984f8c2f0f0c321503f, type: 3}
 --- !u!1 &4318483110109885961
 GameObject:

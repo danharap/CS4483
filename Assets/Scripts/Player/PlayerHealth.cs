@@ -21,11 +21,14 @@ public class PlayerHealth : MonoBehaviour
     private float iFramesTimer;
     private float overlayAlpha;
 
+    private float baseMaxHP;
+
     public event Action OnDeath;
     public event Action<float, float> OnHealthChanged; // current, max
 
     void Awake()
     {
+        baseMaxHP = maxHP;
         CurrentHP = maxHP;
     }
 
@@ -71,6 +74,30 @@ public class PlayerHealth : MonoBehaviour
     {
         maxHP += amount;
         CurrentHP += amount; // also heal the added amount
+        OnHealthChanged?.Invoke(CurrentHP, maxHP);
+    }
+
+    /// <summary>
+    /// Restore HP back to max and clear any death state / screen tint.
+    /// </summary>
+    public void ResetHealthToMax()
+    {
+        CurrentHP = maxHP;
+        OnHealthChanged?.Invoke(CurrentHP, maxHP);
+    }
+
+    /// <summary>
+    /// Full stat reset for respawn: restores maxHP and currentHP to their serialized defaults,
+    /// undoing any upgrade increases to max HP.
+    /// </summary>
+    public void ResetToBase()
+    {
+        maxHP     = baseMaxHP;
+        CurrentHP = maxHP;
+        iFramesTimer = 0f;
+        overlayAlpha = 0f;
+        if (damageOverlay != null)
+            damageOverlay.color = new Color(1f, 0f, 0f, 0f);
         OnHealthChanged?.Invoke(CurrentHP, maxHP);
     }
 }

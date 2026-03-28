@@ -6,7 +6,7 @@ using UnityEngine;
 /// Drives the wave loop: Wave -> Break -> Wave -> ... Boss every 5 waves.
 /// Exposes events consumed by HUDManager, GateDoor, and GameManager.
 /// </summary>
-public class WaveManager : MonoBehaviour
+    public class WaveManager : MonoBehaviour
 {
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Wave Settings")]
@@ -22,11 +22,18 @@ public class WaveManager : MonoBehaviour
 
     // ── State ─────────────────────────────────────────────────────────────
     public int   WaveIndex     { get; private set; }  // 0-based (display as +1)
-    public float WaveTimer     { get; private set; }
-    public bool  IsBreak       { get; private set; }
-    public bool  IsBossWave    { get; private set; }
-    private bool bossKilledThisWave;
-    private int  activeEnemies;
+        public float WaveTimer     { get; private set; }
+        public bool  IsBreak       { get; private set; }
+        public bool  IsBossWave    { get; private set; }
+        public bool  HasStarted    { get; private set; }
+        private bool bossKilledThisWave;
+        private int  activeEnemies;
+        private bool wavesRunning;
+
+#if UNITY_EDITOR
+        /// <summary>When true, current wave/break is ended early (F3 debug).</summary>
+        private bool debugSkipWaveRequested;
+#endif
 
     // ── Events ────────────────────────────────────────────────────────────
     public event Action<int> OnWaveStart;    // waveIndex (0-based)
@@ -39,7 +46,33 @@ public class WaveManager : MonoBehaviour
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 
-    void Start() => StartCoroutine(WaveLoop());
+    void Start()
+    {
+        // Waves will be started explicitly (e.g. from Lobby portal) via BeginWaves().
+    }
+
+    public void BeginWaves()
+    {
+        if (wavesRunning) return;
+        wavesRunning = true;
+        HasStarted = true;
+        StartCoroutine(WaveLoop());
+    }
+
+    /// <summary>
+    /// Reset state so the next BeginWaves() starts at Wave 1 fresh.
+    /// </summary>
+    public void ResetToFirstWave()
+    {
+        StopAllCoroutines();
+        WaveIndex = 0;
+        WaveTimer = 0f;
+        IsBreak = false;
+        IsBossWave = false;
+        HasStarted = false;
+        wavesRunning = false;
+        activeEnemies = 0;
+    }
 
     // ── Main Loop ─────────────────────────────────────────────────────────
 
@@ -57,6 +90,13 @@ public class WaveManager : MonoBehaviour
             float breakLeft = breakDuration;
             while (breakLeft > 0f)
             {
+#if UNITY_EDITOR
+                if (debugSkipWaveRequested)
+                {
+                    debugSkipWaveRequested = false;
+                    breakLeft = 0f;
+                }
+#endif
                 breakLeft -= Time.deltaTime;
                 WaveTimer = breakLeft;
                 yield return null;
@@ -82,6 +122,13 @@ public class WaveManager : MonoBehaviour
 
         while (elapsed < waveDuration)
         {
+#if UNITY_EDITOR
+            if (debugSkipWaveRequested)
+            {
+                debugSkipWaveRequested = false;
+                elapsed = waveDuration;
+            }
+#endif
             if (GameManager.Instance?.State == GameManager.GameState.Playing)
             {
                 elapsed   += Time.deltaTime;
@@ -115,6 +162,18 @@ public class WaveManager : MonoBehaviour
         // Wait until boss is killed (NotifyBossKilled sets flag)
         while (!bossKilledThisWave)
         {
+#if UNITY_EDITOR
+            if (debugSkipWaveRequested)
+            {
+                debugSkipWaveRequested = false;
+                foreach (BossEnemy b in FindObjectsByType<BossEnemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+                {
+                    if (b != null) b.TakeDamage(1e9f);
+                }
+                if (!bossKilledThisWave)
+                    bossKilledThisWave = true;
+            }
+#endif
             WaveTimer = 0f;
             yield return null;
         }
@@ -149,6 +208,14 @@ public class WaveManager : MonoBehaviour
     {
         WaveIndex = index;
     }
+
+#if UNITY_EDITOR
+    /// <summary>Editor play mode: skip rest of break, normal wave timer, or boss wait. Bound to F3 in <see cref="DebugSpawnHotkeys"/>.</summary>
+    public void DebugRequestSkipWaveOrBreak()
+    {
+        debugSkipWaveRequested = true;
+    }
+#endif
 
     // ── Helpers ───────────────────────────────────────────────────────────
 

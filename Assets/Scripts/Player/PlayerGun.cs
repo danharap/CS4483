@@ -46,7 +46,8 @@ public class PlayerGun : MonoBehaviour
         if (gunPivot == null || mainCamera == null) return;
         
         Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-        Plane ground = new Plane(Vector3.up, Vector3.zero);
+        // Use player height so the plane matches the gun position
+        Plane ground = new Plane(Vector3.up, new Vector3(0f, transform.position.y, 0f));
         
         if (ground.Raycast(ray, out float dist))
         {
@@ -56,12 +57,24 @@ public class PlayerGun : MonoBehaviour
             if (dirToMouse.sqrMagnitude < 0.01f) return;
             dirToMouse.Normalize();
             
-            // Rotate pivot around world Y so gun (local +X = barrel) points at mouse
-            float angleY = Mathf.Atan2(dirToMouse.x, dirToMouse.z) * Mathf.Rad2Deg;
+            // Rotate pivot around world Y so gun local +X (barrel) points at mouse.
+            // Subtract 90° because atan2(x,z) is relative to +Z, but Y=0° already points +X.
+            float angleY = Mathf.Atan2(dirToMouse.x, dirToMouse.z) * Mathf.Rad2Deg - 90f;
             gunPivot.transform.rotation = Quaternion.Euler(0f, angleY, 0f);
-            
-            // Flip sprite when aiming left so gun art faces correctly
-            gunRenderer.flipX = dirToMouse.x < 0f;
+
+            // Camera-compensated orbit: the 48° camera tilt foreshortens world-Z on screen,
+            // making the gun look closer when aiming up/down than left/right.
+            // Blend the orbit radius toward 1/sin(48°) ≈ 1.35× as aim direction shifts to Z.
+            float zWeight         = Mathf.Abs(dirToMouse.z);
+            float zCompensation   = 1f / Mathf.Sin(48f * Mathf.Deg2Rad);
+            float effectiveRadius = orbitRadius * Mathf.Lerp(1f, zCompensation, zWeight);
+            gunSpriteObj.transform.localPosition = new Vector3(effectiveRadius, 0f, 0f);
+
+            // Flip: negate Y scale when aiming left so the art stays right-side-up.
+            float baseScale = 1.5f;
+            bool facingLeft = dirToMouse.x < 0f;
+            float sy = facingLeft ? -baseScale : baseScale;
+            gunSpriteObj.transform.localScale = new Vector3(baseScale, sy, baseScale);
         }
     }
 }

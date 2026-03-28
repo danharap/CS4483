@@ -24,9 +24,9 @@ public class HeavyEnemyVisualController : MonoBehaviour
     public Sprite headRightSprite;     // Moving toward player right (or left with flipX)
 
     [Header("Head Offsets (local)")]
-    public Vector3 headOffsetUpDown = new Vector3(0f, 0.48f, 0f);
-    public Vector3 headOffsetRight  = new Vector3(0.08f, 0.48f, 0f);
-    public Vector3 headOffsetLeft   = new Vector3(-0.08f, 0.48f, 0f);
+    public Vector3 headOffsetUpDown = new Vector3(0f, 0.56f, 0f);
+    public Vector3 headOffsetRight  = new Vector3(0.08f, 0.56f, 0f);
+    public Vector3 headOffsetLeft   = new Vector3(-0.08f, 0.56f, 0f);
 
     [Header("Death")]
     public Sprite deathSprite;

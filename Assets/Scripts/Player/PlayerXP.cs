@@ -17,12 +17,25 @@ public class PlayerXP : MonoBehaviour
     public float XPThreshold { get; private set; }
     public int   RunLevel   { get; private set; } = 1;
 
+    private float basePickupRadius;
+
     public event Action<float, float, int> OnXPChanged; // current, max, level
     public event Action<int>               OnLevelUp;   // new level
 
     void Awake()
     {
-        XPThreshold = baseXPThreshold;
+        XPThreshold     = baseXPThreshold;
+        basePickupRadius = pickupRadius;
+    }
+
+    /// <summary>Full stat reset for respawn: clear XP/level and undo upgrade-applied pickup radius.</summary>
+    public void ResetToBase()
+    {
+        CurrentXP    = 0f;
+        RunLevel     = 1;
+        XPThreshold  = baseXPThreshold;
+        pickupRadius = basePickupRadius;
+        OnXPChanged?.Invoke(CurrentXP, XPThreshold, RunLevel);
     }
 
     public void AddXP(float amount)
@@ -48,4 +61,13 @@ public class PlayerXP : MonoBehaviour
         // Notify HUD
         OnXPChanged?.Invoke(CurrentXP, XPThreshold, RunLevel);
     }
+
+#if UNITY_EDITOR
+    /// <summary>Editor play mode: grant XP to trigger the next level-up (upgrade panel). Bound to F2 in <see cref="DebugSpawnHotkeys"/>.</summary>
+    public void DebugForceLevelUp()
+    {
+        float need = Mathf.Max(0f, XPThreshold - CurrentXP);
+        AddXP(need + 0.01f);
+    }
+#endif
 }

@@ -14,7 +14,13 @@ public class GameManager : MonoBehaviour
     [SerializeField] private HUDManager hudManager;
     [SerializeField] private UpgradeUI upgradeUI;
     [SerializeField] private GameOverUI gameOverUI;
+    [SerializeField] private RespawnUI respawnUI;
     [SerializeField] private PlaytestLogger logger;
+
+    [Header("Level Roots (assigned by SetupAll)")]
+    [SerializeField] private GameObject lobbyLevelRoot;
+    [SerializeField] private GameObject arena1LevelRoot;
+    [SerializeField] private GameObject arena2LevelRoot;
 
     [Header("Player Reference")]
     [SerializeField] private GameObject playerObject;
@@ -96,15 +102,19 @@ public class GameManager : MonoBehaviour
     {
         if (State == GameState.GameOver) return;
         State = GameState.GameOver;
-        Time.timeScale = 0f;
 
         float timeSurvived = Time.time - RunStartTime;
 
-        // Submit to high score before showing UI
         HighScoreManager.Instance?.SubmitRun(WavesCleared, timeSurvived, TotalKills);
-
         logger?.LogSummary(timeSurvived, WavesCleared, TotalKills);
-        gameOverUI.Show(timeSurvived, WavesCleared, TotalKills);
+
+        // Pause time and show the respawn overlay
+        Time.timeScale = 0f;
+        if (respawnUI != null)
+            respawnUI.Show();
+        else
+            // Fallback: if UI was never wired, just go directly to lobby
+            RespawnToLobby();
     }
 
     private void HandleWaveCleared(int waveIndex) => WavesCleared = waveIndex;
@@ -114,6 +124,77 @@ public class GameManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    /// <summary>
+    /// Respawn the player back in the Lobby level without reloading the whole scene.
+    /// GameObject.Find cannot locate inactive objects, so we search scene roots directly.
+    /// </summary>
+    public void RespawnToLobby()
+    {
+        Time.timeScale = 1f;
+        State = GameState.Playing;
+
+        // Reset stats and kill counters for the new run
+        TotalKills    = 0;
+        WavesCleared  = 0;
+        RunStartTime  = Time.time;
+
+        // ── Reset portal managers first (stops any in-flight coroutines/portals) ─
+        ArenaPortalManager.Instance?.ResetForRespawn();
+
+        // ── Resolve level roots ───────────────────────────────────────────────
+        if (lobbyLevelRoot == null || arena1LevelRoot == null || arena2LevelRoot == null)
+        {
+            foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                if (lobbyLevelRoot  == null && root.name == "=== LEVEL (Lobby) ===")             lobbyLevelRoot  = root;
+                if (arena1LevelRoot == null && root.name == "=== LEVEL (ProBuilder) ===")         arena1LevelRoot = root;
+                if (arena2LevelRoot == null && root.name == "=== LEVEL (ProBuilder) Arena2 ===")  arena2LevelRoot = root;
+            }
+        }
+
+        if (lobbyLevelRoot  != null) lobbyLevelRoot.SetActive(true);
+        if (arena1LevelRoot != null) arena1LevelRoot.SetActive(false);
+        if (arena2LevelRoot != null) arena2LevelRoot.SetActive(false);
+
+        // Re-enable lobby colliders that EnterArenaFromLobby() disabled — critical for
+        // LobbyPortal trigger to work and for lobby walls to block physics again.
+        LobbyPortalManager.Instance?.ResetForRespawn();
+
+        // ── Clean up all live enemies / projectiles ───────────────────────────
+        foreach (EnemyBase enemy in FindObjectsOfType<EnemyBase>())
+            Destroy(enemy.gameObject);
+        foreach (Projectile proj in FindObjectsOfType<Projectile>())
+            Destroy(proj.gameObject);
+        EnemyRegistry.Clear();
+
+        // ── Reset enemy spawner to Arena 1 spawn points ───────────────────────
+        EnemySpawner spawner = FindFirstObjectByType<EnemySpawner>();
+        spawner?.ResetToArena1Spawns();
+
+        // ── Move player back to Lobby center ──────────────────────────────────
+        if (PlayerController != null)
+        {
+            var cc = PlayerController.GetComponent<CharacterController>();
+            if (cc != null) cc.enabled = false;
+            PlayerController.transform.position = new Vector3(0f, 1.1f, 0f);
+            if (cc != null) cc.enabled = true;
+            PlayerController.enabled = true;       // re-enable if it was locked during transition
+        }
+
+        // ── Reset all player stats (undoes every upgrade) ─────────────────────
+        PlayerHealth?.ResetToBase();
+        PlayerWeapon?.ResetToBase();
+        PlayerController?.ResetToBase();
+        PlayerXP?.ResetToBase();
+
+        // ── Reset wave system ─────────────────────────────────────────────────
+        if (waveManager != null)
+            waveManager.ResetToFirstWave();
+
+        // ── Refresh HUD stats ─────────────────────────────────────────────────
+        hudManager?.UpdateWaveNumber(1);
     }
 
     public void GoToMainMenu()

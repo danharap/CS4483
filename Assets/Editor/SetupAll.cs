@@ -33,16 +33,22 @@ public static class SetupAll
     private static PlaytestLogger   plComp;
     private static UpgradeUI        upgradeUIComp;
     private static GameOverUI       gameOverUIComp;
+    private static RespawnUI        respawnUIComp;
     private static Transform[]      spawnPointTransforms;
 
     // UI
-    private static Slider   hpSlider, xpSlider;
-    private static TMP_Text hpText, levelText, waveText, timerText, transitionText;
-    private static Image    damageOverlay;
+    private static Slider      hpSlider, xpSlider;
+    private static TMP_Text    hpText, levelText, waveText, timerText, transitionText;
+    private static Image       damageOverlay;
+    // Boss HP bar
+    private static GameObject  bossHpPanel;
+    private static Slider      bossHpSlider;
+    private static TMP_Text    bossHpText, bossNameText;
 
     private const string LevelUpButtonSpritePath = "Assets/Sprites/LevelUpButton.png";
     private static Sprite s_levelUpButtonSprite;
-    private static GameObject upgradePanel, gameOverPanel;
+    private static GameObject upgradePanel, gameOverPanel, respawnPanel;
+    private static Button     respawnBtn;
     private static Button     card0Btn, card1Btn, card2Btn;
     private static TMP_Text   card0Name, card1Name, card2Name;
     private static TMP_Text   card0Desc, card1Desc, card2Desc;
@@ -53,7 +59,7 @@ public static class SetupAll
 
     // ── Entry Point ───────────────────────────────────────────────────────
 
-    [MenuItem("CS4483/▶  SETUP EVERYTHING  (Run This First!)")]
+    // Called from FullSetupOneClick; use that single menu entry instead.
     public static void SetupEverything()
     {
         // ALWAYS work in MainScene, never in MainMenu!
@@ -82,6 +88,7 @@ public static class SetupAll
 
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
+        Step3_BuildLobby();
         Step3_BuildLevel();
         Step3_BuildArena2();
         Step4_SetupCamera();
@@ -93,6 +100,15 @@ public static class SetupAll
         Step10_WireEnemyPrefabOrbs();
         Step11_BakeNavMesh();
 
+        // Ensure only the Lobby level is active by default; arenas are built but inactive.
+        GameObject lobbyRoot  = GameObject.Find("=== LEVEL (Lobby) ===");
+        GameObject arena1Root = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        GameObject arena2Root = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+
+        if (lobbyRoot  != null) lobbyRoot.SetActive(true);
+        if (arena1Root != null) arena1Root.SetActive(false);
+        if (arena2Root != null) arena2Root.SetActive(false);
+
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         Debug.Log("[SetupAll] ✓ Done! Press Play to test.\n" +
                   "If enemies don't navigate walls: Window → AI → Navigation → Bake (retry).");
@@ -103,7 +119,7 @@ public static class SetupAll
     static void Step1_ClearExistingSetup()
     {
         // Remove managers and UI (single instances)
-        foreach (string n in new[] { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===" })
+        foreach (string n in new[] { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===", "=== LEVEL (Lobby) ===" })
         {
             GameObject g = GameObject.Find(n);
             if (g != null) Object.DestroyImmediate(g);
@@ -113,6 +129,8 @@ public static class SetupAll
         foreach (GameObject go in roots)
         {
             if (go != null && go.name == "=== LEVEL (ProBuilder) ===")
+                Object.DestroyImmediate(go);
+            if (go != null && go.name == "=== LEVEL (ProBuilder) Arena2 ===")
                 Object.DestroyImmediate(go);
         }
         GameObject p = GameObject.FindGameObjectWithTag("Player");
@@ -130,6 +148,12 @@ public static class SetupAll
     }
 
     // ── Step 3: Build level geometry ─────────────────────────────────────
+
+    static void Step3_BuildLobby()
+    {
+        ProBuilderLevelBuilder.BuildLobbyLevel();
+        Debug.Log("[SetupAll] Lobby level built.");
+    }
 
     static void Step3_BuildLevel()
     {
@@ -197,6 +221,8 @@ public static class SetupAll
         plComp  = mgr.AddComponent<PlaytestLogger>();
         if (mgr.GetComponent<ArenaPortalManager>() == null)
             mgr.AddComponent<ArenaPortalManager>();
+        if (mgr.GetComponent<LobbyPortalManager>() == null)
+            mgr.AddComponent<LobbyPortalManager>();
         if (mgr.GetComponent<ArenaThemeController>() == null)
             mgr.AddComponent<ArenaThemeController>();
         // Optional debug spawner hotkeys (only active in editor)
@@ -211,8 +237,8 @@ public static class SetupAll
         playerGO = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         playerGO.name = "Player";
         playerGO.tag  = "Player";
-        // Spawn away from center pillar to avoid collision on start
-        playerGO.transform.position = new Vector3(3f, 1.1f, 3f);
+        // Spawn in Lobby level center; portal leads into Arena 1
+        playerGO.transform.position = new Vector3(0f, 1.1f, 0f);
 
         Object.DestroyImmediate(playerGO.GetComponent<CapsuleCollider>());
         CharacterController cc = playerGO.AddComponent<CharacterController>();
@@ -284,6 +310,27 @@ public static class SetupAll
         RectTransform ort = overlayGO.GetComponent<RectTransform>();
         ort.anchorMin = Vector2.zero; ort.anchorMax = Vector2.one; ort.sizeDelta = Vector2.zero;
 
+        // ── Boss HP bar (top-center, hidden until a boss is active) ──────
+        bossHpPanel = BuildBossHpBar(root, out bossHpSlider, out bossHpText, out bossNameText);
+        bossHpPanel.SetActive(false); // HUDManager.ShowBossHP() activates it
+
+        // ── Screen-fade overlay (black, used for arena transition) ────────
+        // Renders above everything; ScreenFadeController manages its alpha.
+        GameObject fadeGO = new GameObject("ScreenFade");
+        fadeGO.transform.SetParent(root, false);
+        Image fadeImg = fadeGO.AddComponent<Image>();
+        fadeImg.color = new Color(0f, 0f, 0f, 0f); // start transparent
+        RectTransform frt = fadeGO.GetComponent<RectTransform>();
+        frt.anchorMin = Vector2.zero; frt.anchorMax = Vector2.one; frt.sizeDelta = Vector2.zero;
+        fadeGO.SetActive(false); // hidden until first fade
+
+        // Attach controller to the canvas root so it persists easily
+        ScreenFadeController fadeCtrl = canvasGO.GetComponent<ScreenFadeController>();
+        if (fadeCtrl == null) fadeCtrl = canvasGO.AddComponent<ScreenFadeController>();
+        var soFade = new SerializedObject(fadeCtrl);
+        soFade.FindProperty("fadeImage").objectReferenceValue = fadeImg;
+        soFade.ApplyModifiedPropertiesWithoutUndo();
+
         // ── Upgrade panel ─────────────────────────────────────────────────
         upgradePanel = MakePanel(root, "UpgradePanel", new Color(0f, 0f, 0f, 0f)); // Transparent: just the buttons, no overlay
         // Force this panel to render on top by moving it to last sibling
@@ -316,6 +363,20 @@ public static class SetupAll
             new Vector2(0, -100), new Vector2(220, 56), "RESTART", new Color(0.1f, 0.55f, 0.1f));
         gameOverUIComp = gameOverPanel.AddComponent<GameOverUI>();
         gameOverPanel.SetActive(false);
+
+        // ── Respawn panel (shown on death) ────────────────────────────────
+        respawnPanel = MakePanel(root, "RespawnPanel", new Color(0f, 0f, 0f, 0.85f));
+        TMP_Text respawnTitle = MakeTMP(respawnPanel.transform, "Respawn_Title",
+            new Vector2(0, 120), new Vector2(600, 80), "YOU DIED", 64);
+        respawnTitle.color = new Color(0.9f, 0.15f, 0.15f);
+        respawnTitle.fontStyle = FontStyles.Bold;
+        MakeTMP(respawnPanel.transform, "Respawn_Sub",
+            new Vector2(0, 40), new Vector2(500, 44), "Your run has ended.", 28);
+        respawnBtn = MakeButton(respawnPanel.transform, "RespawnButton",
+            new Vector2(0, -60), new Vector2(280, 64), "RESPAWN IN LOBBY", new Color(0.1f, 0.45f, 0.8f));
+        respawnUIComp = respawnPanel.AddComponent<RespawnUI>();
+        // Start active so Awake() runs and hides it
+        respawnPanel.SetActive(true);
     }
 
     // ── Step 8: Wire ALL references via SerializedObject ─────────────────
@@ -338,16 +399,21 @@ public static class SetupAll
         GameObject chaserPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
         GameObject fastPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
         GameObject bossPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject satanPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Satan.prefab");
         GameObject heavyPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Heavy.prefab");
         GameObject bigBatPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_BigBat.prefab");
 
         // ── GameManager ───────────────────────────────────────────────────
-        Wire(gmComp, "waveManager",  wmComp);
-        Wire(gmComp, "hudManager",   hudComp);
-        Wire(gmComp, "upgradeUI",    upgradeUIComp);
-        Wire(gmComp, "gameOverUI",   gameOverUIComp);
-        Wire(gmComp, "logger",       plComp);
-        Wire(gmComp, "playerObject", playerGO);
+        Wire(gmComp, "waveManager",    wmComp);
+        Wire(gmComp, "hudManager",     hudComp);
+        Wire(gmComp, "upgradeUI",      upgradeUIComp);
+        Wire(gmComp, "gameOverUI",     gameOverUIComp);
+        Wire(gmComp, "respawnUI",      respawnUIComp);
+        Wire(gmComp, "logger",         plComp);
+        Wire(gmComp, "playerObject",   playerGO);
+        Wire(gmComp, "lobbyLevelRoot",  GameObject.Find("=== LEVEL (Lobby) ==="));
+        Wire(gmComp, "arena1LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) ==="));
+        Wire(gmComp, "arena2LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) Arena2 ==="));
 
         // ── WaveManager ───────────────────────────────────────────────────
         Wire(wmComp, "spawner", esComp);
@@ -382,6 +448,8 @@ public static class SetupAll
         Wire(esComp, "heavyPrefab",  heavyPrefab);
         Wire(esComp, "bossPrefab",   bossPrefab);
         Wire(esComp, "bigBatPrefab", bigBatPrefab);
+        if (satanPrefab != null)
+            Wire(esComp, "satanPrefab", satanPrefab);
 
         // Debug spawn hotkeys (1/2/3 and function keys) live on the MANAGERS object
         GameObject mgrRoot = GameObject.Find("=== MANAGERS ===");
@@ -406,6 +474,16 @@ public static class SetupAll
             so.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        // ── LobbyPortalManager (transition from Lobby level into Arena 1) ─
+        LobbyPortalManager lobbyMgr = Object.FindFirstObjectByType<LobbyPortalManager>();
+        if (lobbyMgr != null)
+        {
+            var soLobby = new SerializedObject(lobbyMgr);
+            soLobby.FindProperty("lobbyRoot").objectReferenceValue = GameObject.Find("=== LEVEL (Lobby) ===");
+            soLobby.FindProperty("arena1Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) ===");
+            soLobby.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         // ── PlayerWeapon ──────────────────────────────────────────────────
         var weapon = playerGO.GetComponent<PlayerWeapon>();
         Wire(weapon, "projectilePrefab", projPrefab);
@@ -427,6 +505,10 @@ public static class SetupAll
         Wire(hudComp, "waveText",        waveText);
         Wire(hudComp, "timerText",       timerText);
         Wire(hudComp, "transitionText",  transitionText);
+        Wire(hudComp, "bossHpPanel",     bossHpPanel);
+        Wire(hudComp, "bossHpSlider",    bossHpSlider);
+        Wire(hudComp, "bossHpText",      bossHpText);
+        Wire(hudComp, "bossNameText",    bossNameText);
 
         // ── UpgradeUI ─────────────────────────────────────────────────────
         Wire(upgradeUIComp, "upgradePanel", upgradePanel);
@@ -450,6 +532,10 @@ public static class SetupAll
         Wire(gameOverUIComp, "wavesClearedText",   statWaves);
         Wire(gameOverUIComp, "totalKillsText",     statKills);
         Wire(gameOverUIComp, "restartButton",      restartBtn);
+
+        // ── RespawnUI ─────────────────────────────────────────────────────
+        Wire(respawnUIComp, "respawnPanel",  respawnPanel);
+        Wire(respawnUIComp, "respawnButton", respawnBtn);
 
         Debug.Log("[SetupAll] All references wired.");
     }
@@ -515,6 +601,25 @@ public static class SetupAll
             }
         }
         
+        // Wire damageNumberPrefab to Satan boss prefab (not EnemyBase, wired separately)
+        string satanPath = "Assets/Prefabs/Enemy_Satan.prefab";
+        if (!string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(satanPath)) && damageNumberPrefab != null)
+        {
+            using (var scope = new PrefabUtility.EditPrefabContentsScope(satanPath))
+            {
+                if (scope.prefabContentsRoot != null)
+                {
+                    SatanBossController sb = scope.prefabContentsRoot.GetComponent<SatanBossController>();
+                    if (sb != null)
+                    {
+                        var so = new SerializedObject(sb);
+                        so.FindProperty("damageNumberPrefab").objectReferenceValue = damageNumberPrefab;
+                        so.ApplyModifiedProperties();
+                    }
+                }
+            }
+        }
+
         AssetDatabase.SaveAssets();
         Debug.Log("[SetupAll] XPOrb, HealthPack, and Audio wired to all enemy prefabs and player weapon.");
     }
@@ -540,6 +645,67 @@ public static class SetupAll
     }
 
     // ── UI Factory Helpers ────────────────────────────────────────────────
+
+    static GameObject BuildBossHpBar(Transform parent,
+                                      out Slider slider, out TMP_Text hpText, out TMP_Text nameText)
+    {
+        // Panel: dark semi-transparent background, anchored to top-center
+        GameObject panel = new GameObject("BossHP_Panel");
+        panel.transform.SetParent(parent, false);
+        Image panelImg = panel.AddComponent<Image>();
+        panelImg.color = new Color(0f, 0f, 0f, 0.7f);
+        RectTransform panelRt = panel.GetComponent<RectTransform>();
+        panelRt.anchorMin = new Vector2(0.5f, 1f);
+        panelRt.anchorMax = new Vector2(0.5f, 1f);
+        panelRt.pivot     = new Vector2(0.5f, 1f);
+        panelRt.anchoredPosition = new Vector2(0f, -8f);
+        panelRt.sizeDelta = new Vector2(600f, 60f);
+
+        // Boss name label
+        nameText = MakeTMP(panel.transform, "Boss_Name",
+            new Vector2(0f, -8f), new Vector2(580f, 22f), "BOSS", 20f);
+        nameText.color = new Color(1f, 0.85f, 0.2f);
+        nameText.fontStyle = FontStyles.Bold;
+
+        // The red HP slider
+        GameObject sliderGO = new GameObject("BossHP_Slider");
+        sliderGO.transform.SetParent(panel.transform, false);
+        slider = sliderGO.AddComponent<Slider>();
+        slider.interactable = false;
+        slider.minValue = 0f;
+        slider.maxValue = 1f;
+        slider.value    = 1f;
+
+        RectTransform sliderRt = sliderGO.GetComponent<RectTransform>();
+        sliderRt.anchorMin = new Vector2(0.5f, 0f);
+        sliderRt.anchorMax = new Vector2(0.5f, 0f);
+        sliderRt.pivot     = new Vector2(0.5f, 0f);
+        sliderRt.anchoredPosition = new Vector2(0f, 6f);
+        sliderRt.sizeDelta = new Vector2(560f, 22f);
+
+        GameObject bg = new GameObject("BG");
+        bg.transform.SetParent(sliderGO.transform, false);
+        bg.AddComponent<Image>().color = new Color(0.1f, 0.1f, 0.1f);
+        StretchRect(bg.GetComponent<RectTransform>());
+
+        GameObject fa = new GameObject("FillArea");
+        fa.transform.SetParent(sliderGO.transform, false);
+        StretchRect(fa.AddComponent<RectTransform>());
+
+        GameObject fill = new GameObject("Fill");
+        fill.transform.SetParent(fa.transform, false);
+        fill.AddComponent<Image>().color = new Color(0.85f, 0.1f, 0.1f);
+        RectTransform fillRt = fill.GetComponent<RectTransform>();
+        StretchRect(fillRt);
+        slider.fillRect = fillRt;
+
+        // HP text over slider
+        hpText = MakeTMP(sliderGO.transform, "BossHP_Text",
+            Vector2.zero, new Vector2(560f, 22f), "", 14f);
+        hpText.color = Color.white;
+
+        return panel;
+    }
 
     static Slider MakeHealthBarBottom(Transform parent, out TMP_Text hpText)
     {
