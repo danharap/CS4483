@@ -12,9 +12,9 @@ GameObject:
   - component: {fileID: 7902763196118926542}
   - component: {fileID: 1160829305766759121}
   - component: {fileID: 6971194246186091926}
-  - component: {fileID: 1191023163523456066}
+  - component: {fileID: 4812240995918654357}
   - component: {fileID: 5798749194810602439}
-  - component: {fileID: 4612678444099678997}
+  - component: {fileID: 8824460237223125574}
   m_Layer: 0
   m_Name: Enemy_Satan
   m_TagString: Untagged
@@ -142,6 +142,7 @@ MonoBehaviour:
   hopBiasTowardPlayer: 0.5
   bulletPrefab: {fileID: 0}
   bulletSprite: {fileID: 21300000, guid: f01b7e4e2c4da8542aa1b73fc30b5bd8, type: 3}
+  bulletSpawnYOffset: 0.65
   directBulletSpeed: 10
   directBulletCount: 5
   directSpreadAngle: 30
@@ -195,7 +196,7 @@ MonoBehaviour:
   satanXRange: 4
   footPhase: {fileID: 5798749194810602439}
   damageNumberPrefab: {fileID: 7687715987023145794, guid: 6ffd80c52447ca049bdcf42f0fc7a4ec, type: 3}
---- !u!114 &1191023163523456066
+--- !u!114 &4812240995918654357
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -251,7 +252,7 @@ MonoBehaviour:
   timeBetweenSequences: 3
   telegraphLineWidth: 0.1
   telegraphColor: {r: 1, g: 0.3, b: 0.1, a: 0.85}
---- !u!114 &4612678444099678997
+--- !u!114 &8824460237223125574
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -271,6 +272,7 @@ MonoBehaviour:
   hopBiasTowardPlayer: 0.5
   bulletPrefab: {fileID: 4696597189757001852, guid: 4164d04f25c14e44e9c78ac83986204f, type: 3}
   bulletSprite: {fileID: 0}
+  bulletSpawnYOffset: 0.65
   directBulletSpeed: 10
   directBulletCount: 5
   directSpreadAngle: 30

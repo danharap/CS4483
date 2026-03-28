@@ -14,8 +14,7 @@ GameObject:
   - component: {fileID: 2858513822378873714}
   - component: {fileID: 3897343439480912260}
   - component: {fileID: 8213168261032419338}
-  - component: {fileID: 6516955715064899873}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: SatanBullet
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -147,18 +146,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 913d69b8666bf894789760f33fca78f4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  bulletSprite: {fileID: 0}
+  bulletSprite: {fileID: 21300000, guid: f01b7e4e2c4da8542aa1b73fc30b5bd8, type: 3}
   visualScale: 1.8
   maxTravelDistance: 40
---- !u!114 &6516955715064899873
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4696597189757001852}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bfa87385a84c1d149961960ce8acc782, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 

@@ -1,5 +1,7 @@
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 
 /// <summary>
@@ -41,7 +43,7 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sdeadPlayer.png"); // Dead body prop
         ConfigureSingleSprite("Assets/Sprites/sHeavyHead.png"); // Heavy enemy head (up/down)
         ConfigureSingleSprite("Assets/Sprites/sHeavyHead_Right.png"); // Heavy enemy head (right)
-        ConfigureSingleSprite("Assets/Sprites/sObstacleBox.png"); // Obstacle box 40x40
+        ConfigureSingleSprite("Assets/Sprites/sBox.png"); // Colosseum cover boxes (replaces sObstacleBox)
 
         // Heavy body frames (pre-cut individual PNGs in folders)
         ConfigureSpritesInFolder("Assets/Sprites/TankWalking");
@@ -156,7 +158,12 @@ public static class SpriteSetup
 
     private static void WireThemeControllerAssets()
     {
-        GameObject mgr = GameObject.Find("=== MANAGERS ===");
+        // GameObject.Find misses inactive roots; scene scan finds === MANAGERS === reliably.
+        GameObject mgr = null;
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == "=== MANAGERS ===") { mgr = root; break; }
+        }
         if (mgr == null) return;
         ArenaThemeController theme = mgr.GetComponent<ArenaThemeController>();
         if (theme == null) return;
@@ -306,6 +313,10 @@ public static class SpriteSetup
         }
         
         Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, {trapCount} traps, and {deadBodyCount} dead bodies in scene!");
+
+        // Same wiring as step 2 so Arena 2 floor (sMap2) is assigned if you only ran step 3.
+        WireThemeControllerAssets();
+        EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
     }
 
     private static bool IsUnderRootNamed(GameObject go, string rootName)
@@ -716,16 +727,14 @@ public static class SpriteSetup
                     }
                     else
                     {
-                        SpriteRenderer sr = root.GetComponent<SpriteRenderer>();
-                        if (sr == null) sr = root.AddComponent<SpriteRenderer>();
-                        if (sr != null)
+                        SatanBullet sb = root.GetComponent<SatanBullet>();
+                        if (sb != null)
                         {
-                            sr.sprite       = bulletSprite;
-                            sr.sortingOrder = 15;
+                            var soB = new SerializedObject(sb);
+                            soB.FindProperty("bulletSprite").objectReferenceValue = bulletSprite;
+                            soB.ApplyModifiedPropertiesWithoutUndo();
                         }
-                        if (root.GetComponent<Billboard>() == null)
-                            root.AddComponent<Billboard>();
-                        Debug.Log("[SpriteSetup] ✓ Applied Bullets.png to SatanBullet prefab.");
+                        Debug.Log("[SpriteSetup] ✓ Applied Bullets.png to SatanBullet.bulletSprite (Final Boss folder).");
                     }
                 }
             }

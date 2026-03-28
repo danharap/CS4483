@@ -1,5 +1,6 @@
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// One-click workflow for rapid iteration.
@@ -53,22 +54,39 @@ public static class FullSetupOneClick
 
     private static void GenerateCrowd()
     {
-        // Find or create a dedicated Crowd_Manager GameObject under the arena root.
         const string managerName = "Crowd_Manager";
-        GameObject arenaRoot = GameObject.Find("=== LEVEL (ProBuilder) ===");
-        Transform parent = arenaRoot != null ? arenaRoot.transform : null;
+        // Same stand geometry in both stages; GameObject.Find misses inactive arena roots — use scene roots.
+        EnsureCrowdOnArena("=== LEVEL (ProBuilder) ===", managerName);
+        EnsureCrowdOnArena("=== LEVEL (ProBuilder) Arena2 ===", managerName);
+    }
 
-        // Reuse existing manager if already there, otherwise create one.
-        ColosseumCrowdGenerator gen = Object.FindFirstObjectByType<ColosseumCrowdGenerator>();
+    static GameObject FindRootByName(string name)
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+            if (root.name == name) return root;
+        return null;
+    }
+
+    static void EnsureCrowdOnArena(string arenaRootName, string managerName)
+    {
+        GameObject arenaRoot = FindRootByName(arenaRootName);
+        if (arenaRoot == null)
+        {
+            Debug.LogWarning($"[FullSetupOneClick] {arenaRootName} not found — crowd skipped.");
+            return;
+        }
+
+        Transform existing = arenaRoot.transform.Find(managerName);
+        ColosseumCrowdGenerator gen = existing != null ? existing.GetComponent<ColosseumCrowdGenerator>() : null;
         if (gen == null)
         {
             GameObject go = new GameObject(managerName);
-            if (parent != null) go.transform.SetParent(parent, false);
+            go.transform.SetParent(arenaRoot.transform, false);
             gen = go.AddComponent<ColosseumCrowdGenerator>();
         }
 
         gen.GenerateCrowd();
-        Debug.Log("[FullSetupOneClick] ✓ Colosseum crowd generated.");
+        Debug.Log($"[FullSetupOneClick] ✓ Colosseum crowd generated for {arenaRootName}.");
     }
 }
 

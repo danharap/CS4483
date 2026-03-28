@@ -79,14 +79,19 @@ public class SatanBossController : MonoBehaviour
         attacks   = GetComponent<SatanAttacks>();
         cam       = Camera.main != null ? Camera.main.GetComponent<CameraController>() : null;
 
+        // ── Layer: Boss (enemies ignore Boss vs Enemy in GameplayLayerSetup) ─
+        int bossLayer = LayerMask.NameToLayer("Boss");
+        if (bossLayer >= 0)
+            gameObject.layer = bossLayer;
+
         // ── Collider setup ────────────────────────────────────────────────
-        // Remove any large non-trigger colliders that would block enemy pathfinding.
-        foreach (Collider col in GetComponents<Collider>())
+        // Remove non-trigger colliders on root and children so nothing blocks enemy Rigidbodies.
+        foreach (Collider col in GetComponentsInChildren<Collider>(true))
         {
             if (!col.isTrigger)
                 Destroy(col);
         }
-        // Add a reasonably-sized trigger for player bullet detection (see OnTriggerEnter).
+        // Trigger hurtbox for player projectiles / overlap checks only (no physical blocking).
         CapsuleCollider hitbox = gameObject.AddComponent<CapsuleCollider>();
         hitbox.isTrigger = true;
         hitbox.radius    = 2.5f;

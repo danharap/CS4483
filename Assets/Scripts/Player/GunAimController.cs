@@ -103,7 +103,19 @@ public class GunAimController : MonoBehaviour
         float angleY = Mathf.Atan2(toMouse.x, toMouse.z) * Mathf.Rad2Deg - 90f;
         gunPivot.rotation = Quaternion.Euler(0f, angleY, 0f);
 
-        // ── 3. Flip when aiming left ─────────────────────────────────────────
+        // ── 3. Camera-compensated orbit radius ───────────────────────────────
+        // The camera is tilted ~48° from horizontal, so world-Z appears foreshortened
+        // on screen relative to world-X. A circle in 3D looks like an ellipse on screen,
+        // making the gun appear much closer when aiming up/down than left/right.
+        // Scale the local-X offset up when aiming along Z to restore visual parity.
+        // zCompensation = 1/sin(48°) ≈ 1.35; blend by how much Z is in the aim direction.
+        float zWeight       = Mathf.Abs(toMouse.z);                            // 0 = pure X, 1 = pure Z
+        float zCompensation = 1f / Mathf.Sin(48f * Mathf.Deg2Rad);            // ≈ 1.346
+        float effectiveRadius = orbitRadius * Mathf.Lerp(1f, zCompensation, zWeight);
+        if (gunSpriteRenderer != null)
+            gunSpriteRenderer.transform.localPosition = new Vector3(effectiveRadius, 0f, 0f);
+
+        // ── 4. Flip when aiming left ─────────────────────────────────────────
         // The sprite lies flat in XZ (rotated 90° on X). When the pivot rotates 180°
         // (barrel pointing left), the sprite art appears upside-down from the camera.
         // Negating the sprite object's local Y scale mirrors it through XZ, correcting

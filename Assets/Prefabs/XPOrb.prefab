@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7422296822822783817}
   - component: {fileID: 5611084369001600214}
   - component: {fileID: 6244052100567944019}
-  - component: {fileID: 1809473524748671282}
+  - component: {fileID: 5028500392864116903}
   m_Layer: 0
   m_Name: XPOrb
   m_TagString: XPOrb
@@ -123,7 +123,7 @@ MonoBehaviour:
   attractSpeed: 8
   collectRadius: 0.4
   maxLifetime: 30
---- !u!114 &1809473524748671282
+--- !u!114 &5028500392864116903
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -136,7 +136,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   pickupSprite: {fileID: 21300000, guid: 2c3476e52be28b24e9a453fda6bd43eb, type: 3}
-  spriteScale: {x: 1.5, y: 1.5, z: 1}
+  spriteScale: {x: 1, y: 1, z: 1}
   rotationSpeed: 45
   bobSpeed: 2
   bobAmount: 0.2

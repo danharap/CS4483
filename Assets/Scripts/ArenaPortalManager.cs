@@ -189,7 +189,8 @@ public class ArenaPortalManager : MonoBehaviour
             yield break;
         }
 
-        if (arena1Root != null) arena1Root.SetActive(false);
+        // Always disable every root named Arena 1 (fixes stale refs / duplicate roots; avoids Stage 1 floor still rendering).
+        SetAllSceneRootsActive(Arena1Name, false);
         arena2Root.SetActive(true);
 
         // Bake NavMesh for Arena 2
@@ -221,9 +222,12 @@ public class ArenaPortalManager : MonoBehaviour
             GameManager.Instance?.HUD?.UpdateWaveNumber(5);
         }
 
-        // Apply Arena 2 floor/theme
-        ArenaThemeController theme = FindFirstObjectByType<ArenaThemeController>();
-        if (theme != null) theme.ApplyArena2Theme();
+        // Apply Arena 2 floor/theme (include inactive — MANAGERS may be inactive in some setups)
+        ArenaThemeController[] themes = FindObjectsByType<ArenaThemeController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (themes != null && themes.Length > 0)
+            themes[0].ApplyArena2Theme();
+        else
+            Debug.LogWarning("[ArenaPortalManager] No ArenaThemeController found — Stage 2 floor sprite may not swap.");
 
         // ── Fade back in ──────────────────────────────────────────────────
         if (fade != null)
@@ -266,7 +270,28 @@ public class ArenaPortalManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────
     #region Portal Visual Helpers
 
-    /// <summary>Builds a portal GameObject: flat cylinder disc with emissive-style material.</summary>
+    static Material CreatePortalDiscMaterial(Color baseColor, Color emissionColor)
+    {
+        Shader sh = Shader.Find("Universal Render Pipeline/Lit");
+        if (sh == null) sh = Shader.Find("Standard");
+        Material mat = new Material(sh);
+        if (mat.HasProperty("_BaseColor"))
+            mat.SetColor("_BaseColor", baseColor);
+        else
+            mat.color = baseColor;
+        if (mat.HasProperty("_Smoothness"))
+            mat.SetFloat("_Smoothness", 0f);
+        if (mat.HasProperty("_Metallic"))
+            mat.SetFloat("_Metallic", 0f);
+        if (mat.HasProperty("_EmissionColor"))
+        {
+            mat.EnableKeyword("_EMISSION");
+            mat.SetColor("_EmissionColor", emissionColor);
+        }
+        return mat;
+    }
+
+    /// <summary>Single flat disc + simple URP-friendly material (no stacked meshes — avoids z-fighting / white seam).</summary>
     private GameObject BuildPortalObject(string goName, Vector3 position)
     {
         // Use a cylinder rotated flat (90° on X) as the portal disc
@@ -279,33 +304,9 @@ public class ArenaPortalManager : MonoBehaviour
         // Remove collider — Portal.cs handles trigger detection on a separate child
         Destroy(portal.GetComponent<Collider>());
 
-        // Portal disc material
         Renderer rend = portal.GetComponent<Renderer>();
         if (rend != null)
-        {
-            Material mat = new Material(Shader.Find("Standard"));
-            mat.color = portalColor;
-            mat.EnableKeyword("_EMISSION");
-            mat.SetColor("_EmissionColor", portalGlow * 1.5f);
-            rend.material = mat;
-        }
-
-        // Outer ring (slightly larger, different colour for depth)
-        GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        ring.name = "Ring";
-        ring.transform.SetParent(portal.transform, false);
-        ring.transform.localScale = new Vector3(1.12f, 0.06f, 1.12f); // thin ring
-        ring.transform.localPosition = Vector3.zero;
-        Destroy(ring.GetComponent<Collider>());
-        Renderer ringRend = ring.GetComponent<Renderer>();
-        if (ringRend != null)
-        {
-            Material ringMat = new Material(Shader.Find("Standard"));
-            ringMat.color = new Color(0.8f, 0.6f, 1f, 1f);
-            ringMat.EnableKeyword("_EMISSION");
-            ringMat.SetColor("_EmissionColor", new Color(1f, 0.8f, 2f));
-            ringRend.material = ringMat;
-        }
+            rend.material = CreatePortalDiscMaterial(portalColor, portalGlow * 1.2f);
 
         // Trigger collider on a separate child so Portal.cs can detect the player
         GameObject triggerChild = new GameObject("Trigger");
@@ -359,6 +360,15 @@ public class ArenaPortalManager : MonoBehaviour
         foreach (GameObject root in scene.GetRootGameObjects())
             if (root.name == name) return root;
         return null;
+    }
+
+    /// <summary>Enable/disable every matching scene root (handles duplicate or missing serialized refs).</summary>
+    static void SetAllSceneRootsActive(string rootName, bool active)
+    {
+        Scene scene = SceneManager.GetActiveScene();
+        foreach (GameObject root in scene.GetRootGameObjects())
+            if (root.name == rootName)
+                root.SetActive(active);
     }
 
     public WaveManager WaveManager => GameManager.Instance?.WaveManager;

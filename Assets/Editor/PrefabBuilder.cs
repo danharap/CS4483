@@ -347,6 +347,9 @@ public static class PrefabBuilder
 
         go.AddComponent<SatanBullet>();
 
+        int bp = LayerMask.NameToLayer("BossProjectile");
+        if (bp >= 0) go.layer = bp;
+
         SavePrefab(go, "SatanBullet");
         Object.DestroyImmediate(go);
     }

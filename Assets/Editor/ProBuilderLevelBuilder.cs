@@ -15,15 +15,26 @@ using Unity.AI.Navigation;
 public static class ProBuilderLevelBuilder
 {
     private static Transform levelRoot;
-    private static Material matFloor, matWall, matHub, matBoss, matObstacle, matStands;
+    private static Material matFloor, matWall, matHub, matBoss, matObstacle, matStands, matStandsArena2;
 
-    private const string ObstacleSpritePath = "Assets/Sprites/sObstacleBox.png";
+    private const string ObstacleSpritePath = "Assets/Sprites/sBox.png";
     private static UnityEngine.Sprite s_obstacleSprite;
     const string Arena2RootName  = "=== LEVEL (ProBuilder) Arena2 ===";
     const string Arena1RootName  = "=== LEVEL (ProBuilder) ===";
     const string LobbyRootName   = "=== LEVEL (Lobby) ===";
     const float ArenaRadius = 38f;   // Circular wall radius (diameter = 76)
     const float ArenaFloorSize = 78f; // Floor cube size to contain the circle
+
+    // sBox cover props: mid-arena ring (~25–28m from center), same in Arena 1 and Arena 2.
+    static readonly Vector3[] ObstacleBoxPositions =
+    {
+        new Vector3(-23f, 0f, 15f),
+        new Vector3(18f, 0f, 20f),
+        new Vector3(-20f, 0f, -18f),
+        new Vector3(22f, 0f, -12f),
+        new Vector3(8f, 0f, -25f),
+    };
+    static readonly float[] ObstacleBoxScalesXZ = { 2f, 2.25f, 2.25f, 2.5f, 2.5f };
 
     // Called from SetupAll; no menu item (use Full Setup instead)
     public static void BuildLevel()
@@ -74,13 +85,10 @@ public static class ProBuilderLevelBuilder
         walls.transform.SetParent(levelRoot);
         CreateOctagonWalls(walls.transform, matWall2, ArenaRadius, 8f, 0.5f);
 
-        GameObject rocks = new GameObject("Rock_Obstacles");
-        rocks.transform.SetParent(levelRoot);
-        CreateObstacleSprite(rocks.transform, "Box1", new Vector3(10f, 0f, 10f),  2f);
-        CreateObstacleSprite(rocks.transform, "Box2", new Vector3(-10f, 0f, -12f), 2.25f);
-        CreateObstacleSprite(rocks.transform, "Box3", new Vector3(15f, 0f, -3f),  2.25f);
-        CreateObstacleSprite(rocks.transform, "Box4", new Vector3(-14f, 0f, 6f),  2.5f);
-        CreateObstacleSprite(rocks.transform, "Box5", new Vector3(0f, 0f, 8f),    2.5f);
+        // Same stepped stands as Arena 1 (crowd / layout parity); nether-tinted material
+        CreateAudienceStands(matStandsArena2);
+
+        // No sBox cover props in Stage 2 (open arena)
 
         CreateTraps();
         CreateSpawnPoints();
@@ -144,6 +152,7 @@ public static class ProBuilderLevelBuilder
         matObstacle = GetOrCreateMat("M_Obstacle", new Color(0.45f, 0.40f, 0.35f));
         // Dark, worn stone for colosseum-style audience stands
         matStands   = GetOrCreateMat("M_Stands",   new Color(0.15f, 0.15f, 0.17f));
+        matStandsArena2 = GetOrCreateMat("M_Stands_Arena2", new Color(0.16f, 0.07f, 0.09f)); // nether / darker stone
     }
 
     static Material GetOrCreateMat(string name, Color color)
@@ -264,6 +273,11 @@ public static class ProBuilderLevelBuilder
 
     static void CreateAudienceStands()
     {
+        CreateAudienceStands(matStands);
+    }
+
+    static void CreateAudienceStands(Material standMaterial)
+    {
         // Decorative only: no gameplay collision, just dark stepped stone rows behind the walls.
         Transform wallsParent = levelRoot.Find("Boundary_Walls");
         if (wallsParent == null)
@@ -308,7 +322,7 @@ public static class ProBuilderLevelBuilder
                 center.y = verticalCenter;
 
                 Vector3 size = new Vector3(length, stepHeight, stepDepth);
-                GameObject step = PBCube($"Stand_Step_{wall.name}_{i}", center, size, matStands, standsRoot.transform);
+                GameObject step = PBCube($"Stand_Step_{wall.name}_{i}", center, size, standMaterial, standsRoot.transform);
 
                 // Rotate to follow the wall tangent so the long edge lines up with the octagon edge.
                 step.transform.rotation = wall.rotation;
@@ -465,11 +479,10 @@ public static class ProBuilderLevelBuilder
         go.transform.rotation = Quaternion.identity;
 
         // Visual (sprite) as a child so we can rotate/billboard it without messing up collider orientation.
-        // Keep obstacle world footprint stable when PPU changes:
-        // spriteWorldSize = 40px / PPU. With GlobalPPU=20, spriteWorldSize = 2 world units at scale 1.
-        const float obstaclePixels = 40f;
-        const float ppu = 20f;
-        float spriteWorldSize = obstaclePixels / ppu;
+        // Use the sprite's actual pixel size and PPU (sBox.png or any replacement) so scale stays correct.
+        float ppu = s_obstacleSprite.pixelsPerUnit;
+        float px = Mathf.Max(s_obstacleSprite.rect.width, s_obstacleSprite.rect.height);
+        float spriteWorldSize = px / ppu;
         float desiredWorldSize = scaleXZ * 1.8f;
         float visualScale = desiredWorldSize / spriteWorldSize;
         GameObject visual = new GameObject("Visual");
@@ -489,8 +502,9 @@ public static class ProBuilderLevelBuilder
         col.size = new Vector3(desiredWorldSize, 1.2f, desiredWorldSize);
         col.center = new Vector3(0f, col.size.y * 0.5f, 0f); // sit on ground
 
-        // No Rigidbody: static collider so both CharacterController (player) and Rigidbody (enemies) collide with boxes
-        go.layer = LayerMask.NameToLayer("Default");
+        // Cover / props: BossProjectile ignores this layer (see GameplayLayerSetup + SatanBullet).
+        int propLayer = LayerMask.NameToLayer("ArenaProp");
+        go.layer = propLayer >= 0 ? propLayer : 0;
 
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
     }
@@ -499,12 +513,13 @@ public static class ProBuilderLevelBuilder
     {
         GameObject p = new GameObject("Rock_Obstacles");
         p.transform.SetParent(levelRoot);
-        
-        CreateObstacleSprite(p.transform, "Box1", new Vector3(-8, 0, 5),   2f);
-        CreateObstacleSprite(p.transform, "Box2", new Vector3(6, 0, 8),    2.25f);
-        CreateObstacleSprite(p.transform, "Box3", new Vector3(-10, 0, -8), 2.25f);
-        CreateObstacleSprite(p.transform, "Box4", new Vector3(12, 0, -5),  2.5f);
-        CreateObstacleSprite(p.transform, "Box5", new Vector3(5, 0, -10),  2.5f);
+        PlaceObstacleBoxes(p.transform);
+    }
+
+    static void PlaceObstacleBoxes(Transform parent)
+    {
+        for (int i = 0; i < ObstacleBoxPositions.Length; i++)
+            CreateObstacleSprite(parent, $"Box{i + 1}", ObstacleBoxPositions[i], ObstacleBoxScalesXZ[i]);
     }
 
     // ── Arena Traps (damage + stun on step) ─────────────────────────────────

@@ -61,11 +61,16 @@ public class PlayerGun : MonoBehaviour
             // Subtract 90° because atan2(x,z) is relative to +Z, but Y=0° already points +X.
             float angleY = Mathf.Atan2(dirToMouse.x, dirToMouse.z) * Mathf.Rad2Deg - 90f;
             gunPivot.transform.rotation = Quaternion.Euler(0f, angleY, 0f);
-            
-            // Flip: negate the sprite object's Y scale when aiming left.
-            // The sprite lies flat in XZ (rotated 90° on X). A 180° pivot rotation
-            // would leave the art upside-down; negating localScale.y mirrors it through
-            // the XZ plane, keeping the gun right-side-up from the angled camera.
+
+            // Camera-compensated orbit: the 48° camera tilt foreshortens world-Z on screen,
+            // making the gun look closer when aiming up/down than left/right.
+            // Blend the orbit radius toward 1/sin(48°) ≈ 1.35× as aim direction shifts to Z.
+            float zWeight         = Mathf.Abs(dirToMouse.z);
+            float zCompensation   = 1f / Mathf.Sin(48f * Mathf.Deg2Rad);
+            float effectiveRadius = orbitRadius * Mathf.Lerp(1f, zCompensation, zWeight);
+            gunSpriteObj.transform.localPosition = new Vector3(effectiveRadius, 0f, 0f);
+
+            // Flip: negate Y scale when aiming left so the art stays right-side-up.
             float baseScale = 1.5f;
             bool facingLeft = dirToMouse.x < 0f;
             float sy = facingLeft ? -baseScale : baseScale;

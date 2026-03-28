@@ -47,6 +47,10 @@ public abstract class EnemyBase : MonoBehaviour
     protected virtual void Awake()
     {
         CurrentHP = maxHP;
+        int enemyLayer = LayerMask.NameToLayer("Enemy");
+        if (enemyLayer >= 0)
+            gameObject.layer = enemyLayer;
+
         rb = GetComponent<Rigidbody>();
         rb.useGravity = false;
         rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;

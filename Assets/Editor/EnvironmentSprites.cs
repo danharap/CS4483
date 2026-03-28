@@ -8,6 +8,9 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public static class EnvironmentSprites
 {
+    /// <summary>World width/depth for the floor sprite (matches ProBuilder arena interior; see ApplyFloorMap).</summary>
+    public const float FloorMapDesiredWorldSize = 86f;
+
     /// <summary>Finds a root GameObject by name including inactive objects.</summary>
     static GameObject FindRootByName(string name)
     {
@@ -39,7 +42,45 @@ public static class EnvironmentSprites
         // Re-enable ProBuilder walls (3D green walls)
         EnableProBuilderWalls();
         
+        // Arena 2: same footprint/scale as Arena 1, nether visuals (sMap2 / sBg_Red)
+        ApplyArena2EnvironmentSprites();
+
         Debug.Log("[EnvironmentSprites] ✓ Environment sprites applied! Using 3D green ProBuilder walls.");
+    }
+
+    /// <summary>Stage 2 floor/background: identical layout and scale to Stage 1; only sprites differ.</summary>
+    public static void ApplyArena2EnvironmentSprites()
+    {
+        Sprite bgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg_Red.png");
+        Sprite mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap2.png");
+        if (mapSprite == null)
+            mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
+
+        if (bgSprite == null || mapSprite == null)
+        {
+            Debug.LogWarning("[EnvironmentSprites] Arena 2 sprites (sBg_Red / sMap2) missing — skip Arena 2 env.");
+            return;
+        }
+
+        GameObject levelRoot = FindRootByName("=== LEVEL (ProBuilder) Arena2 ===");
+        if (levelRoot == null)
+        {
+            Debug.LogWarning("[EnvironmentSprites] Arena 2 level root not found — run Build Level first.");
+            return;
+        }
+
+        Transform floor = levelRoot.transform.Find("Floor");
+        if (floor != null)
+        {
+            MeshRenderer floorRenderer = floor.GetComponent<MeshRenderer>();
+            if (floorRenderer != null) floorRenderer.enabled = false;
+        }
+
+        ApplyBackgroundForRoot(levelRoot.transform, bgSprite);
+        ApplyFloorMapForRoot(levelRoot.transform, mapSprite);
+        EnableProBuilderWallsForRoot(levelRoot.transform);
+
+        Debug.Log("[EnvironmentSprites] ✓ Arena 2 floor/background applied (same scale as Arena 1).");
     }
     
     static void ApplyBackground(Sprite bgSprite)
@@ -62,16 +103,23 @@ public static class EnvironmentSprites
             }
         }
 
-        // Find or create background plane — parented to Arena 1 root so it hides with the arena
-        Transform bgParent = levelRoot != null ? levelRoot.transform : null;
-        GameObject bgPlane = bgParent != null
-            ? bgParent.Find("Background_Plane")?.gameObject
-            : GameObject.Find("Background_Plane");
+        if (levelRoot == null)
+        {
+            Debug.LogWarning("[EnvironmentSprites] Arena 1 root not found for background.");
+            return;
+        }
 
+        ApplyBackgroundForRoot(levelRoot.transform, bgSprite);
+        Debug.Log("[EnvironmentSprites] ✓ Background applied (parented to Arena 1 root)");
+    }
+
+    static void ApplyBackgroundForRoot(Transform levelRoot, Sprite bgSprite)
+    {
+        GameObject bgPlane = levelRoot.Find("Background_Plane")?.gameObject;
         if (bgPlane == null)
         {
             bgPlane = new GameObject("Background_Plane");
-            if (bgParent != null) bgPlane.transform.SetParent(bgParent, false);
+            bgPlane.transform.SetParent(levelRoot, false);
             bgPlane.transform.position = new Vector3(0f, 0.01f, 0f);
             bgPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             bgPlane.transform.localScale = new Vector3(15f, 15f, 1f);
@@ -84,24 +132,29 @@ public static class EnvironmentSprites
         sr.drawMode = SpriteDrawMode.Tiled;
         sr.tileMode = SpriteTileMode.Continuous;
         sr.size = new Vector2(100f, 100f);
-
-        Debug.Log("[EnvironmentSprites] ✓ Background applied (parented to Arena 1 root)");
     }
 
     static void ApplyFloorMap(Sprite mapSprite)
     {
-        // Floor map is also parented to Arena 1 root (use FindRootByName for inactive objects)
         GameObject levelRoot = FindRootByName("=== LEVEL (ProBuilder) ===");
-        Transform mapParent = levelRoot != null ? levelRoot.transform : null;
+        if (levelRoot == null)
+        {
+            Debug.LogWarning("[EnvironmentSprites] Arena 1 root not found for floor map.");
+            return;
+        }
 
-        GameObject mapPlane = mapParent != null
-            ? mapParent.Find("Floor_Map")?.gameObject
-            : GameObject.Find("Floor_Map");
+        ApplyFloorMapForRoot(levelRoot.transform, mapSprite);
+        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (fits within borders, background visible outside, parented to Arena 1 root)");
+    }
 
+    /// <summary>Same world footprint as Arena 1: scale from sprite bounds and <see cref="FloorMapDesiredWorldSize"/>.</summary>
+    public static void ApplyFloorMapForRoot(Transform levelRoot, Sprite mapSprite)
+    {
+        GameObject mapPlane = levelRoot.Find("Floor_Map")?.gameObject;
         if (mapPlane == null)
         {
             mapPlane = new GameObject("Floor_Map");
-            if (mapParent != null) mapPlane.transform.SetParent(mapParent, false);
+            mapPlane.transform.SetParent(levelRoot, false);
             mapPlane.transform.position = new Vector3(0f, 0.1f, 0f);
             mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
             mapPlane.transform.localScale = Vector3.one;
@@ -110,58 +163,51 @@ public static class EnvironmentSprites
         SpriteRenderer sr = mapPlane.GetComponent<SpriteRenderer>();
         if (sr == null) sr = mapPlane.AddComponent<SpriteRenderer>();
         sr.sprite = mapSprite;
-        sr.sortingOrder = -50; // Above background (-100), below gameplay objects (0+)
-        sr.drawMode = SpriteDrawMode.Simple; // Use simple mode, not tiled
+        sr.sortingOrder = -50;
+        sr.drawMode = SpriteDrawMode.Simple;
 
-        // Fit sprite to arena interior. ProBuilder arena uses ArenaRadius=38 → diameter ≈ 76 world units.
-        // Uses sprite bounds so it adapts to PPU changes.
-        // Make the floor larger than the wall footprint so it fully covers the octagon interior.
-        float desiredWorldSize = 86f;
-        float spriteWorldSize = sr.sprite.bounds.size.x; // square map
+        float spriteWorldSize = mapSprite.bounds.size.x;
         if (spriteWorldSize > 0.001f)
         {
-            float scale = desiredWorldSize / spriteWorldSize;
+            float scale = FloorMapDesiredWorldSize / spriteWorldSize;
             mapPlane.transform.localScale = new Vector3(scale, scale, 1f);
         }
-        
-        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (fits within borders, background visible outside, parented to Arena 1 root)");
     }
     
     static void EnableProBuilderWalls()
     {
-        // Find all boundary wall objects and enable their 3D mesh renderers
         GameObject levelRoot = FindRootByName("=== LEVEL (ProBuilder) ===");
         if (levelRoot == null)
         {
             Debug.LogWarning("[EnvironmentSprites] Level root not found!");
             return;
         }
-        
-        Transform wallsParent = levelRoot.transform.Find("Boundary_Walls");
+        EnableProBuilderWallsForRoot(levelRoot.transform);
+    }
+
+    static void EnableProBuilderWallsForRoot(Transform levelRoot)
+    {
+        Transform wallsParent = levelRoot.Find("Boundary_Walls");
         if (wallsParent == null)
         {
-            Debug.LogWarning("[EnvironmentSprites] Boundary_Walls not found!");
+            Debug.LogWarning("[EnvironmentSprites] Boundary_Walls not found under " + levelRoot.name + "!");
             return;
         }
-        
+
         int wallCount = 0;
         foreach (Transform wall in wallsParent)
         {
-            // Enable the ProBuilder mesh renderer for 3D green walls
             MeshRenderer meshRenderer = wall.GetComponent<MeshRenderer>();
             if (meshRenderer != null)
-            {
                 meshRenderer.enabled = true;
-            }
-            
-            // Remove any old wall sprite billboard objects
+
             Transform oldSprite = wall.Find("Wall_Sprite");
             if (oldSprite != null)
                 Object.DestroyImmediate(oldSprite.gameObject);
-            
+
             wallCount++;
         }
-        
-        Debug.Log($"[EnvironmentSprites] ✓ Enabled {wallCount} 3D ProBuilder walls (green from material)");
+
+        Debug.Log($"[EnvironmentSprites] ✓ Enabled {wallCount} 3D ProBuilder walls on {levelRoot.name}");
     }
 }

@@ -23,6 +23,10 @@ public class SatanBullet : MonoBehaviour
 
     private void Awake()
     {
+        int bp = LayerMask.NameToLayer("BossProjectile");
+        if (bp >= 0)
+            gameObject.layer = bp;
+
         // Build sprite visual child so it can Billboard independently.
         sr = GetComponentInChildren<SpriteRenderer>();
         if (sr == null)
@@ -33,7 +37,8 @@ public class SatanBullet : MonoBehaviour
             vis.transform.localScale = new Vector3(visualScale, visualScale, 1f);
             vis.AddComponent<Billboard>();
             sr = vis.AddComponent<SpriteRenderer>();
-            sr.sortingOrder = 20;
+            // Above floor / map sprites (often 0–10); match combat readability
+            sr.sortingOrder = 35;
         }
 
         if (bulletSprite != null)
@@ -101,7 +106,35 @@ public class SatanBullet : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-        if (!other.isTrigger)
-            Destroy(gameObject);
+
+        // Pass through other enemies (movement should not eat boss bullets if layers misconfigured).
+        if (other.GetComponent<EnemyBase>() != null)
+            return;
+
+        int propLayer = LayerMask.NameToLayer("ArenaProp");
+        if (propLayer >= 0 && other.gameObject.layer == propLayer)
+            return;
+
+        // Other triggers (boss hurtbox, VFX, etc.) — ignore
+        if (other.isTrigger) return;
+
+        // Solid environment: walls, boxes, floor mesh.
+        // Bullets used to spawn at y≈0 overlapping the arena floor (non-trigger); Unity fired
+        // OnTriggerEnter immediately and destroyed the bullet before it was visible.
+        // Ignore "ground-like" colliders whose top is at or below our center (horizontal floor).
+        if (IsGroundLikeCollider(other))
+            return;
+
+        Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// True for flat arena floor (top near y=0) we overlap while flying above it; false for walls/boxes.
+    /// Uses collider top vs. bullet height so we do not destroy on the floor mesh.
+    /// </summary>
+    private bool IsGroundLikeCollider(Collider other)
+    {
+        const float minClearanceBelowCenter = 0.35f;
+        return other.bounds.max.y < transform.position.y - minClearanceBelowCenter;
     }
 }

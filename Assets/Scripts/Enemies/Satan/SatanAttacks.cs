@@ -39,6 +39,8 @@ public class SatanAttacks : MonoBehaviour
     [SerializeField] private GameObject bulletPrefab;
     [Tooltip("Bullet sprite from Assets/Sprites/Final Boss/Bullets.png — wired by SpriteSetup.")]
     [SerializeField] private Sprite     bulletSprite;
+    [Tooltip("Raise spawn above the arena floor so the trigger does not overlap solid ground on frame 0.")]
+    [SerializeField] private float bulletSpawnYOffset = 0.65f;
     [SerializeField] private float      directBulletSpeed  = 10f;
     [SerializeField] private int        directBulletCount  = 5;
     [SerializeField] private float      directSpreadAngle  = 30f;  // total cone angle
@@ -443,16 +445,20 @@ public class SatanAttacks : MonoBehaviour
     /// </summary>
     private void SpawnOneBullet(Vector3 origin, Vector3 dir, float speed, float damage)
     {
+        // Clear the floor plane (floor mesh top ~ y=0): spawning at y=0 overlaps solid colliders
+        // and SatanBullet was destroying itself immediately in OnTriggerEnter.
+        Vector3 spawnPos = origin + Vector3.up * bulletSpawnYOffset;
+
         GameObject b;
         if (bulletPrefab != null)
         {
-            b = Instantiate(bulletPrefab, origin, Quaternion.LookRotation(dir));
+            b = Instantiate(bulletPrefab, spawnPos, Quaternion.LookRotation(dir));
         }
         else
         {
             // Runtime fallback: build a minimal bullet GameObject on the fly
             b = new GameObject("SatanBullet_RT");
-            b.transform.position = origin;
+            b.transform.position = spawnPos;
             b.transform.rotation = Quaternion.LookRotation(dir);
 
             SphereCollider col = b.AddComponent<SphereCollider>();
