@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using UnityEngine.ProBuilder;
 using UnityEngine.ProBuilder.Shapes;
@@ -52,6 +53,7 @@ public static class ProBuilderLevelBuilder
         CreateFloor();
         CreateBoundaryWalls();
         CreateAudienceStands();
+        CreateSatanThroneArea(matStands);   // throne uses Arena 1 stand material
         CreateRockObstacles();
         CreateTraps();
         CreateSpawnPoints();
@@ -90,12 +92,17 @@ public static class ProBuilderLevelBuilder
 
         // No sBox cover props in Stage 2 (open arena)
 
-        CreateTraps();
+        CreateFlameTraps();
         CreateSpawnPoints();
         CreateLighting();
+        CreateSatanThroneArea();
 
-        if (root.GetComponent<NavMeshSurface>() == null)
-            root.AddComponent<NavMeshSurface>();
+        // Ensure NavMeshSurface uses only Arena 2's own children so the player's
+        // CharacterController capsule (and any other scene colliders) are excluded from the bake.
+        NavMeshSurface nms = root.GetComponent<NavMeshSurface>();
+        if (nms == null) nms = root.AddComponent<NavMeshSurface>();
+        nms.collectObjects = CollectObjects.Children;
+        nms.useGeometry    = NavMeshCollectGeometry.PhysicsColliders;
 
         EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("[ProBuilderLevelBuilder] ✓ Arena 2 built (disabled). Run Setup All to wire spawn points.");
@@ -145,14 +152,21 @@ public static class ProBuilderLevelBuilder
             AssetDatabase.CreateFolder("Assets", "Materials");
 
         matFloor    = GetOrCreateMat("M_Floor",    new Color(0.60f, 0.60f, 0.60f));
-        // Warm earthy brown stone for colosseum-style arena walls (Stage 1)
-        matWall     = GetOrCreateMat("M_Wall",     new Color(0.55f, 0.35f, 0.15f));
+        // ── Stage 1 palette: Roman-colosseum travertine limestone ──────────
+        // Warm sandstone for boundary walls (think exposed travertine blocks)
+        matWall     = GetOrCreateMat("M_Wall",     new Color(0.68f, 0.60f, 0.48f));
+        // Lobby walls use a dedicated material so they are never affected by arena wall changes.
+        GetOrCreateMat("M_LobbyWall", new Color(0.62f, 0.62f, 0.62f));
         matHub      = GetOrCreateMat("M_Hub",      new Color(0.85f, 0.85f, 0.85f));
         matBoss     = GetOrCreateMat("M_Boss",     new Color(0.40f, 0.02f, 0.02f));
         matObstacle = GetOrCreateMat("M_Obstacle", new Color(0.45f, 0.40f, 0.35f));
-        // Warm neutral grey stone for Stage 1 audience stands — distinct from walls, fits sMap floor
-        matStands   = GetOrCreateMat("M_Stands",   new Color(0.48f, 0.46f, 0.42f));
+        // Slightly cooler grey stone for stands — distinct from walls but same stone family
+        matStands   = GetOrCreateMat("M_Stands",   new Color(0.56f, 0.55f, 0.53f));
         matStandsArena2 = GetOrCreateMat("M_Stands_Arena2", new Color(0.16f, 0.07f, 0.09f)); // nether / darker stone
+
+        // Force an immediate asset save so the updated colour and gloss values are written
+        // to disk before the scene geometry references them (avoids stale cached materials).
+        AssetDatabase.SaveAssets();
     }
 
     static Material GetOrCreateMat(string name, Color color)
@@ -166,10 +180,25 @@ public static class ProBuilderLevelBuilder
         }
         else
         {
-            // Always sync the color so re-running the builder reflects updated values
             mat.color = color;
-            EditorUtility.SetDirty(mat);
         }
+
+        // Clear any albedo texture — if sBg.png or any other sprite was previously dragged
+        // onto this material in the Inspector, clear it so walls render as flat colour only.
+        mat.SetTexture("_MainTex", null);
+
+        // Fully matte: strip gloss, metallic, specular and env-map reflections.
+        // SetFloat alone is not enough for the Standard shader — keywords must also be toggled.
+        mat.SetFloat("_Glossiness", 0f);
+        mat.SetFloat("_Metallic",   0f);
+        mat.SetFloat("_SpecularHighlights", 0f);
+        mat.SetFloat("_GlossyReflections",  0f);
+        mat.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
+        mat.EnableKeyword("_GLOSSYREFLECTIONS_OFF");
+        mat.DisableKeyword("_METALLICGLOSSMAP");
+        mat.DisableKeyword("_SPECGLOSSMAP");
+
+        EditorUtility.SetDirty(mat);
         return mat;
     }
 
@@ -298,8 +327,11 @@ public static class ProBuilderLevelBuilder
         // For each wall segment, build a few shallow steps just outside the wall, following its length.
         const int stepsPerRing = 14;
         const float stepHeight = 0.6f;
-        const float stepDepth  = 1.0f;
-        const float gapBehindWall = 0.5f; // small gap between wall and first row
+        // Depth is 1.05 (5 % overlap) so adjacent rows share edge pixels and the seam disappears.
+        const float stepDepth  = 1.05f;
+        // Gap must exceed wallThickness/2 (0.25) so step 0 never overlaps the wall outer face.
+        // 1.0 puts step-0 centre at radius 39, inner edge at 38.5 — safely clear of the wall.
+        const float gapBehindWall = 1.0f;
 
         foreach (Transform wall in wallsParent)
         {
@@ -327,6 +359,7 @@ public static class ProBuilderLevelBuilder
                 Vector3 center = outward * radialOffset;
                 center.y = verticalCenter;
 
+
                 Vector3 size = new Vector3(length, stepHeight, stepDepth);
                 GameObject step = PBCube($"Stand_Step_{wall.name}_{i}", center, size, standMaterial, standsRoot.transform);
 
@@ -336,8 +369,220 @@ public static class ProBuilderLevelBuilder
                 // Decorative only: disable collider so it doesn't affect NavMesh or gameplay.
                 MeshCollider mc = step.GetComponent<MeshCollider>();
                 if (mc != null) mc.enabled = false;
+
+                // No shadow casting: stand rows were casting shadow bands onto the row below,
+                // creating the visible seam/tear lines across the stands in Stage 1.
+                Renderer sr = step.GetComponent<Renderer>();
+                if (sr != null)
+                    sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
         }
+    }
+
+    // ── Satan Throne / Watch Platform (Arena 2 top-middle) ───────────────
+
+    /// <summary>
+    /// Builds a ceremonial ruler's box / throne viewing area in the top-middle colosseum stands.
+    /// Placed behind Wall_Seg_0 (positive-Z octagon face) at stand height.
+    ///
+    /// Layout (Z positive = "top" of arena from camera's perspective):
+    ///   ArenaRadius = 38  →  stands begin at z ≈ 38.5, step 14 rows outward.
+    ///   Throne sits at z ≈ 44–48, elevated ~2 units above the mid-stand height.
+    ///   Four columns + canopy frame the throne seat for visual clarity from top-down camera.
+    ///
+    /// All geometry is decorative — colliders are disabled so they do not affect NavMesh or Satan's hurtbox.
+    /// Satan's watch-position inspector field on SatanArenaIntroController should match throneWatchSatanPos.
+    /// </summary>
+    /// <param name="overrideMaterial">If non-null, used as the main platform stone material (pass matStands for Arena 1).</param>
+    static void CreateSatanThroneArea(Material overrideMaterial = null)
+    {
+        // Arena 1 uses the passed stand material (warm grey stone).
+        // Arena 2 falls back to the dark nether-stone default.
+        Material matThrone = overrideMaterial ?? GetOrCreateMat("M_Stands_Arena2", new Color(0.16f, 0.07f, 0.09f));
+        // Warm ochre gold for columns — works in both colosseum (Stage 1) and hell (Stage 2) themes.
+        Material matGold   = GetOrCreateMat("M_Throne_Gold", new Color(0.72f, 0.56f, 0.10f));
+        // Neutral dark charcoal for seat/back/arms — not reddish so it reads in Stage 1 too.
+        Material matDark   = GetOrCreateMat("M_Throne_Dark", new Color(0.14f, 0.13f, 0.12f));
+
+        GameObject root = new GameObject("Satan_Throne_Area");
+        root.transform.SetParent(levelRoot);
+
+        // ── Geometry constants ────────────────────────────────────────────
+        // With gapBehindWall=1.0: step i centre z = 39+i.
+        // Step 3: z=42, y_top=10.22.  Throne sits just above step 3, closer + lower than before.
+        // "FrontStep" piece removed — it clipped into stand row 0 and wasn't visible from camera.
+        const float baseTopY  = 10.0f;  // flat top of platform (just above step 3 top at 10.22)
+        const float platformH = 1.4f;   // platform slab height
+        const float throneZ   = 42.0f;  // z centre — step 3, ~4 units behind the wall (was 43)
+        const float boxW      = 10f;    // width (X)
+        const float boxD      = 4.5f;   // depth (Z) — narrower so front edge clears stand row 0
+
+        // ── Raised stone platform slab ────────────────────────────────────
+        PBCube("Throne_Platform",
+            new Vector3(0f, baseTopY - platformH * 0.5f, throneZ),
+            new Vector3(boxW, platformH, boxD),
+            matThrone, root.transform);
+
+        // ── Throne seat (seat + back + arm rests) ─────────────────────────
+        // Seat cushion/base
+        PBCube("Throne_Seat",
+            new Vector3(0f, baseTopY + 0.35f, throneZ + 0.4f),
+            new Vector3(2.8f, 0.55f, 2.6f),
+            matDark, root.transform);
+        // Back rest
+        PBCube("Throne_Back",
+            new Vector3(0f, baseTopY + 1.5f, throneZ + 1.6f),
+            new Vector3(2.8f, 2.2f, 0.35f),
+            matDark, root.transform);
+        // Left arm
+        PBCube("Throne_ArmLeft",
+            new Vector3(-1.35f, baseTopY + 0.8f, throneZ + 0.4f),
+            new Vector3(0.35f, 0.65f, 2.6f),
+            matDark, root.transform);
+        // Right arm
+        PBCube("Throne_ArmRight",
+            new Vector3( 1.35f, baseTopY + 0.8f, throneZ + 0.4f),
+            new Vector3(0.35f, 0.65f, 2.6f),
+            matDark, root.transform);
+
+        // ── Open-crown design: tall corner pillars + back monument, NO canopy ──
+        // The solid canopy was removed so the top-down camera can see Satan sitting below.
+        // Visual interest comes from tall gold obelisk-columns and a grand back monument.
+
+        // Four corner obelisk columns — taller than before so they read clearly without a roof.
+        const float colH   = 6.5f;
+        const float colR   = 0.42f;
+        float colBaseY     = baseTopY + colH * 0.5f;
+        float colXOff      = boxW * 0.5f - 0.4f;
+        float colZFront    = throneZ - boxD * 0.5f + 0.3f;
+        float colZBack     = throneZ + boxD * 0.5f - 0.3f;
+
+        PBCube("Col_FL", new Vector3(-colXOff, colBaseY, colZFront), new Vector3(colR, colH, colR), matGold, root.transform);
+        PBCube("Col_FR", new Vector3( colXOff, colBaseY, colZFront), new Vector3(colR, colH, colR), matGold, root.transform);
+        PBCube("Col_BL", new Vector3(-colXOff, colBaseY, colZBack),  new Vector3(colR, colH, colR), matGold, root.transform);
+        PBCube("Col_BR", new Vector3( colXOff, colBaseY, colZBack),  new Vector3(colR, colH, colR), matGold, root.transform);
+
+        // Flat cap / finial on each column — wide square topper makes columns look architectural.
+        float capY = baseTopY + colH + 0.25f;
+        PBCube("Cap_FL", new Vector3(-colXOff, capY, colZFront), new Vector3(0.80f, 0.32f, 0.80f), matGold, root.transform);
+        PBCube("Cap_FR", new Vector3( colXOff, capY, colZFront), new Vector3(0.80f, 0.32f, 0.80f), matGold, root.transform);
+        PBCube("Cap_BL", new Vector3(-colXOff, capY, colZBack),  new Vector3(0.80f, 0.32f, 0.80f), matGold, root.transform);
+        PBCube("Cap_BR", new Vector3( colXOff, capY, colZBack),  new Vector3(0.80f, 0.32f, 0.80f), matGold, root.transform);
+
+        // (No railing/cross-bars — removed at user request)
+
+        // ── Grand back monument (behind seat, adds vertical drama from all camera angles) ──
+        // Central obelisk — a tall gold monolith rising above the back-rest.
+        float obeliskBackZ = throneZ + boxD * 0.5f;
+        float obeliskH     = 9.0f;
+        float obeliskY     = baseTopY + obeliskH * 0.5f;
+        PBCube("Monument_Obelisk",
+               new Vector3(0f, obeliskY, obeliskBackZ),
+               new Vector3(1.6f, obeliskH, 0.55f), matGold, root.transform);
+        // Dark stone cap on the obelisk top
+        PBCube("Monument_Cap",
+               new Vector3(0f, baseTopY + obeliskH + 0.45f, obeliskBackZ),
+               new Vector3(1.0f, 0.65f, 0.45f), matDark, root.transform);
+
+        // Flanking side pillars — shorter stone pillars that frame the central obelisk.
+        float sidePillarH  = 5.5f;
+        float sidePillarY  = baseTopY + sidePillarH * 0.5f;
+        PBCube("Monument_PillarL",
+               new Vector3(-1.5f, sidePillarY, obeliskBackZ),
+               new Vector3(0.55f, sidePillarH, 0.55f), matThrone, root.transform);
+        PBCube("Monument_PillarR",
+               new Vector3( 1.5f, sidePillarY, obeliskBackZ),
+               new Vector3(0.55f, sidePillarH, 0.55f), matThrone, root.transform);
+        // Caps for flanking pillars
+        PBCube("Monument_PillarL_Cap",
+               new Vector3(-1.5f, baseTopY + sidePillarH + 0.22f, obeliskBackZ),
+               new Vector3(0.80f, 0.3f, 0.80f), matGold, root.transform);
+        PBCube("Monument_PillarR_Cap",
+               new Vector3( 1.5f, baseTopY + sidePillarH + 0.22f, obeliskBackZ),
+               new Vector3(0.80f, 0.3f, 0.80f), matGold, root.transform);
+
+        // Lintel connecting the three monument pieces at mid-height (horizontal accent)
+        float lintelY = baseTopY + sidePillarH * 0.65f;
+        PBCube("Monument_Lintel",
+               new Vector3(0f, lintelY, obeliskBackZ),
+               new Vector3(3.8f, 0.30f, 0.45f), matDark, root.transform);
+
+        // ── Front presentation step ───────────────────────────────────────────
+        PBCube("Throne_FrontStep",
+               new Vector3(0f, baseTopY + 0.08f, throneZ - boxD * 0.5f - 0.45f),
+               new Vector3(boxW + 1.0f, 0.16f, 0.9f), matThrone, root.transform);
+
+        // ── Disable all colliders — purely decorative ─────────────────────
+        foreach (MeshCollider mc in root.GetComponentsInChildren<MeshCollider>())
+            mc.enabled = false;
+
+        // ── No shadow casting — throne pieces are decorative, shadows create seams ─
+        foreach (Renderer r in root.GetComponentsInChildren<Renderer>())
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        // ── Static "seated Satan" visual ──────────────────────────────────
+        // Baked directly into the throne geometry so it is always visible from the moment
+        // Arena 2 is loaded (no runtime spawning required).
+        // SatanArenaIntroController hides this object when the real boss spawns at wave 10.
+        CreateThroneWatcherSprite(root.transform, baseTopY, throneZ);
+
+        // Log the Satan watch position so the designer can copy it into the inspector
+        Vector3 satanWatchPos = new Vector3(0f, baseTopY + 0.9f, throneZ - 0.2f);
+        Debug.Log($"[ProBuilderLevelBuilder] Satan throne area created. " +
+                  $"Set SatanArenaIntroController.thronePosition ≈ {satanWatchPos} " +
+                  $"(baseTopY={baseTopY}, throneZ={throneZ})  jumpLandingPosition = (0, 1, 12).");
+    }
+
+    /// <summary>
+    /// Creates a billboard sprite of Satan sitting on the throne — always visible, purely decorative.
+    /// The sprite is the first frame of the awakening animation so it matches what the real Satan
+    /// looks like when frozen in ThroneWatch state.
+    /// </summary>
+    static void CreateThroneWatcherSprite(Transform throneRoot, float baseTopY, float throneZ)
+    {
+        // Try to load the Satan awakening frame 0 (dormant pose).
+        string spritePath = "Assets/Sprites/Final Boss/Satan Awakening/0.png";
+        TextureImporter imp = AssetImporter.GetAtPath(spritePath) as TextureImporter;
+        if (imp != null && imp.textureType != TextureImporterType.Sprite)
+        {
+            imp.textureType          = TextureImporterType.Sprite;
+            imp.spriteImportMode     = SpriteImportMode.Single;
+            imp.filterMode           = FilterMode.Point;
+            imp.spritePixelsPerUnit  = 20f;
+            imp.mipmapEnabled        = false;
+            imp.alphaIsTransparency  = true;
+            imp.textureCompression   = TextureImporterCompression.Uncompressed;
+            imp.SaveAndReimport();
+        }
+
+        UnityEngine.Sprite satanSprite = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(spritePath);
+        if (satanSprite == null)
+        {
+            Debug.LogWarning("[ProBuilderLevelBuilder] Satan Awakening/0.png not found — throne watcher skipped. " +
+                             "Run 'CS4483 → 🎨 1. Slice Sprite Sheets' first.");
+            return;
+        }
+
+        // Place the figure sitting on the throne seat (seat top ≈ baseTopY + 0.625).
+        // Raise it by half the desired world height so the bottom of the sprite sits on the seat.
+        const float desiredHeight = 5f; // world units — large enough to read at camera distance
+        float ppu = satanSprite.pixelsPerUnit;
+        float spriteH = satanSprite.rect.height / Mathf.Max(1f, ppu);
+        float scale = desiredHeight / Mathf.Max(0.01f, spriteH);
+
+        GameObject watcher = new GameObject("Throne_Satan_Visual");
+        watcher.transform.SetParent(throneRoot);
+        // Bottom of sprite at throne seat top (baseTopY + 0.625); centre raised by desiredHeight/2.
+        watcher.transform.position = new Vector3(0f, baseTopY + 0.625f + desiredHeight * 0.5f, throneZ + 0.3f);
+        watcher.transform.localScale = new Vector3(scale, scale, 1f);
+
+        SpriteRenderer sr = watcher.AddComponent<SpriteRenderer>();
+        sr.sprite           = satanSprite;
+        sr.sortingOrder     = 20; // above throne meshes
+        sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        // Billboard so it always faces the camera.
+        watcher.AddComponent<Billboard>();
     }
 
     // ── Central Hub ───────────────────────────────────────────────────────
@@ -362,9 +607,9 @@ public static class ProBuilderLevelBuilder
 
         float lobbyZ = 0f;
 
-        // Dedicated plain grey material for the lobby — never shared with arena floors
-        // so EnvironmentSprites or any other pass can't accidentally replace it.
+        // Dedicated materials for the lobby — never shared with arena geometry.
         Material matLobbyFloor = GetOrCreateMat("M_LobbyFloor", new Color(0.55f, 0.55f, 0.55f));
+        Material matLobbyWall  = GetOrCreateMat("M_LobbyWall",  new Color(0.62f, 0.62f, 0.62f));
 
         // Floor — placed at y=0.15 so it renders above the global Background_Plane (y=0.01)
         // and Floor_Map (y=0.1) sprites that EnvironmentSprites places in the scene.
@@ -387,7 +632,7 @@ public static class ProBuilderLevelBuilder
         wallN.transform.SetParent(lobby.transform);
         wallN.transform.position = new Vector3(0f, wallHeight * 0.5f, lobbyZ + halfSize);
         wallN.transform.localScale = new Vector3(20f, wallHeight, thickness);
-        wallN.GetComponent<Renderer>().sharedMaterial = matWall;
+        wallN.GetComponent<Renderer>().sharedMaterial = matLobbyWall;
 
         // South wall
         GameObject wallS = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -395,7 +640,7 @@ public static class ProBuilderLevelBuilder
         wallS.transform.SetParent(lobby.transform);
         wallS.transform.position = new Vector3(0f, wallHeight * 0.5f, lobbyZ - halfSize);
         wallS.transform.localScale = new Vector3(20f, wallHeight, thickness);
-        wallS.GetComponent<Renderer>().sharedMaterial = matWall;
+        wallS.GetComponent<Renderer>().sharedMaterial = matLobbyWall;
 
         // East wall
         GameObject wallE = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -403,7 +648,7 @@ public static class ProBuilderLevelBuilder
         wallE.transform.SetParent(lobby.transform);
         wallE.transform.position = new Vector3(halfSize, wallHeight * 0.5f, lobbyZ);
         wallE.transform.localScale = new Vector3(thickness, wallHeight, 20f);
-        wallE.GetComponent<Renderer>().sharedMaterial = matWall;
+        wallE.GetComponent<Renderer>().sharedMaterial = matLobbyWall;
 
         // West wall
         GameObject wallW = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -411,7 +656,7 @@ public static class ProBuilderLevelBuilder
         wallW.transform.SetParent(lobby.transform);
         wallW.transform.position = new Vector3(-halfSize, wallHeight * 0.5f, lobbyZ);
         wallW.transform.localScale = new Vector3(thickness, wallHeight, 20f);
-        wallW.GetComponent<Renderer>().sharedMaterial = matWall;
+        wallW.GetComponent<Renderer>().sharedMaterial = matLobbyWall;
 
         // Portal embedded in the north wall, centered
         GameObject portal = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -484,8 +729,9 @@ public static class ProBuilderLevelBuilder
         go.transform.position = position;
         go.transform.rotation = Quaternion.identity;
 
-        // Visual (sprite) as a child so we can rotate/billboard it without messing up collider orientation.
-        // Use the sprite's actual pixel size and PPU (sBox.png or any replacement) so scale stays correct.
+        // Visual (sprite) as a child — Billboard makes it face the camera.
+        // The sprite pivot is centred, so without a Y offset the bottom half sits below the floor.
+        // Raise by half the desired world height so the base aligns with y=0.
         float ppu = s_obstacleSprite.pixelsPerUnit;
         float px = Mathf.Max(s_obstacleSprite.rect.width, s_obstacleSprite.rect.height);
         float spriteWorldSize = px / ppu;
@@ -493,8 +739,9 @@ public static class ProBuilderLevelBuilder
         float visualScale = desiredWorldSize / spriteWorldSize;
         GameObject visual = new GameObject("Visual");
         visual.transform.SetParent(go.transform);
-        visual.transform.localPosition = Vector3.zero;
-        visual.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        // Raise by half the sprite world size so its bottom edge sits on the ground.
+        visual.transform.localPosition = new Vector3(0f, desiredWorldSize * 0.5f, 0f);
+        visual.transform.localRotation = Quaternion.identity; // Billboard handles camera-facing
         visual.transform.localScale = new Vector3(visualScale, visualScale, 1f);
 
         SpriteRenderer sr = visual.AddComponent<SpriteRenderer>();
@@ -557,6 +804,48 @@ public static class ProBuilderLevelBuilder
             ArenaTrap arenaTrap = trap.AddComponent<ArenaTrap>();
 
             // Visual child – sprite-based spike trap animation will be added by SpriteSetup.
+            GameObject visual = new GameObject("TrapVisual");
+            visual.transform.SetParent(trap.transform, false);
+            visual.transform.localPosition = Vector3.zero;
+        }
+    }
+
+    // ── Arena 2 Flame Traps ───────────────────────────────────────────────
+
+    static void CreateFlameTraps()
+    {
+        GameObject root = new GameObject("Traps");
+        root.transform.SetParent(levelRoot);
+
+        // Eight flame traps arranged in two concentric rings around the arena floor.
+        // Positions are inside Arena 2's octagon (radius ~37) but far enough from the
+        // centre to leave a clear combat lane for the player.
+        Vector3[] positions = new[]
+        {
+            new Vector3(  0f, 0.3f,  22f),   // N
+            new Vector3(  0f, 0.3f, -22f),   // S
+            new Vector3( 22f, 0.3f,   0f),   // E
+            new Vector3(-22f, 0.3f,   0f),   // W
+            new Vector3( 16f, 0.3f,  16f),   // NE
+            new Vector3(-16f, 0.3f,  16f),   // NW
+            new Vector3( 16f, 0.3f, -16f),   // SE
+            new Vector3(-16f, 0.3f, -16f),   // SW
+        };
+
+        for (int i = 0; i < positions.Length; i++)
+        {
+            GameObject trap = new GameObject($"FlameTrap_{i + 1}");
+            trap.transform.SetParent(root.transform);
+            trap.transform.position = positions[i];
+
+            BoxCollider trigger = trap.AddComponent<BoxCollider>();
+            trigger.isTrigger = true;
+            trigger.size   = new Vector3(2.5f, 0.5f, 2.5f);
+            trigger.center = Vector3.zero;
+
+            trap.AddComponent<FlameTrap>();
+
+            // Visual child – flame animation frames wired by SpriteSetup.
             GameObject visual = new GameObject("TrapVisual");
             visual.transform.SetParent(trap.transform, false);
             visual.transform.localPosition = Vector3.zero;

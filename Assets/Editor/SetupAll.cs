@@ -99,6 +99,7 @@ public static class SetupAll
         Step9_SetupGateDoor();
         Step10_WireEnemyPrefabOrbs();
         Step11_BakeNavMesh();
+        Step12_SetupSatanArenaIntro();
 
         // Ensure only the Lobby level is active by default; arenas are built but inactive.
         GameObject lobbyRoot  = GameObject.Find("=== LEVEL (Lobby) ===");
@@ -186,7 +187,7 @@ public static class SetupAll
         }
         // Use orthographic camera for crisp pixel art scaling.
         cam.orthographic = true;
-        cam.orthographicSize = 12f; // more zoomed out (shows roughly twice the area)
+        cam.orthographicSize = 12f;
         cam.transform.position = new Vector3(0f, 18f, -14f);
         cam.transform.rotation = Quaternion.Euler(48f, 0f, 0f);
 
@@ -637,11 +638,56 @@ public static class SetupAll
         NavMeshSurface existing = levelRoot.GetComponent<NavMeshSurface>();
         if (existing != null) Object.DestroyImmediate(existing);
 
+        // Use Children so the player capsule and lobby geometry are excluded from the Arena 1 bake.
         NavMeshSurface surface = levelRoot.AddComponent<NavMeshSurface>();
-        surface.collectObjects = CollectObjects.All;
+        surface.collectObjects = CollectObjects.Children;
         surface.useGeometry    = NavMeshCollectGeometry.PhysicsColliders;
         surface.BuildNavMesh();
-        Debug.Log("[SetupAll] NavMesh baked.");
+        Debug.Log("[SetupAll] NavMesh baked (CollectObjects.Children).");
+    }
+
+    // ── Step 12: Satan arena intro controller (throne watch + wave-10 jump) ──
+
+    static void Step12_SetupSatanArenaIntro()
+    {
+        GameObject arena2Root = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+        if (arena2Root == null)
+        {
+            Debug.LogWarning("[SetupAll] Arena 2 root not found — SatanArenaIntroController skipped.");
+            return;
+        }
+
+        // Remove any stale controller from a previous setup run.
+        Transform existing = arena2Root.transform.Find("Satan_Arena_Intro_Manager");
+        if (existing != null) Object.DestroyImmediate(existing.gameObject);
+
+        // Create a dedicated child GO so it activates/deactivates with the Arena 2 root.
+        GameObject host = new GameObject("Satan_Arena_Intro_Manager");
+        host.transform.SetParent(arena2Root.transform, false);
+
+        SatanArenaIntroController introCtrl = host.AddComponent<SatanArenaIntroController>();
+        var so = new SerializedObject(introCtrl);
+
+        // Satan prefab
+        GameObject satanPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Satan.prefab");
+        if (satanPrefab != null)
+            so.FindProperty("satanPrefab").objectReferenceValue = satanPrefab;
+        else
+            Debug.LogWarning("[SetupAll] Enemy_Satan.prefab not found — assign it manually on Satan_Arena_Intro_Manager.");
+
+        // Throne position (matches ProBuilderLevelBuilder: baseTopY=10, throneZ=42)
+        // satanWatchPos = (0, baseTopY + 0.9, throneZ - 0.2) = (0, 10.9, 41.8)
+        so.FindProperty("thronePosition").vector3Value  = new Vector3(0f, 10.9f, 41.8f);
+        so.FindProperty("landingPosition").vector3Value = new Vector3(0f,  1.1f, 12f);
+
+        // Wave 9 (0-based) = displayed as Wave 10
+        so.FindProperty("satanWaveTrigger").intValue = 9;
+        so.FindProperty("introDelay").floatValue     = 0.8f;
+
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        Debug.Log("[SetupAll] ✓ SatanArenaIntroController created on 'Satan_Arena_Intro_Manager' inside Arena 2. " +
+                  "Satan will sit on the throne (0, 10.9, 41.8) from wave 6 onward and jump down at wave 10.");
     }
 
     // ── UI Factory Helpers ────────────────────────────────────────────────
