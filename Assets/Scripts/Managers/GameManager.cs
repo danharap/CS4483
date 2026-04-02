@@ -19,6 +19,7 @@ public class GameManager : MonoBehaviour
 
     [Header("Level Roots (assigned by SetupAll)")]
     [SerializeField] private GameObject lobbyLevelRoot;
+    [SerializeField] private GameObject tutorialLevelRoot;
     [SerializeField] private GameObject arena1LevelRoot;
     [SerializeField] private GameObject arena2LevelRoot;
 
@@ -144,17 +145,19 @@ public class GameManager : MonoBehaviour
         ArenaPortalManager.Instance?.ResetForRespawn();
 
         // ── Resolve level roots ───────────────────────────────────────────────
-        if (lobbyLevelRoot == null || arena1LevelRoot == null || arena2LevelRoot == null)
+        if (lobbyLevelRoot == null || tutorialLevelRoot == null || arena1LevelRoot == null || arena2LevelRoot == null)
         {
             foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
             {
                 if (lobbyLevelRoot  == null && root.name == "=== LEVEL (Lobby) ===")             lobbyLevelRoot  = root;
+                if (tutorialLevelRoot == null && root.name == "=== LEVEL (Tutorial) ===")         tutorialLevelRoot = root;
                 if (arena1LevelRoot == null && root.name == "=== LEVEL (ProBuilder) ===")         arena1LevelRoot = root;
                 if (arena2LevelRoot == null && root.name == "=== LEVEL (ProBuilder) Arena2 ===")  arena2LevelRoot = root;
             }
         }
 
         if (lobbyLevelRoot  != null) lobbyLevelRoot.SetActive(true);
+        if (tutorialLevelRoot != null) tutorialLevelRoot.SetActive(false);
         if (arena1LevelRoot != null) arena1LevelRoot.SetActive(false);
         if (arena2LevelRoot != null) arena2LevelRoot.SetActive(false);
 

@@ -169,6 +169,13 @@ public abstract class EnemyBase : MonoBehaviour
         if (CurrentHP <= 0f) Die();
     }
 
+    public void ScaleMaxHP(float multiplier)
+    {
+        if (multiplier <= 0f) return;
+        maxHP *= multiplier;
+        CurrentHP = maxHP;
+    }
+
     protected virtual void Die()
     {
         if (!IsAlive) return;
@@ -193,6 +200,7 @@ public abstract class EnemyBase : MonoBehaviour
 
         GameManager.Instance?.Logger?.RecordFirstKill();
         GameManager.Instance?.WaveManager?.NotifyEnemyDied(gameObject);
+        TutorialManager.Instance?.NotifyTrigger(TutorialTriggerType.KillEnemy);
 
         EnemyRegistry.Unregister(this);
         

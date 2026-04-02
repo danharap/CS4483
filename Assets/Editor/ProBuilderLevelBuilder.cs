@@ -23,6 +23,7 @@ public static class ProBuilderLevelBuilder
     const string Arena2RootName  = "=== LEVEL (ProBuilder) Arena2 ===";
     const string Arena1RootName  = "=== LEVEL (ProBuilder) ===";
     const string LobbyRootName   = "=== LEVEL (Lobby) ===";
+    const string TutorialRootName = "=== LEVEL (Tutorial) ===";
     const float ArenaRadius = 38f;   // Circular wall radius (diameter = 76)
     const float ArenaFloorSize = 78f; // Floor cube size to contain the circle
 
@@ -146,6 +147,18 @@ public static class ProBuilderLevelBuilder
         }
     }
 
+    static void DestroyTutorialIfExists()
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == TutorialRootName)
+            {
+                Object.DestroyImmediate(root);
+                Debug.Log("[ProBuilderLevelBuilder] Removed existing Tutorial level root.");
+            }
+        }
+    }
+
     static void EnsureMaterials()
     {
         if (!AssetDatabase.IsValidFolder("Assets/Materials"))
@@ -260,6 +273,26 @@ public static class ProBuilderLevelBuilder
 
         EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("[ProBuilderLevelBuilder] ✓ Lobby level built.");
+    }
+
+    // Called from SetupAll; builds a dedicated === LEVEL (Tutorial) === jail-cell walkthrough.
+    public static void BuildTutorialLevel()
+    {
+        Scene scene = EditorSceneManager.GetActiveScene();
+        Debug.Log("[ProBuilderLevelBuilder] Building Tutorial jail-cell level...");
+
+        EnsureMaterials();
+        DestroyTutorialIfExists();
+
+        GameObject root = new GameObject(TutorialRootName);
+        root.SetActive(false);
+        levelRoot = root.transform;
+
+        CreateTutorialGeometry();
+        CreateLighting();
+
+        EditorSceneManager.MarkSceneDirty(scene);
+        Debug.Log("[ProBuilderLevelBuilder] ✓ Tutorial level built.");
     }
 
     /// <summary>
@@ -674,6 +707,243 @@ public static class ProBuilderLevelBuilder
         rb.isKinematic = true;
         rb.useGravity = false;
         portal.AddComponent<LobbyPortal>();
+
+        // Optional tutorial portal on east side of lobby.
+        GameObject tutorialPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        tutorialPortal.name = "LobbyToTutorial_Portal";
+        tutorialPortal.transform.SetParent(lobby.transform);
+        tutorialPortal.transform.position = new Vector3(8.8f, 1.5f, lobbyZ);
+        tutorialPortal.transform.localScale = new Vector3(0.3f, 3f, 2f);
+        var tutorialPortalRenderer = tutorialPortal.GetComponent<Renderer>();
+        if (tutorialPortalRenderer != null)
+            tutorialPortalRenderer.sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
+
+        BoxCollider tutorialBox = tutorialPortal.GetComponent<BoxCollider>();
+        tutorialBox.isTrigger = true;
+        Rigidbody tutorialRb = tutorialPortal.AddComponent<Rigidbody>();
+        tutorialRb.isKinematic = true;
+        tutorialRb.useGravity = false;
+        tutorialPortal.AddComponent<TutorialLobbyPortal>();
+        CreateWorldLabel(tutorialPortal.transform, "TutorialLabel", "Tutorial", new Vector3(0f, 2.2f, 0f), Color.cyan);
+        CreateWorldLabel(portal.transform, "ArenaLabel", "Arena", new Vector3(0f, 2.2f, 0f), Color.yellow);
+    }
+
+    // ── Tutorial Jail-Cell Walkthrough ────────────────────────────────────
+
+    static void CreateTutorialGeometry()
+    {
+        GameObject tutorial = new GameObject("TutorialArea");
+        tutorial.transform.SetParent(levelRoot);
+
+        Material floorMat = GetOrCreateMat("M_TutorialFloor", new Color(0.45f, 0.45f, 0.48f));
+        Material wallMat  = GetOrCreateMat("M_TutorialWall",  new Color(0.20f, 0.20f, 0.24f));
+        Material barMat   = GetOrCreateMat("M_JailBars",      new Color(0.62f, 0.62f, 0.66f));
+
+        // Main corridor (3x longer)
+        GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        floor.name = "Tutorial_Floor";
+        floor.transform.SetParent(tutorial.transform);
+        floor.transform.position = new Vector3(0f, -0.2f, -40f);
+        floor.transform.localScale = new Vector3(14f, 0.4f, 96f);
+        floor.GetComponent<Renderer>().sharedMaterial = floorMat;
+
+        // Corridor boundary walls
+        CreateWall(tutorial.transform, "T_Wall_Left",  new Vector3(-7f, 2f, -40f), new Vector3(0.5f, 4f, 96f), wallMat);
+        CreateWall(tutorial.transform, "T_Wall_Right", new Vector3(7f, 2f, -40f),  new Vector3(0.5f, 4f, 96f), wallMat);
+        CreateWall(tutorial.transform, "T_Wall_Start", new Vector3(0f, 2f, -88f),  new Vector3(14f, 4f, 0.5f), wallMat);
+        CreateWall(tutorial.transform, "T_Wall_End",   new Vector3(0f, 2f, 8f),    new Vector3(14f, 4f, 0.5f), wallMat);
+
+        // Simple jail cells on both sides of the corridor.
+        float[] cellZ = { -82f, -74f, -66f, -58f, -50f, -42f, -34f, -26f, -18f, -10f, -2f };
+        for (int i = 0; i < cellZ.Length; i++)
+        {
+            CreateCell(tutorial.transform, new Vector3(-4.6f, 0f, cellZ[i]), wallMat, barMat, $"Cell_L_{i + 1}");
+            CreateCell(tutorial.transform, new Vector3(4.6f, 0f, cellZ[i]), wallMat, barMat, $"Cell_R_{i + 1}");
+        }
+
+        // Three progression gates (opened by tutorial milestones).
+        CreateHallGate(tutorial.transform, "Tutorial_Gate_1", new Vector3(0f, 1.5f, -70f), barMat);
+        CreateHallGate(tutorial.transform, "Tutorial_Gate_2", new Vector3(0f, 1.5f, -40f), barMat);
+        CreateHallGate(tutorial.transform, "Tutorial_Gate_3", new Vector3(0f, 1.5f, -10f), barMat);
+
+        // Exit portal at end of tutorial corridor (back to lobby)
+        GameObject exitPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        exitPortal.name = "TutorialToArena_Portal";
+        exitPortal.transform.SetParent(tutorial.transform);
+        exitPortal.transform.position = new Vector3(0f, 1.5f, 7.3f);
+        exitPortal.transform.localScale = new Vector3(2f, 3f, 0.3f);
+        var exitR = exitPortal.GetComponent<Renderer>();
+        if (exitR != null) exitR.sharedMaterial = GetOrCreateMat("M_Boss", new Color(0.40f, 0.02f, 0.02f));
+        BoxCollider exitCol = exitPortal.GetComponent<BoxCollider>();
+        exitCol.isTrigger = true;
+        Rigidbody exitRb = exitPortal.AddComponent<Rigidbody>();
+        exitRb.isKinematic = true;
+        exitRb.useGravity = false;
+        exitPortal.AddComponent<TutorialExitPortal>();
+        CreateWorldLabel(exitPortal.transform, "ExitLabel", "Exit to Lobby", new Vector3(0f, 2.2f, 0f), Color.white);
+
+        // Marker used by TutorialManager for first combat lesson.
+        GameObject enemySpawn = new GameObject("Tutorial_EnemySpawn");
+        enemySpawn.transform.SetParent(tutorial.transform);
+        enemySpawn.transform.position = new Vector3(0f, 1f, -62f);
+
+        // First checkpoint trigger: once crossed, first gate opens.
+        GameObject firstCheckpoint = new GameObject("Tutorial_FirstCheckpoint");
+        firstCheckpoint.transform.SetParent(tutorial.transform);
+        firstCheckpoint.transform.position = new Vector3(0f, 1f, -76f);
+        BoxCollider cpCol = firstCheckpoint.AddComponent<BoxCollider>();
+        cpCol.isTrigger = true;
+        cpCol.size = new Vector3(6f, 2f, 2f);
+        var cpTrigger = firstCheckpoint.AddComponent<TutorialHallTrigger>();
+        var soCp = new SerializedObject(cpTrigger);
+        soCp.FindProperty("action").enumValueIndex = 0; // FirstGateApproach
+        soCp.ApplyModifiedPropertiesWithoutUndo();
+
+        // Trigger just beyond gate 1: starts delayed enemy spawn.
+        GameObject firstPassed = new GameObject("Tutorial_FirstGatePassed");
+        firstPassed.transform.SetParent(tutorial.transform);
+        firstPassed.transform.position = new Vector3(0f, 1f, -64f);
+        BoxCollider fpCol = firstPassed.AddComponent<BoxCollider>();
+        fpCol.isTrigger = true;
+        fpCol.size = new Vector3(6f, 2f, 2f);
+        var fpTrigger = firstPassed.AddComponent<TutorialHallTrigger>();
+        var soFp = new SerializedObject(fpTrigger);
+        soFp.FindProperty("action").enumValueIndex = 1; // FirstGatePassed
+        soFp.ApplyModifiedPropertiesWithoutUndo();
+
+        // Trigger just beyond gate 2: starts orb objective.
+        GameObject secondPassed = new GameObject("Tutorial_SecondGatePassed");
+        secondPassed.transform.SetParent(tutorial.transform);
+        secondPassed.transform.position = new Vector3(0f, 1f, -34f);
+        BoxCollider spCol = secondPassed.AddComponent<BoxCollider>();
+        spCol.isTrigger = true;
+        spCol.size = new Vector3(6f, 2f, 2f);
+        var spTrigger = secondPassed.AddComponent<TutorialHallTrigger>();
+        var soSp = new SerializedObject(spTrigger);
+        soSp.FindProperty("action").enumValueIndex = 2; // SecondGatePassed
+        soSp.ApplyModifiedPropertiesWithoutUndo();
+
+        // Trigger entering orb area.
+        GameObject upgradeTrigger = new GameObject("Tutorial_UpgradeTrigger");
+        upgradeTrigger.transform.SetParent(tutorial.transform);
+        upgradeTrigger.transform.position = new Vector3(0f, 1f, -32f);
+        BoxCollider upCol = upgradeTrigger.AddComponent<BoxCollider>();
+        upCol.isTrigger = true;
+        upCol.size = new Vector3(8f, 2f, 4f);
+        var upTrigger = upgradeTrigger.AddComponent<TutorialHallTrigger>();
+        var soUp = new SerializedObject(upTrigger);
+        soUp.FindProperty("action").enumValueIndex = 3; // OrbAreaStart
+        soUp.ApplyModifiedPropertiesWithoutUndo();
+
+        // Orb spawn points (6 total) for the XP collection objective.
+        GameObject orbSpawns = new GameObject("Tutorial_OrbSpawns");
+        orbSpawns.transform.SetParent(tutorial.transform);
+        Vector3[] orbPositions =
+        {
+            new Vector3(-2.5f, 0.5f, -28f),
+            new Vector3( 0.0f, 0.5f, -28f),
+            new Vector3( 2.5f, 0.5f, -28f),
+            new Vector3(-2.5f, 0.5f, -22f),
+            new Vector3( 0.0f, 0.5f, -22f),
+            new Vector3( 2.5f, 0.5f, -22f)
+        };
+        for (int i = 0; i < orbPositions.Length; i++)
+        {
+            GameObject p = new GameObject($"OrbSpawn_{i + 1}");
+            p.transform.SetParent(orbSpawns.transform);
+            p.transform.localPosition = orbPositions[i];
+        }
+
+        // Trigger near NPC: show interaction hint.
+        GameObject npcHintTrigger = new GameObject("Tutorial_NpcHintTrigger");
+        npcHintTrigger.transform.SetParent(tutorial.transform);
+        npcHintTrigger.transform.position = new Vector3(0f, 1f, -2f);
+        BoxCollider hintCol = npcHintTrigger.AddComponent<BoxCollider>();
+        hintCol.isTrigger = true;
+        hintCol.size = new Vector3(6f, 2f, 2f);
+        var hintTrigger = npcHintTrigger.AddComponent<TutorialHallTrigger>();
+        var soHint = new SerializedObject(hintTrigger);
+        soHint.FindProperty("action").enumValueIndex = 4; // NpcHint
+        soHint.ApplyModifiedPropertiesWithoutUndo();
+
+        // Guide NPC near the end of the hall.
+        GameObject npc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        npc.name = "Tutorial_GuideNPC";
+        npc.transform.SetParent(tutorial.transform);
+        npc.transform.position = new Vector3(0f, 1f, 2f);
+        Object.DestroyImmediate(npc.GetComponent<CapsuleCollider>());
+        SphereCollider npcTrigger = npc.AddComponent<SphereCollider>();
+        npcTrigger.isTrigger = true;
+        npcTrigger.radius = 2f;
+        var npcDialogue = npc.AddComponent<NPCDialogue>();
+        var soNpc = new SerializedObject(npcDialogue);
+        soNpc.FindProperty("mode").enumValueIndex = 0; // Guide
+        soNpc.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    static void CreateHallGate(Transform parent, string name, Vector3 localPos, Material mat)
+    {
+        GameObject gate = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        gate.name = name;
+        gate.transform.SetParent(parent);
+        gate.transform.localPosition = localPos;
+        gate.transform.localScale = new Vector3(11f, 3f, 0.4f);
+        gate.GetComponent<Renderer>().sharedMaterial = mat;
+
+        TutorialGate gateComp = gate.AddComponent<TutorialGate>();
+        var so = new SerializedObject(gateComp);
+        so.FindProperty("startOpen").boolValue = false;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    static void CreateCell(Transform parent, Vector3 center, Material wallMat, Material barMat, string name)
+    {
+        GameObject root = new GameObject(name);
+        root.transform.SetParent(parent);
+        root.transform.position = center;
+
+        // Back and side mini-walls for a cell nook.
+        CreateWall(root.transform, "Back", new Vector3(0f, 1.5f, -2f), new Vector3(3f, 3f, 0.3f), wallMat);
+        CreateWall(root.transform, "SideA", new Vector3(-1.5f, 1.5f, -1f), new Vector3(0.3f, 3f, 2f), wallMat);
+        CreateWall(root.transform, "SideB", new Vector3(1.5f, 1.5f, -1f), new Vector3(0.3f, 3f, 2f), wallMat);
+
+        // Front bars facing corridor.
+        for (int i = 0; i < 5; i++)
+        {
+            GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            bar.name = $"Bar_{i + 1}";
+            bar.transform.SetParent(root.transform);
+            bar.transform.localPosition = new Vector3(-1.2f + i * 0.6f, 1.4f, 0f);
+            bar.transform.localScale = new Vector3(0.1f, 2.8f, 0.1f);
+            bar.GetComponent<Renderer>().sharedMaterial = barMat;
+        }
+    }
+
+    static void CreateWall(Transform parent, string name, Vector3 position, Vector3 scale, Material mat)
+    {
+        GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wall.name = name;
+        wall.transform.SetParent(parent);
+        wall.transform.localPosition = position;
+        wall.transform.localScale = scale;
+        wall.GetComponent<Renderer>().sharedMaterial = mat;
+    }
+
+    static void CreateWorldLabel(Transform parent, string name, string label, Vector3 localPos, Color color)
+    {
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(parent, false);
+        go.transform.localPosition = localPos;
+        go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+
+        TextMesh tm = go.AddComponent<TextMesh>();
+        tm.text = label;
+        tm.characterSize = 0.22f;
+        tm.fontSize = 64;
+        tm.anchor = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        tm.color = color;
+        go.AddComponent<Billboard>();
     }
 
     // ── Boss Arena ────────────────────────────────────────────────────────

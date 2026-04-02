@@ -51,8 +51,29 @@ using UnityEngine;
         // Waves will be started explicitly (e.g. from Lobby portal) via BeginWaves().
     }
 
+    void Update()
+    {
+        // Hard safety: waves should never keep running outside combat arenas.
+        if (wavesRunning && !CanRunCombatWaves())
+        {
+            StopAllCoroutines();
+            wavesRunning = false;
+            HasStarted = false;
+            IsBreak = false;
+            IsBossWave = false;
+            activeEnemies = 0;
+            WaveTimer = 0f;
+        }
+    }
+
     public void BeginWaves()
     {
+        if (!CanRunCombatWaves())
+        {
+            Debug.LogWarning("[WaveManager] BeginWaves ignored: not in an active arena combat root.");
+            return;
+        }
+
         if (wavesRunning) return;
         wavesRunning = true;
         HasStarted = true;
@@ -223,5 +244,19 @@ using UnityEngine;
     {
         // Each wave the interval shrinks by 10% (clamped to minimum)
         return Mathf.Max(spawnIntervalMin, baseSpawnInterval * Mathf.Pow(0.9f, WaveIndex));
+    }
+
+    private bool CanRunCombatWaves()
+    {
+        GameObject lobby = GameObject.Find("=== LEVEL (Lobby) ===");
+        if (lobby != null && lobby.activeInHierarchy) return false;
+
+        GameObject tutorial = GameObject.Find("=== LEVEL (Tutorial) ===");
+        if (tutorial != null && tutorial.activeInHierarchy) return false;
+
+        GameObject arena1 = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        GameObject arena2 = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+        return (arena1 != null && arena1.activeInHierarchy) ||
+               (arena2 != null && arena2.activeInHierarchy);
     }
 }

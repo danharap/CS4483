@@ -89,6 +89,7 @@ public static class SetupAll
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
         Step3_BuildLobby();
+        Step3_BuildTutorial();
         Step3_BuildLevel();
         Step3_BuildArena2();
         Step4_SetupCamera();
@@ -103,10 +104,12 @@ public static class SetupAll
 
         // Ensure only the Lobby level is active by default; arenas are built but inactive.
         GameObject lobbyRoot  = GameObject.Find("=== LEVEL (Lobby) ===");
+        GameObject tutorialRoot = GameObject.Find("=== LEVEL (Tutorial) ===");
         GameObject arena1Root = GameObject.Find("=== LEVEL (ProBuilder) ===");
         GameObject arena2Root = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
 
         if (lobbyRoot  != null) lobbyRoot.SetActive(true);
+        if (tutorialRoot != null) tutorialRoot.SetActive(false);
         if (arena1Root != null) arena1Root.SetActive(false);
         if (arena2Root != null) arena2Root.SetActive(false);
 
@@ -120,7 +123,7 @@ public static class SetupAll
     static void Step1_ClearExistingSetup()
     {
         // Remove managers and UI (single instances)
-        foreach (string n in new[] { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===", "=== LEVEL (Lobby) ===" })
+        foreach (string n in new[] { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===", "=== LEVEL (Lobby) ===", "=== LEVEL (Tutorial) ===" })
         {
             GameObject g = GameObject.Find(n);
             if (g != null) Object.DestroyImmediate(g);
@@ -154,6 +157,12 @@ public static class SetupAll
     {
         ProBuilderLevelBuilder.BuildLobbyLevel();
         Debug.Log("[SetupAll] Lobby level built.");
+    }
+
+    static void Step3_BuildTutorial()
+    {
+        ProBuilderLevelBuilder.BuildTutorialLevel();
+        Debug.Log("[SetupAll] Tutorial level built.");
     }
 
     static void Step3_BuildLevel()
@@ -224,6 +233,8 @@ public static class SetupAll
             mgr.AddComponent<ArenaPortalManager>();
         if (mgr.GetComponent<LobbyPortalManager>() == null)
             mgr.AddComponent<LobbyPortalManager>();
+        if (mgr.GetComponent<TutorialRoomManager>() == null)
+            mgr.AddComponent<TutorialRoomManager>();
         if (mgr.GetComponent<ArenaThemeController>() == null)
             mgr.AddComponent<ArenaThemeController>();
         // Optional debug spawner hotkeys (only active in editor)
@@ -400,6 +411,7 @@ public static class SetupAll
         GameObject chaserPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
         GameObject fastPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
         GameObject bossPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject xpOrbPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/XPOrb.prefab");
         GameObject satanPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Satan.prefab");
         GameObject heavyPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Heavy.prefab");
         GameObject bigBatPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_BigBat.prefab");
@@ -413,6 +425,7 @@ public static class SetupAll
         Wire(gmComp, "logger",         plComp);
         Wire(gmComp, "playerObject",   playerGO);
         Wire(gmComp, "lobbyLevelRoot",  GameObject.Find("=== LEVEL (Lobby) ==="));
+        Wire(gmComp, "tutorialLevelRoot", GameObject.Find("=== LEVEL (Tutorial) ==="));
         Wire(gmComp, "arena1LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) ==="));
         Wire(gmComp, "arena2LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) Arena2 ==="));
 
@@ -483,6 +496,23 @@ public static class SetupAll
             soLobby.FindProperty("lobbyRoot").objectReferenceValue = GameObject.Find("=== LEVEL (Lobby) ===");
             soLobby.FindProperty("arena1Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) ===");
             soLobby.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        // ── TutorialRoomManager (lobby -> tutorial -> arena1) ───────────────
+        TutorialRoomManager tutorialMgr = Object.FindFirstObjectByType<TutorialRoomManager>();
+        if (tutorialMgr != null)
+        {
+            var soTut = new SerializedObject(tutorialMgr);
+            soTut.FindProperty("lobbyRoot").objectReferenceValue = GameObject.Find("=== LEVEL (Lobby) ===");
+            soTut.FindProperty("tutorialRoot").objectReferenceValue = GameObject.Find("=== LEVEL (Tutorial) ===");
+            soTut.FindProperty("arena1Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) ===");
+            soTut.FindProperty("arena2Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+            soTut.FindProperty("tutorialEnemyPrefab").objectReferenceValue = chaserPrefab;
+            soTut.FindProperty("tutorialXpOrbPrefab").objectReferenceValue = xpOrbPrefab;
+            GameObject tutorialEnemySpawn = GameObject.Find("Tutorial_EnemySpawn");
+            if (tutorialEnemySpawn != null)
+                soTut.FindProperty("tutorialEnemySpawnPoint").objectReferenceValue = tutorialEnemySpawn.transform;
+            soTut.ApplyModifiedPropertiesWithoutUndo();
         }
 
         // ── PlayerWeapon ──────────────────────────────────────────────────

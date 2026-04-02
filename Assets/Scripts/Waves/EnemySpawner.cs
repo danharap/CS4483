@@ -64,6 +64,9 @@ public class EnemySpawner : MonoBehaviour
 
     public void SpawnForWave(int waveIndex)
     {
+        if (!CanSpawnInCurrentLevelState())
+            return;
+
         GameObject prefab = ChoosePrefab(waveIndex);
         if (prefab == null) return;
 
@@ -78,6 +81,9 @@ public class EnemySpawner : MonoBehaviour
 
     public void SpawnBoss()
     {
+        if (!CanSpawnInCurrentLevelState())
+            return;
+
         // If Satan is already in the scene (placed on the throne by SatanArenaIntroController),
         // do NOT spawn a duplicate — the intro controller handles his entrance.
         if (FindFirstObjectByType<SatanBossController>() != null)
@@ -92,6 +98,17 @@ public class EnemySpawner : MonoBehaviour
 
         Instantiate(bossPrefab, ApplyJitter(sp.position), Quaternion.identity);
         GameManager.Instance?.WaveManager?.NotifyEnemySpawned();
+    }
+
+    /// <summary>
+    /// Spawns the same first enemy used in Arena 1 (Wave 1 baseline) at a fixed position.
+    /// Used by the tutorial hallway.
+    /// </summary>
+    public GameObject SpawnFirstArenaEnemyAt(Vector3 position)
+    {
+        if (chaserPrefab == null) return null;
+        GameObject enemy = Instantiate(chaserPrefab, position, Quaternion.identity);
+        return enemy;
     }
 
     /// <summary>
@@ -200,6 +217,20 @@ public class EnemySpawner : MonoBehaviour
             eb.maxHP *= (1f + hpScalePerWave * waveIndex);
     }
 
+    private bool CanSpawnInCurrentLevelState()
+    {
+        GameObject lobby = GameObject.Find("=== LEVEL (Lobby) ===");
+        if (lobby != null && lobby.activeInHierarchy) return false;
+
+        GameObject tutorial = GameObject.Find("=== LEVEL (Tutorial) ===");
+        if (tutorial != null && tutorial.activeInHierarchy) return false;
+
+        GameObject arena1 = GameObject.Find("=== LEVEL (ProBuilder) ===");
+        GameObject arena2 = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+        return (arena1 != null && arena1.activeInHierarchy) ||
+               (arena2 != null && arena2.activeInHierarchy);
+    }
+
 #if UNITY_EDITOR
     // ── Debug helpers for manual spawning while testing ────────────────────
 
@@ -230,6 +261,9 @@ public class EnemySpawner : MonoBehaviour
 
     private void SpawnSpecific(GameObject prefab)
     {
+        if (!CanSpawnInCurrentLevelState())
+            return;
+
         if (prefab == null)
         {
             Debug.LogWarning("[EnemySpawner] SpawnSpecific called with null prefab.");
@@ -243,6 +277,9 @@ public class EnemySpawner : MonoBehaviour
     /// <summary>Spawn Satan at a fixed arena position (F10). Does not use perimeter spawn points.</summary>
     public void SpawnSatanDebug()
     {
+        if (!CanSpawnInCurrentLevelState())
+            return;
+
         if (satanPrefab == null)
         {
             Debug.LogWarning("[EnemySpawner] satanPrefab is not assigned. Run CS4483 → 3 - Create Prefabs (creates Enemy_Satan), then CS4483 → SETUP EVERYTHING.");
