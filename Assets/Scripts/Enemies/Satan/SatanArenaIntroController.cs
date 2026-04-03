@@ -48,6 +48,11 @@ public class SatanArenaIntroController : MonoBehaviour
     private SatanBossController satanInstance;
     private bool introTriggered;
 
+    /// <summary>Throne world position (readable by EnemySpawner for F10 debug spawning).</summary>
+    public Vector3 ThronePosition  => thronePosition;
+    /// <summary>Arena landing world position (readable by EnemySpawner for F10 debug spawning).</summary>
+    public Vector3 LandingPosition => landingPosition;
+
     // ─────────────────────────────────────────────────────────────────────
 
     private void Start()

@@ -213,6 +213,31 @@ public class SatanBossController : MonoBehaviour
     }
 
     /// <summary>
+    /// For F10 debug: enables throne mode and queues an immediate awakening for the next frame
+    /// (after Start() has had a chance to enter ThroneWatch state).
+    /// </summary>
+    public void EnableThroneModeAndAwaken(Vector3 thronePos, Vector3 landingPos)
+    {
+        EnableThroneMode(thronePos, landingPos);
+        StartCoroutine(AwakenNextFrame());
+    }
+
+    private IEnumerator AwakenNextFrame()
+    {
+        // SpawnSequence() itself contains a yield return null before it sets ThroneWatch,
+        // so a single-frame wait is not enough — the state is still Spawning when we resume.
+        // Instead, spin until ThroneWatch is confirmed (with a safety timeout).
+        float timeout = 3f;
+        float elapsed = 0f;
+        while (CurrentState != BossState.ThroneWatch && elapsed < timeout)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        BeginAwakenFromThrone();
+    }
+
+    /// <summary>
     /// Called by SatanArenaIntroController at wave 10.
     /// Plays the remainder of the awakening animation, then arcs Satan from the throne
     /// to the arena floor before activating combat.
@@ -225,6 +250,11 @@ public class SatanBossController : MonoBehaviour
 
     private IEnumerator ThroneAwakenSequence()
     {
+        // Hide the static "seated" sprite baked into the throne geometry the instant Satan stirs.
+        // This covers all trigger paths (wave 10, F10 debug, etc.) regardless of whether
+        // SatanArenaIntroController already tried to hide it.
+        HideThroneStaticVisual();
+
         Debug.Log("[Satan] Wave 10 — beginning throne awakening sequence!");
         SetState(BossState.Awakening);
 
@@ -265,6 +295,21 @@ public class SatanBossController : MonoBehaviour
     }
 
     // ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Finds and hides the static "Throne_Satan_Visual" sprite baked into the level geometry.
+    /// Uses GameObject.Find so it works regardless of scene hierarchy depth or whether
+    /// SatanArenaIntroController already attempted to hide it.
+    /// </summary>
+    private void HideThroneStaticVisual()
+    {
+        GameObject watcher = GameObject.Find("Throne_Satan_Visual");
+        if (watcher != null)
+        {
+            watcher.SetActive(false);
+            Debug.Log("[Satan] Throne static visual hidden.");
+        }
+    }
 
     private IEnumerator FakeDeathTransition()
     {

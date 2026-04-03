@@ -274,26 +274,57 @@ public class EnemySpawner : MonoBehaviour
         Instantiate(prefab, sp.position, Quaternion.identity);
     }
 
-    /// <summary>Spawn Satan at a fixed arena position (F10). Does not use perimeter spawn points.</summary>
+    /// <summary>
+    /// Spawn Satan via the throne intro (F10).
+    /// - If Satan is already on the throne (ThroneWatch state), immediately triggers the jump.
+    /// - If Satan is not in the scene yet, spawns him at the throne position and queues the jump.
+    /// - If Satan is already in combat, logs a warning and does nothing.
+    /// </summary>
     public void SpawnSatanDebug()
     {
-        if (!CanSpawnInCurrentLevelState())
+        // Case A: Satan already exists in scene
+        SatanBossController existing = UnityEngine.Object.FindFirstObjectByType<SatanBossController>();
+        if (existing != null)
+        {
+            if (existing.CurrentState == SatanBossController.BossState.ThroneWatch)
+            {
+                Debug.Log("[EnemySpawner] F10: Satan is on the throne — triggering awakening jump now.");
+                existing.BeginAwakenFromThrone();
+            }
+            else
+            {
+                Debug.Log("[EnemySpawner] F10: Satan is already active — ignoring.");
+            }
             return;
+        }
 
+        // Case B: Satan not yet in scene — spawn at throne position with immediate awakening jump
         if (satanPrefab == null)
         {
-            Debug.LogWarning("[EnemySpawner] satanPrefab is not assigned. Run CS4483 → 3 - Create Prefabs (creates Enemy_Satan), then CS4483 → SETUP EVERYTHING.");
-            return;
-        }
-        if (UnityEngine.Object.FindFirstObjectByType<SatanBossController>() != null)
-        {
-            Debug.Log("[EnemySpawner] Satan already active — ignoring F10.");
+            Debug.LogWarning("[EnemySpawner] satanPrefab not assigned. Run CS4483 → SETUP EVERYTHING.");
             return;
         }
 
-        GameObject go = Instantiate(satanPrefab, satanDebugSpawnPosition, Quaternion.identity);
+        // Read throne/landing positions from SatanArenaIntroController (may be on an inactive object)
+        Vector3 spawnPos   = new Vector3(0f, 11f, 42f);   // fallback throne position
+        Vector3 landingPos = new Vector3(0f, 1.1f, 12f);  // fallback landing position
+
+        SatanArenaIntroController introCtrl =
+            UnityEngine.Object.FindAnyObjectByType<SatanArenaIntroController>(FindObjectsInactive.Include);
+        if (introCtrl != null)
+        {
+            spawnPos   = introCtrl.ThronePosition;
+            landingPos = introCtrl.LandingPosition;
+        }
+
+        GameObject go = Instantiate(satanPrefab, spawnPos, Quaternion.identity);
         go.name = "Satan_Boss";
-        Debug.Log($"[EnemySpawner] Satan spawned at {satanDebugSpawnPosition}.");
+
+        SatanBossController boss = go.GetComponent<SatanBossController>();
+        if (boss != null)
+            boss.EnableThroneModeAndAwaken(spawnPos, landingPos);
+
+        Debug.Log($"[EnemySpawner] F10: Satan spawned at throne {spawnPos}, jumping to arena {landingPos}.");
     }
 #endif
 
