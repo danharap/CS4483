@@ -57,7 +57,11 @@ public class TutorialRoomManager : MonoBehaviour
         GameManager.Instance?.WaveManager?.ResetToFirstWave();
 
         TeleportPlayer(tutorialSpawnPosition);
-        TutorialManager.Instance?.BeginTutorialRoom(tutorialEnemyPrefab, tutorialEnemySpawnPoint, tutorialXpOrbPrefab);
+        // Use explicit Unity null check (not ?.) to catch destroyed-but-not-C#-null instances
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.BeginTutorialRoom(tutorialEnemyPrefab, tutorialEnemySpawnPoint, tutorialXpOrbPrefab);
+        else
+            Debug.LogWarning("[TutorialRoomManager] TutorialManager.Instance is null — tutorial intro will not play.");
     }
 
     public void ExitTutorialToLobby()

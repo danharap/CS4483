@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -77,6 +78,15 @@ public class GameManager : MonoBehaviour
             AccountProgression.Instance.OnAccountLevelUp += HandleAccountLevelUp;
             accountLevelUpBound = true;
         }
+
+        if (MainMenuManager.ShouldRunTutorial)
+            StartCoroutine(AutoStartTutorial());
+    }
+
+    private IEnumerator AutoStartTutorial()
+    {
+        yield return null; // wait one frame so all singletons are ready
+        TutorialRoomManager.Instance?.EnterTutorialFromLobby();
     }
 
     // ── Upgrade Flow ──────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 using System.Collections;
 using TMPro;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
@@ -67,8 +68,14 @@ public class TutorialManager : MonoBehaviour
         "Move."
     };
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void EnsureInstanceExists()
+    // Register once (before first scene loads) to create a fresh instance on every scene load.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneCallback()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         if (Instance != null) return;
         GameObject go = new GameObject("TutorialManager");
@@ -78,9 +85,14 @@ public class TutorialManager : MonoBehaviour
     void Awake()
     {
         if (Instance == null) Instance = this;
-        else { Destroy(gameObject); return; }
+        else if (Instance != this) { Destroy(gameObject); return; }
 
         EnsureTutorialUI();
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     public void BeginTutorialRoom(GameObject enemyPrefab, Transform enemySpawnPoint, GameObject xpOrbPrefab)

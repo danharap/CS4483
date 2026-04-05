@@ -1,44 +1,94 @@
+using System.Collections.Generic;
+using System.IO;
 using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 /// <summary>
 /// CS4483 → 5 - Build Main Menu Scene
-/// Creates Assets/Scenes/MainMenu.unity with:
-///   - Atmospheric dark background with fog
-///   - Animated title "FRACTURED PROVING GROUNDS"
-///   - Rotating lore flavor text
-///   - Best Run high score display
-///   - PLAY button → loads MainScene
-///   - HighScoreManager (persistent GO)
+/// Creates Assets/Scenes/MainMenu.unity with title, New Game / Load Game, lore, best run, HighScoreManager.
+/// Also invoked automatically from SetupAll (SETUP EVERYTHING).
 /// </summary>
 public static class MainMenuBuilder
 {
+    public const string MainMenuPath = "Assets/Scenes/MainMenu.unity";
+    public const string MainScenePath = "Assets/Scenes/MainScene.unity";
+
     [MenuItem("CS4483/5 - Build Main Menu Scene")]
     public static void BuildMainMenu()
     {
-        // Save current scene first
         EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+        EnsureScenesFolder();
+        Scene menuScene = CreateAndPopulateMainMenuScene();
+        EditorSceneManager.SaveScene(menuScene, MainMenuPath);
+        ApplyBuildAndPlayModeSettings();
+        Debug.Log($"[MainMenuBuilder] ✓ MainMenu scene saved to {MainMenuPath}");
+    }
 
-        // Create fresh scene
-        var menuScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+    /// <summary>
+    /// Used by SetupAll after MainScene is saved: rebuild MainMenu, then return the editor to MainScene.
+    /// </summary>
+    public static void BuildMainMenuAndReturnTo(string returnScenePath)
+    {
+        EnsureScenesFolder();
+        Scene menuScene = CreateAndPopulateMainMenuScene();
+        EditorSceneManager.SaveScene(menuScene, MainMenuPath);
+        ApplyBuildAndPlayModeSettings();
+        Debug.Log($"[MainMenuBuilder] ✓ MainMenu scene saved to {MainMenuPath} (from SETUP EVERYTHING)");
 
+        if (!string.IsNullOrEmpty(returnScenePath) && File.Exists(returnScenePath))
+        {
+            EditorSceneManager.OpenScene(returnScenePath, OpenSceneMode.Single);
+            Debug.Log($"[MainMenuBuilder] Re-opened {returnScenePath}");
+        }
+    }
+
+    /// <summary>
+    /// MainMenu first in Build Settings + Play Mode Start Scene = MainMenu so pressing Play opens the menu
+    /// even when the editor has MainScene open (Unity 2022.2+).
+    /// </summary>
+    public static void ApplyBuildAndPlayModeSettings()
+    {
+        var list = new List<EditorBuildSettingsScene>();
+        if (File.Exists(MainMenuPath))
+            list.Add(new EditorBuildSettingsScene(MainMenuPath, true));
+        if (File.Exists(MainScenePath))
+            list.Add(new EditorBuildSettingsScene(MainScenePath, true));
+        if (list.Count > 0)
+            EditorBuildSettings.scenes = list.ToArray();
+
+        SceneAsset menuAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(MainMenuPath);
+        if (menuAsset != null)
+            EditorSceneManager.playModeStartScene = menuAsset;
+    }
+
+    static void EnsureScenesFolder()
+    {
+        if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
+            AssetDatabase.CreateFolder("Assets", "Scenes");
+    }
+
+    static Scene CreateAndPopulateMainMenuScene()
+    {
+        Scene menuScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         SetupMenuCamera();
         SetupMenuLighting();
         SetupBackgroundProps();
         SetupMenuCanvas();
+        SetupEventSystem();
         SetupHighScoreManager();
+        return menuScene;
+    }
 
-        // Save as MainMenu.unity
-        if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
-            AssetDatabase.CreateFolder("Assets", "Scenes");
-
-        string path = "Assets/Scenes/MainMenu.unity";
-        EditorSceneManager.SaveScene(menuScene, path);
-        Debug.Log($"[MainMenuBuilder] ✓ MainMenu scene saved to {path}");
-        Debug.Log("[MainMenuBuilder] Add both scenes to File → Build Settings → Scenes In Build.");
+    static void SetupEventSystem()
+    {
+        GameObject es = new GameObject("EventSystem");
+        es.AddComponent<EventSystem>();
+        es.AddComponent<StandaloneInputModule>();
     }
 
     // ── Camera ────────────────────────────────────────────────────────────
@@ -161,12 +211,12 @@ public static class MainMenuBuilder
 
         // ── Title ─────────────────────────────────────────────────────────
         TMP_Text title = MakeTMP(root, "Title",
-            new Vector2(0, 200), new Vector2(900, 160), "TEMP TITLE", 64);
+            new Vector2(0, 200), new Vector2(900, 160), "WAVE GAME", 80);
         title.fontStyle = FontStyles.Bold;
         title.color     = new Color(1f, 0.88f, 0.3f);
 
         TMP_Text subtitle = MakeTMP(root, "Subtitle",
-            new Vector2(0, 110), new Vector2(600, 40), "Top-Down Wave Survival · Roguelike", 22);
+            new Vector2(0, 110), new Vector2(600, 40), "Top-Down Wave Survival", 22);
         subtitle.color = new Color(0.65f, 0.65f, 0.75f);
 
         // Decorative separator
@@ -193,20 +243,35 @@ public static class MainMenuBuilder
         flavor.color     = new Color(0.55f, 0.55f, 0.7f);
         flavor.fontStyle = FontStyles.Italic;
 
-        // ── PLAY button ───────────────────────────────────────────────────
-        GameObject playGO = new GameObject("PlayButton");
-        playGO.transform.SetParent(root, false);
-        Image playBg = playGO.AddComponent<Image>();
-        playBg.color = new Color(0.15f, 0.55f, 0.2f);
-        Button playBtn = playGO.AddComponent<Button>();
-        var pbrt = playGO.GetComponent<RectTransform>();
-        pbrt.anchorMin = new Vector2(0.5f, 0.5f);
-        pbrt.anchorMax = new Vector2(0.5f, 0.5f);
-        pbrt.anchoredPosition = new Vector2(0, -160);
-        pbrt.sizeDelta = new Vector2(260, 64);
-        TMP_Text playLabel = MakeTMP(playGO.transform, "PlayLabel",
-            Vector2.zero, new Vector2(260, 64), "START GAME", 24);
-        playLabel.fontStyle = FontStyles.Bold;
+        // ── NEW GAME button ───────────────────────────────────────────────
+        GameObject newGameGO = new GameObject("NewGameButton");
+        newGameGO.transform.SetParent(root, false);
+        Image newGameBg = newGameGO.AddComponent<Image>();
+        newGameBg.color = new Color(0.15f, 0.55f, 0.2f);
+        Button newGameBtn = newGameGO.AddComponent<Button>();
+        var ngrt = newGameGO.GetComponent<RectTransform>();
+        ngrt.anchorMin = new Vector2(0.5f, 0.5f);
+        ngrt.anchorMax = new Vector2(0.5f, 0.5f);
+        ngrt.anchoredPosition = new Vector2(0, -150);
+        ngrt.sizeDelta = new Vector2(320, 70);
+        TMP_Text newGameLabel = MakeTMP(newGameGO.transform, "NewGameLabel",
+            Vector2.zero, new Vector2(320, 70), "NEW GAME", 28);
+        newGameLabel.fontStyle = FontStyles.Bold;
+
+        // ── LOAD GAME button ──────────────────────────────────────────────
+        GameObject loadGameGO = new GameObject("LoadGameButton");
+        loadGameGO.transform.SetParent(root, false);
+        Image loadGameBg = loadGameGO.AddComponent<Image>();
+        loadGameBg.color = new Color(0.15f, 0.30f, 0.55f);
+        Button loadGameBtn = loadGameGO.AddComponent<Button>();
+        var lgrt = loadGameGO.GetComponent<RectTransform>();
+        lgrt.anchorMin = new Vector2(0.5f, 0.5f);
+        lgrt.anchorMax = new Vector2(0.5f, 0.5f);
+        lgrt.anchoredPosition = new Vector2(0, -240);
+        lgrt.sizeDelta = new Vector2(320, 70);
+        TMP_Text loadGameLabel = MakeTMP(loadGameGO.transform, "LoadGameLabel",
+            Vector2.zero, new Vector2(320, 70), "LOAD GAME", 28);
+        loadGameLabel.fontStyle = FontStyles.Bold;
 
         // ── Version / credits ─────────────────────────────────────────────
         TMP_Text version = MakeTMP(root, "VersionText",
@@ -217,12 +282,13 @@ public static class MainMenuBuilder
         // ── Wire MainMenuManager ──────────────────────────────────────────
         MainMenuManager mm = canvasGO.AddComponent<MainMenuManager>();
         var so = new SerializedObject(mm);
-        so.FindProperty("playButton").objectReferenceValue   = playBtn;
-        so.FindProperty("titleText").objectReferenceValue    = title;
-        so.FindProperty("subtitleText").objectReferenceValue = subtitle;
-        so.FindProperty("bestRunText").objectReferenceValue  = bestRun;
-        so.FindProperty("flavorText").objectReferenceValue   = flavor;
-        so.FindProperty("versionText").objectReferenceValue  = version;
+        so.FindProperty("newGameButton").objectReferenceValue  = newGameBtn;
+        so.FindProperty("loadGameButton").objectReferenceValue = loadGameBtn;
+        so.FindProperty("titleText").objectReferenceValue      = title;
+        so.FindProperty("subtitleText").objectReferenceValue   = subtitle;
+        so.FindProperty("bestRunText").objectReferenceValue    = bestRun;
+        so.FindProperty("flavorText").objectReferenceValue     = flavor;
+        so.FindProperty("versionText").objectReferenceValue    = version;
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
@@ -274,5 +340,18 @@ public static class MainMenuBuilder
     static void StretchRect(RectTransform rt)
     {
         rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one; rt.sizeDelta = Vector2.zero;
+    }
+}
+
+/// <summary>
+/// Ensures Build Settings + Play Mode Start Scene apply after script reload / on new clone.
+/// </summary>
+[InitializeOnLoad]
+static class MainMenuPlayModeBootstrap
+{
+    static MainMenuPlayModeBootstrap()
+    {
+        if (File.Exists(MainMenuBuilder.MainMenuPath))
+            MainMenuBuilder.ApplyBuildAndPlayModeSettings();
     }
 }

@@ -19,6 +19,7 @@ using TMPro;
 ///   6. Saves the scene
 ///
 /// After running this, just press Play.
+/// Also rebuilds MainMenu.unity (title + New Game / Load Game) and leaves MainScene open in the editor.
 /// </summary>
 public static class SetupAll
 {
@@ -116,6 +117,9 @@ public static class SetupAll
         if (arena2Root != null) arena2Root.SetActive(false);
 
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+
+        MainMenuBuilder.BuildMainMenuAndReturnTo(mainScenePath);
+
         Debug.Log("[SetupAll] ✓ Done! Press Play to test.\n" +
                   "If enemies don't navigate walls: Window → AI → Navigation → Bake (retry).");
     }
