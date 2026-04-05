@@ -87,13 +87,15 @@ public class PlayerWeapon : MonoBehaviour
             dir = transform.forward; // sensible fallback
         dir.Normalize();
 
+        bool hasOpeningStrike = GetComponent<OpeningStrikeTracker>() != null;
+
         if (projectileCount == 1)
         {
-            SpawnProjectile(dir);
+            SpawnProjectile(dir, hasOpeningStrike);
         }
         else
         {
-            // Spread multiple projectiles in a fan
+            // Spread multiple projectiles in a fan; Opening Strike applies to the first only
             float spreadAngle = 20f;
             float step = (projectileCount > 1) ? spreadAngle / (projectileCount - 1) : 0f;
             float startAngle = -spreadAngle * 0.5f;
@@ -103,19 +105,27 @@ public class PlayerWeapon : MonoBehaviour
                 Vector3 spread = Quaternion.Euler(0f, angle, 0f) * dir;
                 spread.y = 0f;
                 spread.Normalize();
-                SpawnProjectile(spread);
+                SpawnProjectile(spread, hasOpeningStrike && i == 0);
             }
         }
     }
 
-    private void SpawnProjectile(Vector3 dir)
+    private void SpawnProjectile(Vector3 dir, bool applyOpeningStrike = false)
     {
         if (projectilePrefab == null) return;
         Vector3 spawnPos = firePoint != null ? firePoint.position : transform.position + dir * 0.6f;
         GameObject go = Instantiate(projectilePrefab, spawnPos, Quaternion.LookRotation(dir));
         Projectile p = go.GetComponent<Projectile>();
         if (p != null)
-            p.Init(dir, damage, projectileSpeed, pierceCount);
+        {
+            float finalDamage = damage;
+            if (applyOpeningStrike)
+            {
+                var tracker = GetComponent<OpeningStrikeTracker>();
+                if (tracker != null) finalDamage *= tracker.ConsumeProcMultiplier();
+            }
+            p.Init(dir, finalDamage, projectileSpeed, pierceCount);
+        }
         
         // Play shooting sound
         if (shootSound != null && audioSource != null)

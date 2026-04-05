@@ -45,6 +45,10 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sHeavyHead_Right.png"); // Heavy enemy head (right)
         ConfigureSingleSprite("Assets/Sprites/sBox.png"); // Colosseum cover boxes (replaces sObstacleBox)
 
+        // Merchant NPC (idle + blink)
+        ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Idle.png");
+        ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Blink.png");
+
         // Heavy body frames (pre-cut individual PNGs in folders)
         ConfigureSpritesInFolder("Assets/Sprites/TankWalking");
         ConfigureSpritesInFolder("Assets/Sprites/Tank Walking Right");
@@ -139,7 +143,7 @@ public static class SpriteSetup
         Sprite[] bigBatFast = LoadSpritesInFolder("Assets/Sprites/big Bat Fast");
         Sprite[] bigBatBite = LoadSpritesInFolder("Assets/Sprites/big Bat Fast Biting");
         ApplyBigBatSprites("Assets/Prefabs/Enemy_BigBat.prefab", bigBatFast, bigBatBite, deathSprite);
-        
+
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
         

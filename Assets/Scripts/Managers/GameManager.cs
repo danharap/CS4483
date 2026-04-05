@@ -40,6 +40,7 @@ public class GameManager : MonoBehaviour
     public int TotalKills { get; private set; }
     public int WavesCleared { get; private set; }
     public float RunStartTime { get; private set; }
+    private bool accountLevelUpBound = false;
 
     void Awake()
     {
@@ -67,7 +68,14 @@ public class GameManager : MonoBehaviour
         if (waveManager != null)
         {
             waveManager.OnWaveCleared += HandleWaveCleared;
+            waveManager.OnWaveCleared += HandleWaveClearedMetaXP;
             waveManager.OnEnemyKilled += HandleEnemyKilled;
+        }
+
+        if (AccountProgression.Instance != null)
+        {
+            AccountProgression.Instance.OnAccountLevelUp += HandleAccountLevelUp;
+            accountLevelUpBound = true;
         }
     }
 
@@ -120,6 +128,31 @@ public class GameManager : MonoBehaviour
 
     private void HandleWaveCleared(int waveIndex) => WavesCleared = waveIndex;
     private void HandleEnemyKilled() => TotalKills++;
+
+    private void HandleAccountLevelUp(int newLevel)
+    {
+        hudManager?.ShowTransition($"ACCOUNT LEVEL UP!  Level {newLevel}  —  +1 Skill Point");
+    }
+
+    private void HandleWaveClearedMetaXP(int waveIndex)
+    {
+        // Base: 50 XP per wave, scaling slightly with wave number.
+        // Boss waves grant a flat +200 bonus.
+        // With xpPerLevel=1500, a full 5-wave arena run earns ~450-650 XP — takes
+        // several runs to level up, making each skill point feel earned.
+        // Late-bind the level-up listener in case AccountProgression wasn't ready at Start()
+        if (AccountProgression.Instance != null && !accountLevelUpBound)
+        {
+            AccountProgression.Instance.OnAccountLevelUp += HandleAccountLevelUp;
+            accountLevelUpBound = true;
+        }
+
+        int baseXP  = 50 + 10 * waveIndex;
+        bool isBoss = waveManager != null && waveManager.IsBossWave;
+        int totalXP = isBoss ? baseXP + 200 : baseXP;
+        AccountProgression.Instance?.AddMetaXP(totalXP);
+        Debug.Log($"[GameManager] Meta XP awarded: {totalXP} (wave {waveIndex + 1}, boss={isBoss})");
+    }
 
     public void RestartGame()
     {
@@ -204,6 +237,15 @@ public class GameManager : MonoBehaviour
     {
         Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");
+    }
+
+    /// <summary>
+    /// Applies all unlocked meta passives to the player at the start of a run.
+    /// Called by <see cref="LobbyPortalManager"/> right before the player enters the arena.
+    /// </summary>
+    public void ApplyMetaPassives()
+    {
+        MetaPassiveApplicator.ApplyAll(PlayerHealth, PlayerWeapon, PlayerController);
     }
 
     // ── Accessors ─────────────────────────────────────────────────────────

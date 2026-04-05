@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 4121200551136837844}
   - component: {fileID: 2290966727063137253}
   - component: {fileID: 1460622983330070497}
-  - component: {fileID: 2340227213776826474}
+  - component: {fileID: 3806717143999047472}
   m_Layer: 0
   m_Name: Enemy_BigBat
   m_TagString: Untagged
@@ -185,7 +185,7 @@ MonoBehaviour:
   deathVolume: 0.5
   damageNumberPrefab: {fileID: 0}
   biteCooldown: 1
---- !u!114 &2340227213776826474
+--- !u!114 &3806717143999047472
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

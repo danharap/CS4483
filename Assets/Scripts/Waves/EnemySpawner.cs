@@ -141,24 +141,18 @@ public class EnemySpawner : MonoBehaviour
 
     private GameObject ChoosePrefab(int waveIndex)
     {
-        bool canSpawnFast  = waveIndex >= fastEnemyUnlockWave  && fastPrefab  != null;
-        bool canSpawnHeavy = waveIndex >= heavyEnemyUnlockWave && heavyPrefab != null;
-        bool canSpawnBigBat = waveIndex >= bigBatUnlockWave && bigBatPrefab != null;
+        bool canSpawnFast   = waveIndex >= fastEnemyUnlockWave  && fastPrefab   != null;
+        bool canSpawnHeavy  = waveIndex >= heavyEnemyUnlockWave && heavyPrefab  != null;
+        bool canSpawnBigBat = waveIndex >= bigBatUnlockWave     && bigBatPrefab != null;
 
-        // Waves before unlock: only basic chasers
         if (!canSpawnFast && !canSpawnHeavy && !canSpawnBigBat)
             return chaserPrefab;
 
         float r = Random.value;
 
-        // Mix:
-        // After wave 5: add BigBat (fast+HP). Keep Heavy and Fast in the pool.
-        if (canSpawnBigBat && r < 0.20f)
-            return bigBatPrefab;
-        if (canSpawnHeavy && r < 0.20f + 0.25f)
-            return heavyPrefab;
-        if (canSpawnFast && r < 0.20f + 0.25f + 0.30f)
-            return fastPrefab;
+        if (canSpawnBigBat && r < 0.20f) return bigBatPrefab;
+        if (canSpawnHeavy  && r < 0.45f) return heavyPrefab;
+        if (canSpawnFast   && r < 0.75f) return fastPrefab;
         return chaserPrefab;
     }
 

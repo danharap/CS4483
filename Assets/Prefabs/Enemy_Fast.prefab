@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 8233142287661245370}
   - component: {fileID: 7353193947182029521}
   - component: {fileID: 6850074531033936981}
-  - component: {fileID: 4195542745928805273}
+  - component: {fileID: 4522227310439261993}
   m_Layer: 0
   m_Name: Enemy_Fast
   m_TagString: Untagged
@@ -184,7 +184,7 @@ MonoBehaviour:
   deathSound: {fileID: 8300000, guid: fc6f79d2f98db4596b98804d2a93b5ca, type: 3}
   deathVolume: 0.5
   damageNumberPrefab: {fileID: 7687715987023145794, guid: 6ffd80c52447ca049bdcf42f0fc7a4ec, type: 3}
---- !u!114 &4195542745928805273
+--- !u!114 &4522227310439261993
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

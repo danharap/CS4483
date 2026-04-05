@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -32,6 +33,9 @@ public class PlayerController : MonoBehaviour
 
     private float baseMoveSpeed;
     private float baseDashCooldown;
+
+    /// <summary>Fired when a dash finishes (used by <see cref="GhostStepPassive"/>).</summary>
+    public event Action OnDashEnd;
 
     void Awake()
     {
@@ -126,7 +130,11 @@ public class PlayerController : MonoBehaviour
         {
             dashTimer -= Time.deltaTime;
             cc.Move(dashDirection * dashSpeed * Time.deltaTime);
-            if (dashTimer <= 0f) isDashing = false;
+            if (dashTimer <= 0f)
+            {
+                isDashing = false;
+                OnDashEnd?.Invoke();
+            }
             return;
         }
 
