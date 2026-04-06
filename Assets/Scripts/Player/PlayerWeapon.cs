@@ -26,6 +26,11 @@ public class PlayerWeapon : MonoBehaviour
     // ── State ─────────────────────────────────────────────────────────────
     private float fireTimer;
     private AudioSource audioSource;
+    private bool wasHoldingFire;
+
+    [Header("Input / Locks")]
+    [Tooltip("If false, the player cannot shoot (e.g., in lobby/main menu until entering arena).")]
+    [SerializeField] private bool shootingEnabled = true;
 
     private float baseDamage;
     private float baseFireRate;
@@ -60,14 +65,36 @@ public class PlayerWeapon : MonoBehaviour
     
     void Update()
     {
-        if (GameManager.Instance != null &&
-            GameManager.Instance.State != GameManager.GameState.Playing) return;
+        // If we're not in the main gameplay scene (no GameManager), never auto-shoot.
+        // This prevents weapon fire in MainMenu and other non-game scenes.
+        if (GameManager.Instance == null) return;
 
+        if (GameManager.Instance.State != GameManager.GameState.Playing) return;
+        if (!shootingEnabled) return;
+
+        float interval = 1f / Mathf.Max(0.01f, fireRate); // guard divide-by-zero / inf
+
+        bool holdingFire = Input.GetMouseButton(0);
+        wasHoldingFire = holdingFire;
+
+        if (!holdingFire) return;
+
+        // Single source of truth: fireTimer is time-since-last-shot.
+        // Clicking and holding both respect the same rate limit (prevents click-spam exploits).
         fireTimer += Time.deltaTime;
-        if (fireTimer >= 1f / fireRate)
+        if (fireTimer < interval) return;
+
+        fireTimer = 0f;
+        TryShoot();
+    }
+
+    public void SetShootingEnabled(bool enabled)
+    {
+        shootingEnabled = enabled;
+        if (!enabled)
         {
             fireTimer = 0f;
-            TryShoot();
+            wasHoldingFire = false;
         }
     }
 

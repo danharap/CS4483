@@ -708,23 +708,31 @@ public static class ProBuilderLevelBuilder
         rb.useGravity = false;
         portal.AddComponent<LobbyPortal>();
 
-        // Optional tutorial portal on east side of lobby.
-        GameObject tutorialPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        tutorialPortal.name = "LobbyToTutorial_Portal";
-        tutorialPortal.transform.SetParent(lobby.transform);
-        tutorialPortal.transform.position = new Vector3(8.8f, 1.5f, lobbyZ);
-        tutorialPortal.transform.localScale = new Vector3(0.3f, 3f, 2f);
-        var tutorialPortalRenderer = tutorialPortal.GetComponent<Renderer>();
-        if (tutorialPortalRenderer != null)
-            tutorialPortalRenderer.sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
+        // Tutorial guide NPC in the lobby (talking-only; no portal / no tutorial transport).
+        GameObject tutorialNpc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        tutorialNpc.name = "GuideNPC";
+        tutorialNpc.transform.SetParent(lobby.transform);
+        tutorialNpc.transform.position = new Vector3(8.8f, 1.0f, lobbyZ);
+        tutorialNpc.transform.localScale = new Vector3(1.1f, 1.6f, 1.1f);
+        var npcR = tutorialNpc.GetComponent<Renderer>();
+        if (npcR != null)
+            npcR.sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
 
-        BoxCollider tutorialBox = tutorialPortal.GetComponent<BoxCollider>();
-        tutorialBox.isTrigger = true;
-        Rigidbody tutorialRb = tutorialPortal.AddComponent<Rigidbody>();
-        tutorialRb.isKinematic = true;
-        tutorialRb.useGravity = false;
-        tutorialPortal.AddComponent<TutorialLobbyPortal>();
-        CreateWorldLabel(tutorialPortal.transform, "TutorialLabel", "Tutorial", new Vector3(0f, 2.2f, 0f), Color.cyan);
+        Object.DestroyImmediate(tutorialNpc.GetComponent<CapsuleCollider>());
+        SphereCollider npcTrigger = tutorialNpc.AddComponent<SphereCollider>();
+        npcTrigger.isTrigger = true;
+        npcTrigger.radius = 2f;
+
+        Rigidbody npcRb = tutorialNpc.AddComponent<Rigidbody>();
+        npcRb.isKinematic = true;
+        npcRb.useGravity = false;
+
+        var npcDialogue = tutorialNpc.AddComponent<NPCDialogue>();
+        var soNpc = new SerializedObject(npcDialogue);
+        soNpc.FindProperty("mode").enumValueIndex = 0; // Guide
+        soNpc.ApplyModifiedPropertiesWithoutUndo();
+
+        CreateWorldLabel(tutorialNpc.transform, "GuideLabel", "Guide", new Vector3(0f, 2.2f, 0f), Color.cyan);
         CreateWorldLabel(portal.transform, "ArenaLabel", "Arena", new Vector3(0f, 2.2f, 0f), Color.yellow);
     }
 
@@ -738,6 +746,15 @@ public static class ProBuilderLevelBuilder
         Material floorMat = GetOrCreateMat("M_TutorialFloor", new Color(0.45f, 0.45f, 0.48f));
         Material wallMat  = GetOrCreateMat("M_TutorialWall",  new Color(0.20f, 0.20f, 0.24f));
         Material barMat   = GetOrCreateMat("M_JailBars",      new Color(0.62f, 0.62f, 0.66f));
+        Material voidMat  = GetOrCreateMat("M_VoidBlack",     new Color(0f, 0f, 0f));
+
+        // Solid black backdrop under/around the prison so nothing unintended shows through.
+        GameObject voidFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        voidFloor.name = "Tutorial_VoidBackdrop";
+        voidFloor.transform.SetParent(tutorial.transform);
+        voidFloor.transform.position = new Vector3(0f, -2.0f, -40f);
+        voidFloor.transform.localScale = new Vector3(120f, 1f, 180f);
+        voidFloor.GetComponent<Renderer>().sharedMaterial = voidMat;
 
         // Main corridor (3x longer)
         GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -866,19 +883,7 @@ public static class ProBuilderLevelBuilder
         soHint.FindProperty("action").enumValueIndex = 4; // NpcHint
         soHint.ApplyModifiedPropertiesWithoutUndo();
 
-        // Guide NPC near the end of the hall.
-        GameObject npc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        npc.name = "Tutorial_GuideNPC";
-        npc.transform.SetParent(tutorial.transform);
-        npc.transform.position = new Vector3(0f, 1f, 2f);
-        Object.DestroyImmediate(npc.GetComponent<CapsuleCollider>());
-        SphereCollider npcTrigger = npc.AddComponent<SphereCollider>();
-        npcTrigger.isTrigger = true;
-        npcTrigger.radius = 2f;
-        var npcDialogue = npc.AddComponent<NPCDialogue>();
-        var soNpc = new SerializedObject(npcDialogue);
-        soNpc.FindProperty("mode").enumValueIndex = 0; // Guide
-        soNpc.ApplyModifiedPropertiesWithoutUndo();
+        // NOTE: Removed the tutorial guide NPC from inside the prison tutorial area.
     }
 
     static void CreateHallGate(Transform parent, string name, Vector3 localPos, Material mat)
@@ -898,22 +903,54 @@ public static class ProBuilderLevelBuilder
 
     static void CreateCell(Transform parent, Vector3 center, Material wallMat, Material barMat, string name)
     {
+        // Build cells with explicit snapped world-space so walls/bars line up cleanly.
+        // Corridor walls are at x=±7 with thickness 0.5 → inner faces at ±6.75.
+        float grid = 0.05f;
+        float xSign = center.x < 0f ? -1f : 1f;
+
+        float innerWallX = xSign * 6.75f;
+        float barsX      = innerWallX - xSign * 0.35f;  // slightly inside corridor
+        float backX      = innerWallX + xSign * 1.85f;  // outside corridor
+        float sideZ0     = center.z - 1.0f;
+        float sideZ1     = center.z + 1.0f;
+
+        // Snap to grid to eliminate visible seams.
+        innerWallX = Mathf.Round(innerWallX / grid) * grid;
+        barsX      = Mathf.Round(barsX      / grid) * grid;
+        backX      = Mathf.Round(backX      / grid) * grid;
+        sideZ0     = Mathf.Round(sideZ0     / grid) * grid;
+        sideZ1     = Mathf.Round(sideZ1     / grid) * grid;
+
         GameObject root = new GameObject(name);
         root.transform.SetParent(parent);
-        root.transform.position = center;
+        root.transform.position = new Vector3(Mathf.Round(center.x / grid) * grid, 0f, Mathf.Round(center.z / grid) * grid);
 
-        // Back and side mini-walls for a cell nook.
-        CreateWall(root.transform, "Back", new Vector3(0f, 1.5f, -2f), new Vector3(3f, 3f, 0.3f), wallMat);
-        CreateWall(root.transform, "SideA", new Vector3(-1.5f, 1.5f, -1f), new Vector3(0.3f, 3f, 2f), wallMat);
-        CreateWall(root.transform, "SideB", new Vector3(1.5f, 1.5f, -1f), new Vector3(0.3f, 3f, 2f), wallMat);
+        // Back wall (parallel to corridor, i.e., along Z)
+        CreateWall(root.transform, "Back",
+            new Vector3(backX - root.transform.position.x, 1.5f, 0f),
+            new Vector3(0.3f, 3f, 3f),
+            wallMat);
 
-        // Front bars facing corridor.
+        // Side walls (perpendicular, i.e., along X)
+        CreateWall(root.transform, "SideA",
+            new Vector3((backX + barsX) * 0.5f - root.transform.position.x, 1.5f, sideZ0 - root.transform.position.z),
+            new Vector3(Mathf.Abs(backX - barsX), 3f, 0.3f),
+            wallMat);
+        CreateWall(root.transform, "SideB",
+            new Vector3((backX + barsX) * 0.5f - root.transform.position.x, 1.5f, sideZ1 - root.transform.position.z),
+            new Vector3(Mathf.Abs(backX - barsX), 3f, 0.3f),
+            wallMat);
+
+        // Front bars (vertical posts) on the opening plane.
+        float barSpanZ = 2.4f;
         for (int i = 0; i < 5; i++)
         {
+            float t = i / 4f;
+            float z = Mathf.Lerp(-barSpanZ * 0.5f, barSpanZ * 0.5f, t);
             GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
             bar.name = $"Bar_{i + 1}";
             bar.transform.SetParent(root.transform);
-            bar.transform.localPosition = new Vector3(-1.2f + i * 0.6f, 1.4f, 0f);
+            bar.transform.localPosition = new Vector3(barsX - root.transform.position.x, 1.4f, Mathf.Round(z / grid) * grid);
             bar.transform.localScale = new Vector3(0.1f, 2.8f, 0.1f);
             bar.GetComponent<Renderer>().sharedMaterial = barMat;
         }

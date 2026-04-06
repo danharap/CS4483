@@ -69,6 +69,9 @@ public class LobbyPortalManager : MonoBehaviour
         // ── Apply meta passives before waves start ────────────────────────
         GameManager.Instance?.ApplyMetaPassives();
 
+        // Player is now in the arena: allow shooting.
+        GameManager.Instance?.PlayerWeapon?.SetShootingEnabled(true);
+
         // ── Start waves ───────────────────────────────────────────────────
         GameManager.Instance?.WaveManager?.BeginWaves();
     }

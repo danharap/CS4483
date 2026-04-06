@@ -49,5 +49,11 @@ static class GameplayLayerSetup
 
         if (bossProjectile >= 0 && enemy >= 0)
             Physics.IgnoreLayerCollision(bossProjectile, enemy, true);
+
+        // Arena props (cover crates/chests/etc) should not physically slow enemies down.
+        // Enemies still respect walls via NavMesh + world collision, but props won't cause
+        // rigidbody contact-resolution drag/avoidance slowdowns.
+        if (enemy >= 0 && arenaProp >= 0)
+            Physics.IgnoreLayerCollision(enemy, arenaProp, true);
     }
 }

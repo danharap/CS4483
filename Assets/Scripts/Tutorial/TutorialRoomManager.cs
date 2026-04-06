@@ -56,6 +56,9 @@ public class TutorialRoomManager : MonoBehaviour
         ClearLiveEnemiesAndProjectiles();
         GameManager.Instance?.WaveManager?.ResetToFirstWave();
 
+        // Tutorial requires shooting for the combat lesson.
+        GameManager.Instance?.PlayerWeapon?.SetShootingEnabled(true);
+
         TeleportPlayer(tutorialSpawnPosition);
         // Use explicit Unity null check (not ?.) to catch destroyed-but-not-C#-null instances
         if (TutorialManager.Instance != null)
@@ -80,6 +83,9 @@ public class TutorialRoomManager : MonoBehaviour
 
         ClearLiveEnemiesAndProjectiles();
         GameManager.Instance?.WaveManager?.ResetToFirstWave();
+
+        // Back in lobby: lock shooting until arena.
+        GameManager.Instance?.PlayerWeapon?.SetShootingEnabled(false);
 
         TeleportPlayer(lobbyReturnSpawnPosition);
         TutorialManager.Instance?.EndTutorialRoom();
@@ -144,16 +150,7 @@ public class TutorialRoomManager : MonoBehaviour
             p.transform.localPosition = orbPositions[i];
         }
 
-        // Guide NPC
-        GameObject npc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        npc.name = "Tutorial_GuideNPC";
-        npc.transform.SetParent(tutorialRoot.transform);
-        npc.transform.position = new Vector3(0f, 1f, 2f);
-        Destroy(npc.GetComponent<CapsuleCollider>());
-        SphereCollider npcTrigger = npc.AddComponent<SphereCollider>();
-        npcTrigger.isTrigger = true;
-        npcTrigger.radius = 2f;
-        npc.AddComponent<NPCDialogue>();
+        // NOTE: Removed the tutorial guide NPC from inside the prison tutorial area.
 
         // Exit portal back to lobby
         GameObject exitPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);

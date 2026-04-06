@@ -9,7 +9,7 @@ public class TutorialLobbyPortal : MonoBehaviour
     void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-        TutorialRoomManager.Instance?.EnterTutorialFromLobby();
+        // Disabled: tutorial entry is not portal-driven.
     }
 }
 

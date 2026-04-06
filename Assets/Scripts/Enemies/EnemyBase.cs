@@ -54,6 +54,8 @@ public abstract class EnemyBase : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         rb.useGravity = false;
         rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
+        rb.drag = 0f;
+        rb.angularDrag = 0.05f;
 
         agent = GetComponent<NavMeshAgent>();
         if (agent != null)
@@ -61,6 +63,9 @@ public abstract class EnemyBase : MonoBehaviour
             agent.speed = moveSpeed;
             agent.angularSpeed = 360f;
             agent.acceleration = 20f;
+            // Prevent corner/avoidance braking that looks like "slowing near chests/props".
+            agent.autoBraking = false;
+            agent.stoppingDistance = 0f;
             useNavMesh = agent.isOnNavMesh;
         }
 

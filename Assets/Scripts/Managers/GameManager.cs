@@ -63,6 +63,9 @@ public class GameManager : MonoBehaviour
         State = GameState.Playing;
         Time.timeScale = 1f;
 
+        // Default: no shooting in lobby/menu until entering tutorial or arena.
+        PlayerWeapon?.SetShootingEnabled(false);
+
         if (PlayerHealth != null)
             PlayerHealth.OnDeath += HandlePlayerDeath;
 
@@ -86,6 +89,7 @@ public class GameManager : MonoBehaviour
     private IEnumerator AutoStartTutorial()
     {
         yield return null; // wait one frame so all singletons are ready
+        // Tutorial is accessed via the "New Game" flow (not via portal/NPC interaction).
         TutorialRoomManager.Instance?.EnterTutorialFromLobby();
     }
 
@@ -234,6 +238,9 @@ public class GameManager : MonoBehaviour
         PlayerWeapon?.ResetToBase();
         PlayerController?.ResetToBase();
         PlayerXP?.ResetToBase();
+
+        // Back in lobby: lock shooting until player enters arena again.
+        PlayerWeapon?.SetShootingEnabled(false);
 
         // ── Reset wave system ─────────────────────────────────────────────────
         if (waveManager != null)
