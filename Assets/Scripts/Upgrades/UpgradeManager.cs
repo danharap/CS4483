@@ -67,6 +67,11 @@ public class UpgradeManager : MonoBehaviour
 
     // ── Application ───────────────────────────────────────────────────────
 
+    public void NotifyUpgradeUIOpened()
+    {
+        TutorialManager.Instance?.OnUpgradeOpened();
+    }
+
     public void Apply(UpgradeData upgrade)
     {
         var gm = GameManager.Instance;
@@ -106,5 +111,6 @@ public class UpgradeManager : MonoBehaviour
         }
 
         Debug.Log($"[Upgrade] Applied: {upgrade.DisplayName}");
+        TutorialManager.Instance?.NotifyTrigger(TutorialTriggerType.SelectUpgrade);
     }
 }

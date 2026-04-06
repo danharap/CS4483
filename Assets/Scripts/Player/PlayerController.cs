@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 /// <summary>
@@ -25,12 +26,16 @@ public class PlayerController : MonoBehaviour
     private bool isDashing;
     private Vector3 dashDirection;
     private float stunTimer;             // when > 0, movement and dash are disabled
+    private bool inputLocked;
 
     // ── Ground detection ──────────────────────────────────────────────────
     private int groundLayer;
 
     private float baseMoveSpeed;
     private float baseDashCooldown;
+
+    /// <summary>Fired when a dash finishes (used by <see cref="GhostStepPassive"/>).</summary>
+    public event Action OnDashEnd;
 
     void Awake()
     {
@@ -54,8 +59,13 @@ public class PlayerController : MonoBehaviour
     {
         if (stunTimer > 0f) stunTimer -= Time.deltaTime;
 
+        if (inputLocked) return;
+
         if (GameManager.Instance != null &&
             GameManager.Instance.State != GameManager.GameState.Playing) return;
+
+        if (Input.GetMouseButtonDown(0))
+            TutorialManager.Instance?.NotifyTrigger(TutorialTriggerType.Attack);
 
         HandleMovement();
         HandleAim();
@@ -84,6 +94,8 @@ public class PlayerController : MonoBehaviour
         float x = Input.GetAxisRaw("Horizontal");
         float z = Input.GetAxisRaw("Vertical");
         Vector3 move = new Vector3(x, 0f, z).normalized;
+        if (move.sqrMagnitude > 0.01f)
+            TutorialManager.Instance?.NotifyTrigger(TutorialTriggerType.Move);
 
         if (!isDashing)
         {
@@ -118,7 +130,11 @@ public class PlayerController : MonoBehaviour
         {
             dashTimer -= Time.deltaTime;
             cc.Move(dashDirection * dashSpeed * Time.deltaTime);
-            if (dashTimer <= 0f) isDashing = false;
+            if (dashTimer <= 0f)
+            {
+                isDashing = false;
+                OnDashEnd?.Invoke();
+            }
             return;
         }
 
@@ -140,6 +156,16 @@ public class PlayerController : MonoBehaviour
     }
 
     public bool IsDashing => isDashing;
+
+    public void SetInputLocked(bool locked)
+    {
+        inputLocked = locked;
+        if (locked)
+        {
+            isDashing = false;
+            velocity = Vector3.zero;
+        }
+    }
 
     /// <summary>Small vertical pop (used by boss slam).</summary>
     public void LaunchUp(float upwardVelocity)

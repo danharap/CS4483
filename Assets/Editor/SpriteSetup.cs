@@ -45,6 +45,10 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sHeavyHead_Right.png"); // Heavy enemy head (right)
         ConfigureSingleSprite("Assets/Sprites/sBox.png"); // Colosseum cover boxes (replaces sObstacleBox)
 
+        // Merchant NPC (idle + blink)
+        ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Idle.png");
+        ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Blink.png");
+
         // Heavy body frames (pre-cut individual PNGs in folders)
         ConfigureSpritesInFolder("Assets/Sprites/TankWalking");
         ConfigureSpritesInFolder("Assets/Sprites/Tank Walking Right");
@@ -139,7 +143,7 @@ public static class SpriteSetup
         Sprite[] bigBatFast = LoadSpritesInFolder("Assets/Sprites/big Bat Fast");
         Sprite[] bigBatBite = LoadSpritesInFolder("Assets/Sprites/big Bat Fast Biting");
         ApplyBigBatSprites("Assets/Prefabs/Enemy_BigBat.prefab", bigBatFast, bigBatBite, deathSprite);
-        
+
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
         
@@ -303,6 +307,53 @@ public static class SpriteSetup
             trapCount++;
         }
         
+        // Apply flame trap sprites to all FlameTrap objects in the scene (Arena 2)
+        Sprite[] flameFrames = LoadFlameTrapFrames();
+        int flameTrapCount = 0;
+        foreach (FlameTrap ft in Resources.FindObjectsOfTypeAll<FlameTrap>())
+        {
+            if (ft == null) continue;
+            if (EditorUtility.IsPersistent(ft.gameObject)) continue;
+
+            Transform visual = ft.transform.Find("TrapVisual");
+            if (visual == null)
+            {
+                GameObject v = new GameObject("TrapVisual");
+                v.transform.SetParent(ft.transform, false);
+                v.transform.localPosition = Vector3.zero;
+                visual = v.transform;
+            }
+
+            foreach (Transform child in visual)
+            {
+                if (child.name == "Trap_Sprite")
+                    Object.DestroyImmediate(child.gameObject);
+            }
+            SpriteRenderer existingSrFt = visual.GetComponent<SpriteRenderer>();
+            if (existingSrFt != null) Object.DestroyImmediate(existingSrFt);
+
+            TrapSpriteAnimator anim = visual.GetComponent<TrapSpriteAnimator>();
+            if (anim == null) anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
+
+            anim.frameRate    = 15f;
+            anim.sortingOrder = 2;
+            anim.playOnAwake  = true;   // flame is always burning
+            // Warm orange fire glow
+            anim.enableGlow   = true;
+            anim.glowColor    = new Color(1f, 0.4f, 0.1f);
+            anim.glowIntensity = 1.6f;
+            anim.glowRange     = 2.8f;
+            anim.spriteScale   = new Vector3(1.8f, 1.8f, 1f);
+            anim.SetFrames(flameFrames);
+
+            // Wire the animator reference into FlameTrap.
+            SerializedObject soFt = new SerializedObject(ft);
+            soFt.FindProperty("spriteAnimator").objectReferenceValue = anim;
+            soFt.ApplyModifiedPropertiesWithoutUndo();
+
+            flameTrapCount++;
+        }
+
         // Apply to all dead bodies in scene (billboard sprite only)
         int deadBodyCount = 0;
         DeadBody[] deadBodies = Object.FindObjectsOfType<DeadBody>();
@@ -312,7 +363,7 @@ public static class SpriteSetup
             deadBodyCount++;
         }
         
-        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, {trapCount} traps, and {deadBodyCount} dead bodies in scene!");
+        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, {trapCount} spike traps, {flameTrapCount} flame traps, and {deadBodyCount} dead bodies in scene!");
 
         // Same wiring as step 2 so Arena 2 floor (sMap2) is assigned if you only ran step 3.
         WireThemeControllerAssets();
@@ -371,6 +422,46 @@ public static class SpriteSetup
         return list.ToArray();
     }
     
+    private static Sprite[] LoadFlameTrapFrames()
+    {
+        // Frames placed as individual PNGs under Assets/Sprites/Flame Trap/0.png, 1.png, ...
+        string dir = "Assets/Sprites/Flame Trap";
+        string[] fileNames = System.IO.Directory.GetFiles(dir, "*.png");
+        foreach (string fsPath in fileNames)
+        {
+            string unityPath = fsPath.Replace("\\", "/");
+            TextureImporter imp = AssetImporter.GetAtPath(unityPath) as TextureImporter;
+            if (imp != null && imp.textureType != TextureImporterType.Sprite)
+            {
+                imp.textureType = TextureImporterType.Sprite;
+                imp.spriteImportMode = SpriteImportMode.Single;
+                imp.filterMode = FilterMode.Point;
+                imp.spritePixelsPerUnit = GlobalPPU;
+                imp.mipmapEnabled = false;
+                imp.textureCompression = TextureImporterCompression.Uncompressed;
+                imp.crunchedCompression = false;
+                imp.npotScale = TextureImporterNPOTScale.None;
+                imp.alphaIsTransparency = true;
+                imp.SaveAndReimport();
+            }
+        }
+
+        var list = new System.Collections.Generic.List<Sprite>();
+        for (int i = 0; i < 32; i++)
+        {
+            string path = $"{dir}/{i}.png";
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s != null) list.Add(s);
+        }
+        if (list.Count == 0)
+        {
+            Debug.LogWarning("[SpriteSetup] No flame trap frames found in Assets/Sprites/Flame Trap; traps will use default frame.");
+            return System.Array.Empty<Sprite>();
+        }
+        Debug.Log($"[SpriteSetup] Loaded {list.Count} flame trap frame(s) from '{dir}'.");
+        return list.ToArray();
+    }
+
     // ── Helper Methods ────────────────────────────────────────────────────
     
     private static void SliceSpriteSheet(string path, int frameCount)

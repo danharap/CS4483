@@ -19,6 +19,7 @@ using TMPro;
 ///   6. Saves the scene
 ///
 /// After running this, just press Play.
+/// Also rebuilds MainMenu.unity (title + New Game / Load Game) and leaves MainScene open in the editor.
 /// </summary>
 public static class SetupAll
 {
@@ -34,6 +35,8 @@ public static class SetupAll
     private static UpgradeUI        upgradeUIComp;
     private static GameOverUI       gameOverUIComp;
     private static RespawnUI        respawnUIComp;
+    private static SkillTreeUI      skillTreeUIComp;
+    private static LobbyMerchant    lobbyMerchantComp;
     private static Transform[]      spawnPointTransforms;
 
     // UI
@@ -89,6 +92,7 @@ public static class SetupAll
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
         Step3_BuildLobby();
+        Step3_BuildTutorial();
         Step3_BuildLevel();
         Step3_BuildArena2();
         Step4_SetupCamera();
@@ -99,17 +103,23 @@ public static class SetupAll
         Step9_SetupGateDoor();
         Step10_WireEnemyPrefabOrbs();
         Step11_BakeNavMesh();
+        Step12_SetupSatanArenaIntro();
 
         // Ensure only the Lobby level is active by default; arenas are built but inactive.
         GameObject lobbyRoot  = GameObject.Find("=== LEVEL (Lobby) ===");
+        GameObject tutorialRoot = GameObject.Find("=== LEVEL (Tutorial) ===");
         GameObject arena1Root = GameObject.Find("=== LEVEL (ProBuilder) ===");
         GameObject arena2Root = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
 
         if (lobbyRoot  != null) lobbyRoot.SetActive(true);
+        if (tutorialRoot != null) tutorialRoot.SetActive(false);
         if (arena1Root != null) arena1Root.SetActive(false);
         if (arena2Root != null) arena2Root.SetActive(false);
 
         EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+
+        MainMenuBuilder.BuildMainMenuAndReturnTo(mainScenePath);
+
         Debug.Log("[SetupAll] ✓ Done! Press Play to test.\n" +
                   "If enemies don't navigate walls: Window → AI → Navigation → Bake (retry).");
     }
@@ -119,7 +129,7 @@ public static class SetupAll
     static void Step1_ClearExistingSetup()
     {
         // Remove managers and UI (single instances)
-        foreach (string n in new[] { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===", "=== LEVEL (Lobby) ===" })
+        foreach (string n in new[] { "=== MANAGERS ===", "Canvas_HUD", "=== LEVEL ===", "=== LEVEL (Lobby) ===", "=== LEVEL (Tutorial) ===" })
         {
             GameObject g = GameObject.Find(n);
             if (g != null) Object.DestroyImmediate(g);
@@ -155,6 +165,12 @@ public static class SetupAll
         Debug.Log("[SetupAll] Lobby level built.");
     }
 
+    static void Step3_BuildTutorial()
+    {
+        ProBuilderLevelBuilder.BuildTutorialLevel();
+        Debug.Log("[SetupAll] Tutorial level built.");
+    }
+
     static void Step3_BuildLevel()
     {
         ProBuilderLevelBuilder.BuildLevel();
@@ -186,7 +202,7 @@ public static class SetupAll
         }
         // Use orthographic camera for crisp pixel art scaling.
         cam.orthographic = true;
-        cam.orthographicSize = 12f; // more zoomed out (shows roughly twice the area)
+        cam.orthographicSize = 12f;
         cam.transform.position = new Vector3(0f, 18f, -14f);
         cam.transform.rotation = Quaternion.Euler(48f, 0f, 0f);
 
@@ -223,11 +239,19 @@ public static class SetupAll
             mgr.AddComponent<ArenaPortalManager>();
         if (mgr.GetComponent<LobbyPortalManager>() == null)
             mgr.AddComponent<LobbyPortalManager>();
+        if (mgr.GetComponent<TutorialRoomManager>() == null)
+            mgr.AddComponent<TutorialRoomManager>();
         if (mgr.GetComponent<ArenaThemeController>() == null)
             mgr.AddComponent<ArenaThemeController>();
         // Optional debug spawner hotkeys (only active in editor)
         if (mgr.GetComponent<DebugSpawnHotkeys>() == null)
             mgr.AddComponent<DebugSpawnHotkeys>();
+
+        // ── Account / Meta progression (persists across sessions) ─────────
+        // Must be its own DontDestroyOnLoad singleton; putting it on the
+        // MANAGERS object keeps it tidy and easy to find in the hierarchy.
+        if (mgr.GetComponent<AccountProgression>() == null)
+            mgr.AddComponent<AccountProgression>();
     }
 
     // ── Step 6: Player ────────────────────────────────────────────────────
@@ -377,6 +401,130 @@ public static class SetupAll
         respawnUIComp = respawnPanel.AddComponent<RespawnUI>();
         // Start active so Awake() runs and hides it
         respawnPanel.SetActive(true);
+
+        // ── Skill Tree panel (shown by lobby merchant) ─────────────────────
+        GameObject skillTreePanel = MakePanel(root, "SkillTreePanel", new Color(0.06f, 0.06f, 0.12f, 0.97f));
+        skillTreePanel.transform.SetAsLastSibling();
+
+        // Header
+        TMP_Text stTitle = MakeTMP(skillTreePanel.transform, "ST_Title",
+            new Vector2(0, 460), new Vector2(700, 64), "SKILL TREE", 52);
+        stTitle.fontStyle = FontStyles.Bold;
+        stTitle.color     = new Color(1f, 0.85f, 0.3f);
+
+        TMP_Text stLevelText = MakeTMP(skillTreePanel.transform, "ST_Level",
+            new Vector2(-420, 400), new Vector2(340, 40), "Account Level 1", 24);
+        stLevelText.alignment = TextAlignmentOptions.Left;
+        stLevelText.color     = new Color(0.85f, 0.85f, 1f);
+
+        TMP_Text stSPText = MakeTMP(skillTreePanel.transform, "ST_SP",
+            new Vector2(420, 400), new Vector2(340, 40), "0 Skill Points", 24);
+        stSPText.alignment = TextAlignmentOptions.Right;
+        stSPText.color     = new Color(0.4f, 1f, 0.5f);
+
+        Slider stXPBar = MakeSlider(skillTreePanel.transform, "ST_XPBar",
+            new Vector2(0, 360), new Vector2(860, 22), new Color(0.25f, 0.55f, 1f));
+
+        TMP_Text stXPLabel = MakeTMP(skillTreePanel.transform, "ST_XPLabel",
+            new Vector2(0, 338), new Vector2(860, 22), "0 / 500 Account XP", 14);
+        stXPLabel.alignment = TextAlignmentOptions.Center;
+        stXPLabel.color     = new Color(0.6f, 0.6f, 0.8f);
+
+        // ── Three track columns — simple anchor-positioned, NO nested layout ──
+        // Each column: anchors span ~31% of the panel width, fills from below
+        // the header (82% down from top) to above the close button (8% from bottom).
+        Transform strikerCol    = BuildSimpleTrackColumn(skillTreePanel.transform,
+            "STRIKER",    new Color(1f, 0.4f, 0.3f),  new Color(0.40f, 0.06f, 0.04f, 0.60f),
+            new Vector2(0.02f, 0.08f), new Vector2(0.33f, 0.80f));
+        Transform survivorCol   = BuildSimpleTrackColumn(skillTreePanel.transform,
+            "SURVIVOR",   new Color(0.3f, 1f, 0.45f), new Color(0.04f, 0.30f, 0.06f, 0.60f),
+            new Vector2(0.345f, 0.08f), new Vector2(0.655f, 0.80f));
+        Transform skirmisherCol = BuildSimpleTrackColumn(skillTreePanel.transform,
+            "SKIRMISHER", new Color(0.4f, 0.6f, 1f),  new Color(0.04f, 0.10f, 0.38f, 0.60f),
+            new Vector2(0.67f, 0.08f), new Vector2(0.98f, 0.80f));
+
+        Button stCloseBtn = MakeButton(skillTreePanel.transform, "ST_CloseBtn",
+            new Vector2(-130, -462), new Vector2(220, 54), "CLOSE", new Color(0.45f, 0.08f, 0.08f));
+
+        Button stResetBtn = MakeButton(skillTreePanel.transform, "ST_ResetBtn",
+            new Vector2(130, -462), new Vector2(220, 54), "RESET TREE", new Color(0.50f, 0.30f, 0.05f));
+
+        skillTreeUIComp = skillTreePanel.AddComponent<SkillTreeUI>();
+        skillTreePanel.AddComponent<SkillTreeTutorialHook>();
+
+        var soST = new SerializedObject(skillTreeUIComp);
+        soST.FindProperty("panel").objectReferenceValue            = skillTreePanel;
+        soST.FindProperty("levelText").objectReferenceValue        = stLevelText;
+        soST.FindProperty("xpBar").objectReferenceValue            = stXPBar;
+        soST.FindProperty("xpLabel").objectReferenceValue          = stXPLabel;
+        soST.FindProperty("skillPointsText").objectReferenceValue  = stSPText;
+        soST.FindProperty("closeButton").objectReferenceValue      = stCloseBtn;
+        soST.FindProperty("resetButton").objectReferenceValue     = stResetBtn;
+        soST.FindProperty("strikerColumn").objectReferenceValue    = strikerCol;
+        soST.FindProperty("survivorColumn").objectReferenceValue   = survivorCol;
+        soST.FindProperty("skirmisherColumn").objectReferenceValue = skirmisherCol;
+        soST.ApplyModifiedPropertiesWithoutUndo();
+
+        skillTreePanel.SetActive(false);
+    }
+
+    /// <summary>
+    /// Builds one track column anchored directly to the panel.
+    /// Header (50px) + body with VerticalLayoutGroup.
+    /// No ScrollRect — 4 nodes fit without scrolling.
+    /// Returns the body Transform where SkillTreeUI adds node buttons at runtime.
+    /// </summary>
+    static Transform BuildSimpleTrackColumn(Transform panel, string label, Color labelColor,
+                                             Color bgColor, Vector2 anchorMin, Vector2 anchorMax)
+    {
+        // ── Column container — anchored directly to the panel ─────────────
+        GameObject colGO = new GameObject($"Track_{label}", typeof(RectTransform));
+        colGO.transform.SetParent(panel, false);
+        RectTransform colRT = colGO.GetComponent<RectTransform>();
+        colRT.anchorMin = anchorMin;
+        colRT.anchorMax = anchorMax;
+        colRT.offsetMin = Vector2.zero;
+        colRT.offsetMax = Vector2.zero;
+        Image colBg = colGO.AddComponent<Image>();
+        colBg.color = bgColor;
+
+        // ── Header (top 50px) ─────────────────────────────────────────────
+        GameObject hdrBgGO = new GameObject("HeaderBg", typeof(RectTransform));
+        hdrBgGO.transform.SetParent(colGO.transform, false);
+        RectTransform hdrBgRT = hdrBgGO.GetComponent<RectTransform>();
+        hdrBgRT.anchorMin = new Vector2(0f, 1f);
+        hdrBgRT.anchorMax = new Vector2(1f, 1f);
+        hdrBgRT.pivot     = new Vector2(0.5f, 1f);
+        hdrBgRT.offsetMin = new Vector2(0f, -50f);
+        hdrBgRT.offsetMax = Vector2.zero;
+        Image hdrImg = hdrBgGO.AddComponent<Image>();
+        hdrImg.color = new Color(0f, 0f, 0f, 0.45f);
+
+        GameObject hdrTxtGO = new GameObject("Label", typeof(RectTransform));
+        hdrTxtGO.transform.SetParent(hdrBgGO.transform, false);
+        RectTransform hdrTxtRT = hdrTxtGO.GetComponent<RectTransform>();
+        hdrTxtRT.anchorMin = Vector2.zero;
+        hdrTxtRT.anchorMax = Vector2.one;
+        hdrTxtRT.offsetMin = Vector2.zero;
+        hdrTxtRT.offsetMax = Vector2.zero;
+        TMP_Text hdrTxt = hdrTxtGO.AddComponent<TextMeshProUGUI>();
+        hdrTxt.text      = label;
+        hdrTxt.fontSize  = 24f;
+        hdrTxt.fontStyle = FontStyles.Bold;
+        hdrTxt.alignment = TextAlignmentOptions.Center;
+        hdrTxt.color     = labelColor;
+
+        // ── Body area below header (full-stretch minus top 50px) ──────────
+        // No LayoutGroup — SkillTreeUI positions cards with direct anchors.
+        GameObject bodyGO = new GameObject("Body", typeof(RectTransform));
+        bodyGO.transform.SetParent(colGO.transform, false);
+        RectTransform bodyRT = bodyGO.GetComponent<RectTransform>();
+        bodyRT.anchorMin = Vector2.zero;
+        bodyRT.anchorMax = Vector2.one;
+        bodyRT.offsetMin = new Vector2(6f, 6f);
+        bodyRT.offsetMax = new Vector2(-6f, -54f);
+
+        return bodyGO.transform;
     }
 
     // ── Step 8: Wire ALL references via SerializedObject ─────────────────
@@ -399,6 +547,7 @@ public static class SetupAll
         GameObject chaserPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Chaser.prefab");
         GameObject fastPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Fast.prefab");
         GameObject bossPrefab    = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Boss.prefab");
+        GameObject xpOrbPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/XPOrb.prefab");
         GameObject satanPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Satan.prefab");
         GameObject heavyPrefab   = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Heavy.prefab");
         GameObject bigBatPrefab  = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_BigBat.prefab");
@@ -412,6 +561,7 @@ public static class SetupAll
         Wire(gmComp, "logger",         plComp);
         Wire(gmComp, "playerObject",   playerGO);
         Wire(gmComp, "lobbyLevelRoot",  GameObject.Find("=== LEVEL (Lobby) ==="));
+        Wire(gmComp, "tutorialLevelRoot", GameObject.Find("=== LEVEL (Tutorial) ==="));
         Wire(gmComp, "arena1LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) ==="));
         Wire(gmComp, "arena2LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) Arena2 ==="));
 
@@ -484,6 +634,23 @@ public static class SetupAll
             soLobby.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        // ── TutorialRoomManager (lobby -> tutorial -> arena1) ───────────────
+        TutorialRoomManager tutorialMgr = Object.FindFirstObjectByType<TutorialRoomManager>();
+        if (tutorialMgr != null)
+        {
+            var soTut = new SerializedObject(tutorialMgr);
+            soTut.FindProperty("lobbyRoot").objectReferenceValue = GameObject.Find("=== LEVEL (Lobby) ===");
+            soTut.FindProperty("tutorialRoot").objectReferenceValue = GameObject.Find("=== LEVEL (Tutorial) ===");
+            soTut.FindProperty("arena1Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) ===");
+            soTut.FindProperty("arena2Root").objectReferenceValue = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+            soTut.FindProperty("tutorialEnemyPrefab").objectReferenceValue = chaserPrefab;
+            soTut.FindProperty("tutorialXpOrbPrefab").objectReferenceValue = xpOrbPrefab;
+            GameObject tutorialEnemySpawn = GameObject.Find("Tutorial_EnemySpawn");
+            if (tutorialEnemySpawn != null)
+                soTut.FindProperty("tutorialEnemySpawnPoint").objectReferenceValue = tutorialEnemySpawn.transform;
+            soTut.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         // ── PlayerWeapon ──────────────────────────────────────────────────
         var weapon = playerGO.GetComponent<PlayerWeapon>();
         Wire(weapon, "projectilePrefab", projPrefab);
@@ -537,7 +704,100 @@ public static class SetupAll
         Wire(respawnUIComp, "respawnPanel",  respawnPanel);
         Wire(respawnUIComp, "respawnButton", respawnBtn);
 
+        // ── Lobby Merchant NPC ────────────────────────────────────────────
+        // Place an NPC in the lobby with a prompt label and link it to SkillTreeUI.
+        CreateLobbyMerchant(skillTreeUIComp);
+
         Debug.Log("[SetupAll] All references wired.");
+    }
+
+    static void CreateLobbyMerchant(SkillTreeUI skillTreeUI)
+    {
+        // Remove any pre-existing merchant
+        GameObject existing = GameObject.Find("LobbyMerchant");
+        if (existing != null) Object.DestroyImmediate(existing);
+
+        // Find lobby root (may be inactive — must search all roots)
+        GameObject lobbyRoot = null;
+        foreach (GameObject r in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+            if (r.name == "=== LEVEL (Lobby) ===") { lobbyRoot = r; break; }
+
+        // Create empty NPC object (sprite-based, not a primitive)
+        GameObject merchant = new GameObject("LobbyMerchant");
+        merchant.transform.position = new Vector3(4f, 1f, -4f);
+
+        // Interaction trigger (no visual collider needed — sprite handles visuals)
+        SphereCollider trigger = merchant.AddComponent<SphereCollider>();
+        trigger.radius    = 2.5f;
+        trigger.isTrigger = true;
+
+        // Auto-import merchant sprites as Sprite type if needed
+        ConfigureMerchantSprite("Assets/Sprites/NPC/Merchant_Idle.png");
+        ConfigureMerchantSprite("Assets/Sprites/NPC/Merchant_Blink.png");
+
+        Sprite idleSprite  = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/NPC/Merchant_Idle.png");
+        Sprite blinkSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/NPC/Merchant_Blink.png");
+
+        if (idleSprite == null)
+            Debug.LogWarning("[SetupAll] Merchant_Idle.png not found at Assets/Sprites/NPC/.");
+        if (blinkSprite == null)
+            Debug.LogWarning("[SetupAll] Merchant_Blink.png not found at Assets/Sprites/NPC/.");
+
+        // "Press E" world-space canvas
+        GameObject promptGO    = new GameObject("MerchantPrompt");
+        promptGO.transform.SetParent(merchant.transform, false);
+        promptGO.transform.localPosition = new Vector3(0f, 2f, 0f);
+        Canvas wCanvas = promptGO.AddComponent<Canvas>();
+        wCanvas.renderMode = RenderMode.WorldSpace;
+        wCanvas.worldCamera = Camera.main;
+        promptGO.AddComponent<UnityEngine.UI.CanvasScaler>();
+        promptGO.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        RectTransform wRT = promptGO.GetComponent<RectTransform>();
+        wRT.sizeDelta = new Vector2(200f, 50f);
+        wRT.localScale = Vector3.one * 0.01f;
+
+        GameObject promptText = new GameObject("PromptText", typeof(RectTransform));
+        promptText.transform.SetParent(promptGO.transform, false);
+        RectTransform pRT = promptText.GetComponent<RectTransform>();
+        pRT.anchorMin = Vector2.zero; pRT.anchorMax = Vector2.one;
+        pRT.offsetMin = Vector2.zero; pRT.offsetMax = Vector2.zero;
+        TMP_Text pTMP = promptText.AddComponent<TextMeshProUGUI>();
+        pTMP.text      = "[E] Open Skill Tree";
+        pTMP.fontSize  = 14f;
+        pTMP.alignment = TextAlignmentOptions.Center;
+        pTMP.color     = Color.white;
+
+        // LobbyMerchant component with sprite references
+        lobbyMerchantComp = merchant.AddComponent<LobbyMerchant>();
+        var soM = new SerializedObject(lobbyMerchantComp);
+        soM.FindProperty("skillTreeUI").objectReferenceValue  = skillTreeUI;
+        soM.FindProperty("promptText").objectReferenceValue   = pTMP;
+        soM.FindProperty("idleSprite").objectReferenceValue   = idleSprite;
+        soM.FindProperty("blinkSprite").objectReferenceValue  = blinkSprite;
+        soM.ApplyModifiedPropertiesWithoutUndo();
+
+        // Parent under lobby if found (so it hides with the lobby)
+        if (lobbyRoot != null)
+            merchant.transform.SetParent(lobbyRoot.transform, true);
+
+        Debug.Log("[SetupAll] Lobby merchant created (sprite-based with blink).");
+    }
+
+    static void ConfigureMerchantSprite(string path)
+    {
+        TextureImporter imp = AssetImporter.GetAtPath(path) as TextureImporter;
+        if (imp == null) return;
+        if (imp.textureType == TextureImporterType.Sprite) return; // already configured
+        imp.textureType          = TextureImporterType.Sprite;
+        imp.spriteImportMode     = SpriteImportMode.Single;
+        imp.filterMode           = FilterMode.Point;
+        imp.spritePixelsPerUnit  = 20f;
+        imp.mipmapEnabled        = false;
+        imp.textureCompression   = TextureImporterCompression.Uncompressed;
+        imp.crunchedCompression  = false;
+        imp.npotScale            = TextureImporterNPOTScale.None;
+        imp.alphaIsTransparency  = true;
+        imp.SaveAndReimport();
     }
 
     // ── Step 9: Gate door component ───────────────────────────────────────
@@ -637,11 +897,56 @@ public static class SetupAll
         NavMeshSurface existing = levelRoot.GetComponent<NavMeshSurface>();
         if (existing != null) Object.DestroyImmediate(existing);
 
+        // Use Children so the player capsule and lobby geometry are excluded from the Arena 1 bake.
         NavMeshSurface surface = levelRoot.AddComponent<NavMeshSurface>();
-        surface.collectObjects = CollectObjects.All;
+        surface.collectObjects = CollectObjects.Children;
         surface.useGeometry    = NavMeshCollectGeometry.PhysicsColliders;
         surface.BuildNavMesh();
-        Debug.Log("[SetupAll] NavMesh baked.");
+        Debug.Log("[SetupAll] NavMesh baked (CollectObjects.Children).");
+    }
+
+    // ── Step 12: Satan arena intro controller (throne watch + wave-10 jump) ──
+
+    static void Step12_SetupSatanArenaIntro()
+    {
+        GameObject arena2Root = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+        if (arena2Root == null)
+        {
+            Debug.LogWarning("[SetupAll] Arena 2 root not found — SatanArenaIntroController skipped.");
+            return;
+        }
+
+        // Remove any stale controller from a previous setup run.
+        Transform existing = arena2Root.transform.Find("Satan_Arena_Intro_Manager");
+        if (existing != null) Object.DestroyImmediate(existing.gameObject);
+
+        // Create a dedicated child GO so it activates/deactivates with the Arena 2 root.
+        GameObject host = new GameObject("Satan_Arena_Intro_Manager");
+        host.transform.SetParent(arena2Root.transform, false);
+
+        SatanArenaIntroController introCtrl = host.AddComponent<SatanArenaIntroController>();
+        var so = new SerializedObject(introCtrl);
+
+        // Satan prefab
+        GameObject satanPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/Enemy_Satan.prefab");
+        if (satanPrefab != null)
+            so.FindProperty("satanPrefab").objectReferenceValue = satanPrefab;
+        else
+            Debug.LogWarning("[SetupAll] Enemy_Satan.prefab not found — assign it manually on Satan_Arena_Intro_Manager.");
+
+        // Throne position (matches ProBuilderLevelBuilder: baseTopY=10, throneZ=42)
+        // satanWatchPos = (0, baseTopY + 0.9, throneZ - 0.2) = (0, 10.9, 41.8)
+        so.FindProperty("thronePosition").vector3Value  = new Vector3(0f, 10.9f, 41.8f);
+        so.FindProperty("landingPosition").vector3Value = new Vector3(0f,  1.1f, 12f);
+
+        // Wave 9 (0-based) = displayed as Wave 10
+        so.FindProperty("satanWaveTrigger").intValue = 9;
+        so.FindProperty("introDelay").floatValue     = 0.8f;
+
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        Debug.Log("[SetupAll] ✓ SatanArenaIntroController created on 'Satan_Arena_Intro_Manager' inside Arena 2. " +
+                  "Satan will sit on the throne (0, 10.9, 41.8) from wave 6 onward and jump down at wave 10.");
     }
 
     // ── UI Factory Helpers ────────────────────────────────────────────────

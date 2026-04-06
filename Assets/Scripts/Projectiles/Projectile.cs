@@ -32,13 +32,12 @@ public class Projectile : MonoBehaviour
 
     void Awake()
     {
+        // The projectile moves via transform.position in Update, not physics.
+        // Kinematic bodies reject velocity/angularVelocity assignment, so we just
+        // ensure the body is kinematic and leave the velocity fields alone.
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
-        {
             rb.isKinematic = true;
-            rb.velocity = Vector3.zero;
-            rb.angularVelocity = Vector3.zero;
-        }
     }
 
     void Update()

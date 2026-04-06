@@ -5,9 +5,9 @@ using UnityEngine.UI;
 using System.Collections;
 
 /// <summary>
-/// Drives the main menu scene. Shows the game title, best run stats,
-/// lore flavor text, and a Play button. Attach to a persistent GameObject
-/// in the MainMenu scene.
+/// Drives the main menu scene.
+/// NEW GAME  → loads MainScene and auto-starts the tutorial.
+/// LOAD GAME → loads MainScene straight into the lobby (skips tutorial).
 /// </summary>
 public class MainMenuManager : MonoBehaviour
 {
@@ -15,41 +15,89 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private string gameSceneName = "MainScene";
 
     [Header("UI References")]
-    [SerializeField] private Button    playButton;
+    [SerializeField] private Button    newGameButton;
+    [SerializeField] private Button    loadGameButton;
     [SerializeField] private TMP_Text  titleText;
     [SerializeField] private TMP_Text  subtitleText;
     [SerializeField] private TMP_Text  bestRunText;
     [SerializeField] private TMP_Text  flavorText;
     [SerializeField] private TMP_Text  versionText;
 
+    // Keep the old field name so SetupAll doesn't break if it still wires "playButton"
+    [SerializeField] private Button    playButton;
+
     [Header("Title Pulse")]
     [SerializeField] private float pulseSpeed  = 1.2f;
     [SerializeField] private float pulseMin    = 0.7f;
     [SerializeField] private float pulseMax    = 1.0f;
 
-    // Rotating lore lines shown in the flavor text box
+    /// <summary>
+    /// Static flag read by GameManager/TutorialRoomManager after MainScene loads.
+    /// True  = new game → run tutorial immediately.
+    /// False = load game → land in lobby.
+    /// </summary>
+    public static bool ShouldRunTutorial { get; private set; }
+
     private static readonly string[] LoreLines = {
-        "\"Many warriors have entered the Fractured Grounds. None have broken the cycle.\"\n— Watcher Nara",
-        "\"The Shard of Chaos shattered more than walls. It shattered time.\"\n— Final entry, Architect's Log",
-        "\"Thorn was the greatest of us. Now it is the worst of us.\"\n— Watcher Drak",
+        "\"Many warriors have entered the Fractured Grounds. None have broken the cycle.\"\n-- Watcher Nara",
+        "\"The Shard of Chaos shattered more than walls. It shattered time.\"\n-- Final entry, Architect's Log",
+        "\"Thorn was the greatest of us. Now it is the worst of us.\"\n-- Watcher Drak",
         "\"Survive the waves. Grow stronger. Face the Corrupted Champion.\nRepeat. Unless you can end it.\"",
-        "\"The Grounds remember every warrior. Their echoes become your enemies.\"\n— Watcher Vex",
+        "\"The Grounds remember every warrior. Their echoes become your enemies.\"\n-- Watcher Vex",
     };
 
     private int loreIndex;
 
+    void Awake()
+    {
+        // Self-heal: find buttons by their GameObject name if serialized refs were lost
+        if (newGameButton  == null) newGameButton  = FindButtonByName("NewGameButton");
+        if (loadGameButton == null) loadGameButton = FindButtonByName("LoadGameButton");
+        if (playButton     == null) playButton     = FindButtonByName("PlayButton");
+
+        // Self-heal: find text elements by name
+        if (titleText    == null) titleText    = FindTMPByName("Title");
+        if (subtitleText == null) subtitleText = FindTMPByName("Subtitle");
+        if (bestRunText  == null) bestRunText  = FindTMPByName("BestRunText");
+        if (flavorText   == null) flavorText   = FindTMPByName("FlavorText");
+        if (versionText  == null) versionText  = FindTMPByName("VersionText");
+    }
+
     void Start()
     {
-        playButton?.onClick.AddListener(StartGame);
+        newGameButton?.onClick.AddListener(OnNewGame);
+        loadGameButton?.onClick.AddListener(OnLoadGame);
+        playButton?.onClick.AddListener(OnNewGame);
 
-        if (titleText)    titleText.text    = "TEMP TITLE";
+        bool hasSave = PlayerPrefs.GetInt("Meta_AccountLevel", 0) >= 1;
+        if (loadGameButton != null)
+            loadGameButton.interactable = hasSave;
+
+        if (titleText)    titleText.text    = "WAVE GAME";
         if (subtitleText) subtitleText.text = "Top-Down Wave Survival";
-        if (versionText)  versionText.text  = "CS4483 · Group 21 · Graybox Prototype";
+        if (versionText)  versionText.text  = "CS4483 · Group 21";
 
         UpdateBestRun();
         RotateLore();
         StartCoroutine(PulseTitle());
         StartCoroutine(CycleLore());
+    }
+
+    private Button FindButtonByName(string goName)
+    {
+        Transform t = transform.Find(goName);
+        if (t != null) return t.GetComponent<Button>();
+        // Wider search in case hierarchy differs
+        foreach (Button b in GetComponentsInChildren<Button>(true))
+            if (b.gameObject.name == goName) return b;
+        return null;
+    }
+
+    private TMP_Text FindTMPByName(string goName)
+    {
+        foreach (TMP_Text t in GetComponentsInChildren<TMP_Text>(true))
+            if (t.gameObject.name == goName) return t;
+        return null;
     }
 
     void UpdateBestRun()
@@ -68,8 +116,15 @@ public class MainMenuManager : MonoBehaviour
             $"Kills: <color=#FFD700>{hs.BestKills}</color>";
     }
 
-    void StartGame()
+    void OnNewGame()
     {
+        ShouldRunTutorial = true;
+        SceneManager.LoadScene(gameSceneName);
+    }
+
+    void OnLoadGame()
+    {
+        ShouldRunTutorial = false;
         SceneManager.LoadScene(gameSceneName);
     }
 
@@ -85,7 +140,6 @@ public class MainMenuManager : MonoBehaviour
         {
             yield return new WaitForSeconds(6f);
             loreIndex = (loreIndex + 1) % LoreLines.Length;
-            // Fade out
             float t = 0f;
             while (t < 0.4f)
             {
@@ -94,7 +148,6 @@ public class MainMenuManager : MonoBehaviour
                 yield return null;
             }
             RotateLore();
-            // Fade in
             t = 0f;
             while (t < 0.4f)
             {

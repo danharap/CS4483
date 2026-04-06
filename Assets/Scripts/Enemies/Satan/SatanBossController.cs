@@ -23,7 +23,9 @@ public class SatanBossController : MonoBehaviour
         Spawning,
         StatueIdle,
         WaitingForFallen,
+        ThroneWatch,        // Watching from the colosseum stands — frozen on awakening frame 0
         Awakening,
+        JumpingToArena,     // Arc jump from throne to arena floor
         CombatPhase,
         FakeDying,          // HP hit 0 – playing "death" anim before rising
         TransitionToPhase2, // rising off-screen
@@ -67,6 +69,23 @@ public class SatanBossController : MonoBehaviour
     [SerializeField] private float fakeDeathPause   = 1.5f;
     [Tooltip("Time Satan takes to float up and off-screen before foot phase begins.")]
     [SerializeField] private float riseOffScreenTime = 2.5f;
+
+    // ── Throne / Colosseum Watch Mode ────────────────────────────────────
+
+    [Header("Throne Watch (set by SatanArenaIntroController)")]
+    [Tooltip("When true Satan starts in ThroneWatch state and waits for BeginAwakenFromThrone().")]
+    [SerializeField] private bool throneWatchMode = false;
+    [Tooltip("World position Satan is placed at while watching from the throne. " +
+             "Populated at runtime by SatanArenaIntroController.EnableThroneMode().")]
+    [SerializeField] private Vector3 throneWatchPosition = new Vector3(0f, 13.9f, 45.3f);
+    [Tooltip("Where Satan lands on the arena floor after jumping down from the throne.")]
+    [SerializeField] private Vector3 jumpLandingPosition = new Vector3(0f, 1.1f, 12f);
+    [Tooltip("Maximum height of the jump arc above the straight-line path.")]
+    [SerializeField] private float jumpArcHeight = 9f;
+    [Tooltip("Duration of the jump arc in seconds.")]
+    [SerializeField] private float jumpDuration  = 2.0f;
+    [Tooltip("Brief pause after landing before combat starts.")]
+    [SerializeField] private float landingPause  = 0.6f;
 
     // ── References ────────────────────────────────────────────────────────
 
@@ -119,7 +138,11 @@ public class SatanBossController : MonoBehaviour
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) Player = p.transform;
 
-        HUDManager.Instance?.ShowBossHP("SATAN", maxHP, maxHP);
+        // In throne-watch mode the player doesn't know a boss fight is coming yet —
+        // delay the HP bar until combat actually begins (EnterCombat calls ShowBossHP there).
+        if (!throneWatchMode)
+            HUDManager.Instance?.ShowBossHP("SATAN", maxHP, maxHP);
+
         StartCoroutine(SpawnSequence());
     }
 
@@ -133,6 +156,18 @@ public class SatanBossController : MonoBehaviour
         SetState(BossState.Spawning);
         yield return null;
 
+        if (throneWatchMode)
+        {
+            // ── Throne-watch path: stay frozen until SatanArenaIntroController triggers us ─
+            transform.position = throneWatchPosition;
+            anim.SetStatueFrame();
+            SetState(BossState.ThroneWatch);
+            Debug.Log($"[Satan] ThroneWatch mode — frozen at {throneWatchPosition}, waiting for wave 10.");
+            // BeginAwakenFromThrone() will be called externally; nothing else to do here.
+            yield break;
+        }
+
+        // ── Normal arena-spawn path ────────────────────────────────────────
         transform.position = new Vector3(spawnOffset.x, spawnOffset.y, satanArenaTopZ);
         anim.SetStatueFrame();
         SetState(BossState.StatueIdle);
@@ -155,12 +190,126 @@ public class SatanBossController : MonoBehaviour
 
     private void EnterCombat()
     {
+        // If we were in throne-watch mode the HP bar was intentionally hidden; show it now.
+        if (throneWatchMode)
+            HUDManager.Instance?.ShowBossHP("SATAN", maxHP, maxHP);
+
         SetState(BossState.CombatPhase);
         attacks.enabled = true;
         StartCoroutine(attacks.CombatLoop(this));
     }
 
     // ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Called by SatanArenaIntroController right after Instantiate so the throne position
+    /// is set before Start() runs SpawnSequence().
+    /// </summary>
+    public void EnableThroneMode(Vector3 thronePos, Vector3 landingPos)
+    {
+        throneWatchMode     = true;
+        throneWatchPosition = thronePos;
+        jumpLandingPosition = landingPos;
+    }
+
+    /// <summary>
+    /// For F10 debug: enables throne mode and queues an immediate awakening for the next frame
+    /// (after Start() has had a chance to enter ThroneWatch state).
+    /// </summary>
+    public void EnableThroneModeAndAwaken(Vector3 thronePos, Vector3 landingPos)
+    {
+        EnableThroneMode(thronePos, landingPos);
+        StartCoroutine(AwakenNextFrame());
+    }
+
+    private IEnumerator AwakenNextFrame()
+    {
+        // SpawnSequence() itself contains a yield return null before it sets ThroneWatch,
+        // so a single-frame wait is not enough — the state is still Spawning when we resume.
+        // Instead, spin until ThroneWatch is confirmed (with a safety timeout).
+        float timeout = 3f;
+        float elapsed = 0f;
+        while (CurrentState != BossState.ThroneWatch && elapsed < timeout)
+        {
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        BeginAwakenFromThrone();
+    }
+
+    /// <summary>
+    /// Called by SatanArenaIntroController at wave 10.
+    /// Plays the remainder of the awakening animation, then arcs Satan from the throne
+    /// to the arena floor before activating combat.
+    /// </summary>
+    public void BeginAwakenFromThrone()
+    {
+        if (CurrentState != BossState.ThroneWatch) return;
+        StartCoroutine(ThroneAwakenSequence());
+    }
+
+    private IEnumerator ThroneAwakenSequence()
+    {
+        // Hide the static "seated" sprite baked into the throne geometry the instant Satan stirs.
+        // This covers all trigger paths (wave 10, F10 debug, etc.) regardless of whether
+        // SatanArenaIntroController already tried to hide it.
+        HideThroneStaticVisual();
+
+        Debug.Log("[Satan] Wave 10 — beginning throne awakening sequence!");
+        SetState(BossState.Awakening);
+
+        // Play the full awakening animation (SatanAnimationController skips frame 0 which we're already on)
+        yield return StartCoroutine(anim.PlayAwakening());
+
+        // Jump arc from throne down to arena
+        Debug.Log($"[Satan] Jumping from throne {throneWatchPosition} to arena {jumpLandingPosition}.");
+        SetState(BossState.JumpingToArena);
+        yield return StartCoroutine(JumpArcToArena(transform.position, jumpLandingPosition, jumpDuration, jumpArcHeight));
+
+        // Ensure exact landing position
+        transform.position = jumpLandingPosition;
+
+        // Brief landing pause (landing impact beat)
+        yield return new WaitForSeconds(landingPause);
+
+        Debug.Log("[Satan] Landed in arena — entering combat!");
+        EnterCombat();
+    }
+
+    /// <summary>Smooth parabolic arc from <paramref name="start"/> to <paramref name="end"/>.</summary>
+    private IEnumerator JumpArcToArena(Vector3 start, Vector3 end, float duration, float arcHeight)
+    {
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.deltaTime;
+            float u = Mathf.Clamp01(t / duration);
+            // Use SmoothStep for easing at both ends
+            float smooth = Mathf.SmoothStep(0f, 1f, u);
+            Vector3 flatPos = Vector3.Lerp(start, end, smooth);
+            // Parabola: peaks at u=0.5
+            float arcY = arcHeight * 4f * u * (1f - u);
+            transform.position = new Vector3(flatPos.x, flatPos.y + arcY, flatPos.z);
+            yield return null;
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Finds and hides the static "Throne_Satan_Visual" sprite baked into the level geometry.
+    /// Uses GameObject.Find so it works regardless of scene hierarchy depth or whether
+    /// SatanArenaIntroController already attempted to hide it.
+    /// </summary>
+    private void HideThroneStaticVisual()
+    {
+        GameObject watcher = GameObject.Find("Throne_Satan_Visual");
+        if (watcher != null)
+        {
+            watcher.SetActive(false);
+            Debug.Log("[Satan] Throne static visual hidden.");
+        }
+    }
 
     private IEnumerator FakeDeathTransition()
     {

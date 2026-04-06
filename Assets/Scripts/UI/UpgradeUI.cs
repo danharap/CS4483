@@ -54,6 +54,7 @@ public class UpgradeUI : MonoBehaviour
     public void Show(bool forceRare)
     {
         Debug.Log("[UpgradeUI] SHOWING UPGRADE PANEL - Game is paused, click a card to continue!");
+        UpgradeManager.Instance?.NotifyUpgradeUIOpened();
         
         int wave = GameManager.Instance?.WaveManager?.WaveIndex ?? 0;
         currentOptions = UpgradeManager.Instance?.GetOptions(wave, forceRare)

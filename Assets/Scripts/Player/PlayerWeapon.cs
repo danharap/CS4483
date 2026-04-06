@@ -26,6 +26,11 @@ public class PlayerWeapon : MonoBehaviour
     // ── State ─────────────────────────────────────────────────────────────
     private float fireTimer;
     private AudioSource audioSource;
+    private bool wasHoldingFire;
+
+    [Header("Input / Locks")]
+    [Tooltip("If false, the player cannot shoot (e.g., in lobby/main menu until entering arena).")]
+    [SerializeField] private bool shootingEnabled = true;
 
     private float baseDamage;
     private float baseFireRate;
@@ -60,14 +65,36 @@ public class PlayerWeapon : MonoBehaviour
     
     void Update()
     {
-        if (GameManager.Instance != null &&
-            GameManager.Instance.State != GameManager.GameState.Playing) return;
+        // If we're not in the main gameplay scene (no GameManager), never auto-shoot.
+        // This prevents weapon fire in MainMenu and other non-game scenes.
+        if (GameManager.Instance == null) return;
 
+        if (GameManager.Instance.State != GameManager.GameState.Playing) return;
+        if (!shootingEnabled) return;
+
+        float interval = 1f / Mathf.Max(0.01f, fireRate); // guard divide-by-zero / inf
+
+        bool holdingFire = Input.GetMouseButton(0);
+        wasHoldingFire = holdingFire;
+
+        if (!holdingFire) return;
+
+        // Single source of truth: fireTimer is time-since-last-shot.
+        // Clicking and holding both respect the same rate limit (prevents click-spam exploits).
         fireTimer += Time.deltaTime;
-        if (fireTimer >= 1f / fireRate)
+        if (fireTimer < interval) return;
+
+        fireTimer = 0f;
+        TryShoot();
+    }
+
+    public void SetShootingEnabled(bool enabled)
+    {
+        shootingEnabled = enabled;
+        if (!enabled)
         {
             fireTimer = 0f;
-            TryShoot();
+            wasHoldingFire = false;
         }
     }
 
@@ -87,13 +114,15 @@ public class PlayerWeapon : MonoBehaviour
             dir = transform.forward; // sensible fallback
         dir.Normalize();
 
+        bool hasOpeningStrike = GetComponent<OpeningStrikeTracker>() != null;
+
         if (projectileCount == 1)
         {
-            SpawnProjectile(dir);
+            SpawnProjectile(dir, hasOpeningStrike);
         }
         else
         {
-            // Spread multiple projectiles in a fan
+            // Spread multiple projectiles in a fan; Opening Strike applies to the first only
             float spreadAngle = 20f;
             float step = (projectileCount > 1) ? spreadAngle / (projectileCount - 1) : 0f;
             float startAngle = -spreadAngle * 0.5f;
@@ -103,19 +132,27 @@ public class PlayerWeapon : MonoBehaviour
                 Vector3 spread = Quaternion.Euler(0f, angle, 0f) * dir;
                 spread.y = 0f;
                 spread.Normalize();
-                SpawnProjectile(spread);
+                SpawnProjectile(spread, hasOpeningStrike && i == 0);
             }
         }
     }
 
-    private void SpawnProjectile(Vector3 dir)
+    private void SpawnProjectile(Vector3 dir, bool applyOpeningStrike = false)
     {
         if (projectilePrefab == null) return;
         Vector3 spawnPos = firePoint != null ? firePoint.position : transform.position + dir * 0.6f;
         GameObject go = Instantiate(projectilePrefab, spawnPos, Quaternion.LookRotation(dir));
         Projectile p = go.GetComponent<Projectile>();
         if (p != null)
-            p.Init(dir, damage, projectileSpeed, pierceCount);
+        {
+            float finalDamage = damage;
+            if (applyOpeningStrike)
+            {
+                var tracker = GetComponent<OpeningStrikeTracker>();
+                if (tracker != null) finalDamage *= tracker.ConsumeProcMultiplier();
+            }
+            p.Init(dir, finalDamage, projectileSpeed, pierceCount);
+        }
         
         // Play shooting sound
         if (shootSound != null && audioSource != null)

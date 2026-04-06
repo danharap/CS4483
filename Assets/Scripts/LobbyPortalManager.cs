@@ -66,6 +66,12 @@ public class LobbyPortalManager : MonoBehaviour
         // occupied by the Lobby walls becomes walkable so enemies can navigate freely.
         RebakeArena1NavMesh();
 
+        // ── Apply meta passives before waves start ────────────────────────
+        GameManager.Instance?.ApplyMetaPassives();
+
+        // Player is now in the arena: allow shooting.
+        GameManager.Instance?.PlayerWeapon?.SetShootingEnabled(true);
+
         // ── Start waves ───────────────────────────────────────────────────
         GameManager.Instance?.WaveManager?.BeginWaves();
     }

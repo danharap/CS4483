@@ -63,6 +63,18 @@ public class ColosseumCrowdGenerator : MonoBehaviour
     [Tooltip("If set, uses this prefab instead of a primitive capsule.")]
     [SerializeField] private GameObject personPrefab;
 
+    [Header("Satan Throne Exclusion")]
+    [Tooltip("Clear the stands in front of the throne so no crowd members overlap it.")]
+    [SerializeField] private bool  useThroneExclusion   = true;
+    [Tooltip("Center angle of the throne in degrees. 0° = positive-Z (top of arena).")]
+    [SerializeField] private float throneAngleDeg        = 0f;
+    [Tooltip("Half-width of the exclusion arc in degrees. 22° gives good clearance for the 11-unit wide box.")]
+    [SerializeField] private float throneHalfAngleDeg    = 22f;
+    [Tooltip("Inner radius of the exclusion zone (just behind the arena wall).")]
+    [SerializeField] private float throneMinRadius       = 40f;
+    [Tooltip("Outer radius of the exclusion zone (past the back of the throne canopy).")]
+    [SerializeField] private float throneMaxRadius       = 52f;
+
     [Header("Runtime")]
     [SerializeField] private bool generateOnStart = false;
 
@@ -141,6 +153,9 @@ public class ColosseumCrowdGenerator : MonoBehaviour
             // Random scatter within the step's radial depth
             float radius = baseRadius + Random.Range(-radialScatter, radialScatter);
 
+            // Skip seats that fall inside the throne exclusion zone
+            if (useThroneExclusion && IsInThroneZone(angleDeg, radius)) continue;
+
             // Small Y jitter so it doesn't look like a flat shelf
             float y = baseY + Random.Range(-yScatter, yScatter);
 
@@ -148,6 +163,20 @@ public class ColosseumCrowdGenerator : MonoBehaviour
             placed++;
         }
         return placed;
+    }
+
+    /// <summary>
+    /// Returns true if the polar coordinate (angleDeg, radius) falls inside the throne area.
+    /// Angle is wrapped to [0, 360) before comparison so the exclusion arc works correctly
+    /// even when the throne is at 0°/360°.
+    /// </summary>
+    private bool IsInThroneZone(float angleDeg, float radius)
+    {
+        if (radius < throneMinRadius || radius > throneMaxRadius) return false;
+
+        // Shortest angular distance from throneAngleDeg, wrapped to [-180, 180]
+        float diff = Mathf.DeltaAngle(angleDeg, throneAngleDeg);
+        return Mathf.Abs(diff) <= throneHalfAngleDeg;
     }
 
     private void SpawnPerson(Transform parent, float radius, float y, float angleDeg, Material mat)
@@ -197,6 +226,51 @@ public class ColosseumCrowdGenerator : MonoBehaviour
 
     // ─────────────────────────────────────────────────────────────────────
     #region Helpers
+
+#if UNITY_EDITOR
+    private void OnDrawGizmosSelected()
+    {
+        if (!useThroneExclusion) return;
+
+        // Draw the two arc edges (inner and outer radius) as wire arcs + side lines
+        const int arcSteps = 40;
+        float halfRad = throneHalfAngleDeg * Mathf.Deg2Rad;
+        Gizmos.color = new Color(1f, 0.6f, 0f, 0.8f);
+
+        // Build two arcs (inner and outer radii) and connect their ends
+        Vector3 prevInner = ArcPoint(throneAngleDeg - throneHalfAngleDeg, throneMinRadius);
+        Vector3 prevOuter = ArcPoint(throneAngleDeg - throneHalfAngleDeg, throneMaxRadius);
+
+        for (int s = 1; s <= arcSteps; s++)
+        {
+            float a = (throneAngleDeg - throneHalfAngleDeg)
+                    + s * (throneHalfAngleDeg * 2f) / arcSteps;
+            Vector3 inner = ArcPoint(a, throneMinRadius);
+            Vector3 outer = ArcPoint(a, throneMaxRadius);
+            Gizmos.DrawLine(prevInner, inner);
+            Gizmos.DrawLine(prevOuter, outer);
+            prevInner = inner;
+            prevOuter = outer;
+        }
+
+        // Side lines connecting inner to outer at both edges
+        Gizmos.DrawLine(ArcPoint(throneAngleDeg - throneHalfAngleDeg, throneMinRadius),
+                        ArcPoint(throneAngleDeg - throneHalfAngleDeg, throneMaxRadius));
+        Gizmos.DrawLine(ArcPoint(throneAngleDeg + throneHalfAngleDeg, throneMinRadius),
+                        ArcPoint(throneAngleDeg + throneHalfAngleDeg, throneMaxRadius));
+
+        UnityEditor.Handles.color = new Color(1f, 0.6f, 0f, 0.9f);
+        Vector3 labelPos = ArcPoint(throneAngleDeg, (throneMinRadius + throneMaxRadius) * 0.5f);
+        labelPos.y = wallHeight + 2f;
+        UnityEditor.Handles.Label(labelPos, "Throne Exclusion");
+    }
+
+    private Vector3 ArcPoint(float angleDeg, float radius)
+    {
+        float rad = angleDeg * Mathf.Deg2Rad;
+        return transform.position + new Vector3(Mathf.Sin(rad) * radius, wallHeight + 2f, Mathf.Cos(rad) * radius);
+    }
+#endif
 
     private Material BuildMaterial()
     {
