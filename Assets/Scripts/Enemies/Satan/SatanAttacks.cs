@@ -125,6 +125,9 @@ public class SatanAttacks : MonoBehaviour
 
     private Queue<int> recentAttacks = new Queue<int>();
 
+    // Active beam objects — tracked so we can forcibly destroy them if the phase ends mid-attack.
+    private readonly List<GameObject> activeBeams = new List<GameObject>();
+
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────
@@ -206,6 +209,26 @@ public class SatanAttacks : MonoBehaviour
     {
         running = false;
         StopAllCoroutines();
+        DestroyAllActiveBeams();
+    }
+
+    private void RegisterBeam(GameObject beam)
+    {
+        if (beam != null) activeBeams.Add(beam);
+    }
+
+    private void UnregisterBeam(GameObject beam)
+    {
+        activeBeams.Remove(beam);
+    }
+
+    private void DestroyAllActiveBeams()
+    {
+        foreach (GameObject beam in activeBeams)
+        {
+            if (beam != null) Destroy(beam);
+        }
+        activeBeams.Clear();
     }
 
     /// <summary>
@@ -302,6 +325,7 @@ public class SatanAttacks : MonoBehaviour
 
         // Spawn or activate beam going downward (-Z in top-down)
         GameObject beam = SpawnBeam(transform.position, Vector3.back, downBeamWidth, downBeamPrefab);
+        RegisterBeam(beam);
 
         // Damage tick loop
         float elapsed = 0f;
@@ -318,6 +342,7 @@ public class SatanAttacks : MonoBehaviour
             yield return null;
         }
 
+        UnregisterBeam(beam);
         if (beam != null) Destroy(beam);
     }
 
@@ -364,6 +389,8 @@ public class SatanAttacks : MonoBehaviour
         // Spawn beams anchored at each hand, extending toward the player (-Z)
         GameObject leftBeam  = SpawnDualBeamVisual(new Vector3(leftX,  handY, handZ));
         GameObject rightBeam = SpawnDualBeamVisual(new Vector3(rightX, handY, handZ));
+        RegisterBeam(leftBeam);
+        RegisterBeam(rightBeam);
 
         float elapsed   = 0f;
         float tickTimer = 0f;
@@ -403,6 +430,8 @@ public class SatanAttacks : MonoBehaviour
             yield return null;
         }
 
+        UnregisterBeam(leftBeam);
+        UnregisterBeam(rightBeam);
         if (leftBeam  != null) Destroy(leftBeam);
         if (rightBeam != null) Destroy(rightBeam);
     }

@@ -8,6 +8,7 @@ using UnityEngine;
 ///   F4 = grant 1 account level + 1 skill point (Shift+F4 = 3 levels)
 ///   F5 = RESET all account progression (wipes skills, XP, levels)
 ///   F6 = spawn Fast enemy, F7 = spawn Heavy, F8 = BigBat, F9 = Boss, F10 = Satan
+///   F11 = skip tutorial / jump straight to lobby (dev shortcut)
 /// Requires spawner reference wired (run CS4483 → SETUP EVERYTHING to wire it).
 /// </summary>
 public class DebugSpawnHotkeys : MonoBehaviour
@@ -21,6 +22,12 @@ public class DebugSpawnHotkeys : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F10))
         {
             TrySpawnSatanDebug();
+        }
+
+        // F11 = skip tutorial and land directly in the lobby for rapid iteration.
+        if (Input.GetKeyDown(KeyCode.F11))
+        {
+            SkipTutorial();
         }
 
         if (Input.GetKeyDown(KeyCode.F2))
@@ -94,6 +101,54 @@ public class DebugSpawnHotkeys : MonoBehaviour
         }
 
         SatanDebugSpawner.TrySpawnSatan();
+    }
+
+    /// <summary>
+    /// F11 — immediately ends the tutorial and places the player in the lobby so devs
+    /// can jump straight to testing arena gameplay without sitting through the tutorial.
+    /// Works whether the tutorial is currently active or not.
+    /// </summary>
+    private static void SkipTutorial()
+    {
+        // If the tutorial is currently running, end it cleanly.
+        TutorialManager.Instance?.EndTutorialRoom();
+
+        // If TutorialRoomManager is present, use its return path to get back to lobby.
+        TutorialRoomManager trm = Object.FindFirstObjectByType<TutorialRoomManager>();
+        if (trm != null)
+        {
+            trm.ExitTutorialToLobby();
+            Debug.Log("[DEV F11] Tutorial skipped — returned to lobby via TutorialRoomManager.");
+            return;
+        }
+
+        // Fallback: make sure the lobby is visible and the player is positioned there.
+        GameObject lobbyRoot = null;
+        foreach (var root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == "=== LEVEL (Lobby) ===") { lobbyRoot = root; break; }
+        }
+        if (lobbyRoot != null) lobbyRoot.SetActive(true);
+
+        // Hide tutorial level if it's still up
+        foreach (var root in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            if (root.name == "=== LEVEL (Tutorial) ===") { root.SetActive(false); break; }
+        }
+
+        // Teleport player to lobby centre
+        var cc = Object.FindFirstObjectByType<CharacterController>();
+        if (cc != null)
+        {
+            cc.enabled = false;
+            cc.transform.position = new Vector3(0f, 1.1f, 0f);
+            cc.enabled = true;
+        }
+
+        // Unlock input in case the tutorial had locked it
+        GameManager.Instance?.PlayerController?.SetInputLocked(false);
+
+        Debug.Log("[DEV F11] Tutorial skipped — player teleported to lobby.");
     }
 #endif
 }

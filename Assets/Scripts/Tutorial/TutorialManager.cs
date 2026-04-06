@@ -3,6 +3,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 /// <summary>
 /// Tutorial room flow controller.
@@ -13,8 +14,15 @@ public class TutorialManager : MonoBehaviour
     public static TutorialManager Instance { get; private set; }
 
     [Header("UI (auto-created if missing)")]
-    [SerializeField] private TMP_Text tutorialText;
+    [SerializeField] private TMP_Text   tutorialText;
     [SerializeField] private GameObject tutorialTextRoot;
+    [SerializeField] private TMP_Text   tutorialSpeakerText;
+    [SerializeField] private Image      tutorialPortraitImage;
+
+    [Header("Dialogue Portrait")]
+    [Tooltip("Portrait shown in the dialogue box. Auto-loaded from Resources/Portraits/TutorialNPC_Portrait if empty.")]
+    [SerializeField] private Sprite npcPortrait;
+    [SerializeField] private string npcSpeakerName = "The Watcher";
 
     [Header("Timing")]
     [SerializeField] private float introLineDuration = 1.8f;
@@ -340,33 +348,103 @@ public class TutorialManager : MonoBehaviour
         }
         if (canvasGo == null) return;
 
-        tutorialTextRoot = new GameObject("TutorialTextPanel");
+        // Load portrait from Resources if not set in Inspector
+        if (npcPortrait == null)
+            npcPortrait = Resources.Load<Sprite>("Portraits/TutorialNPC_Portrait");
+
+        // ── Stardew-style bottom dialogue panel ───────────────────────────
+        const float panelH     = 200f;
+        const float panelW     = 1260f;
+        const float portraitSz = 164f;
+        const float edgePad    = 18f;
+
+        tutorialTextRoot = new GameObject("TutorialDialoguePanel");
         tutorialTextRoot.transform.SetParent(canvasGo.transform, false);
 
-        Image bg = tutorialTextRoot.AddComponent<Image>();
-        bg.color = new Color(0f, 0f, 0f, 0.45f);
+        Image panelBg = tutorialTextRoot.AddComponent<Image>();
+        panelBg.color = new Color(0.08f, 0.06f, 0.10f, 0.92f);
 
         RectTransform panelRt = tutorialTextRoot.GetComponent<RectTransform>();
-        panelRt.anchorMin = new Vector2(0.5f, 1f);
-        panelRt.anchorMax = new Vector2(0.5f, 1f);
-        panelRt.pivot = new Vector2(0.5f, 1f);
-        panelRt.anchoredPosition = new Vector2(0f, -20f);
-        panelRt.sizeDelta = new Vector2(1200f, 112f);
+        panelRt.anchorMin        = new Vector2(0.5f, 0f);
+        panelRt.anchorMax        = new Vector2(0.5f, 0f);
+        panelRt.pivot            = new Vector2(0.5f, 0f);
+        panelRt.anchoredPosition = new Vector2(0f, edgePad);
+        panelRt.sizeDelta        = new Vector2(panelW, panelH);
 
-        GameObject textGo = new GameObject("TutorialText");
-        textGo.transform.SetParent(tutorialTextRoot.transform, false);
+        // Gold top border accent
+        GameObject border    = new GameObject("TopBorder");
+        border.transform.SetParent(tutorialTextRoot.transform, false);
+        Image borderImg      = border.AddComponent<Image>();
+        borderImg.color      = new Color(0.82f, 0.65f, 0.18f, 1f);
+        RectTransform borderRt = border.GetComponent<RectTransform>();
+        borderRt.anchorMin        = new Vector2(0f, 1f);
+        borderRt.anchorMax        = new Vector2(1f, 1f);
+        borderRt.pivot            = new Vector2(0.5f, 1f);
+        borderRt.anchoredPosition = Vector2.zero;
+        borderRt.sizeDelta        = new Vector2(0f, 4f);
 
-        tutorialText = textGo.AddComponent<TextMeshProUGUI>();
-        tutorialText.fontSize = 44f;
-        tutorialText.alignment = TextAlignmentOptions.Center;
-        tutorialText.color = Color.white;
-        tutorialText.enableWordWrapping = false;
+        // ── Portrait frame ────────────────────────────────────────────────
+        GameObject portraitFrame  = new GameObject("PortraitFrame");
+        portraitFrame.transform.SetParent(tutorialTextRoot.transform, false);
+        Image frameBg             = portraitFrame.AddComponent<Image>();
+        frameBg.color             = new Color(0.18f, 0.14f, 0.22f, 1f);
+        RectTransform frameRt     = portraitFrame.GetComponent<RectTransform>();
+        frameRt.anchorMin         = new Vector2(0f, 0.5f);
+        frameRt.anchorMax         = new Vector2(0f, 0.5f);
+        frameRt.pivot             = new Vector2(0f, 0.5f);
+        frameRt.anchoredPosition  = new Vector2(edgePad, 0f);
+        frameRt.sizeDelta         = new Vector2(portraitSz, portraitSz);
 
-        RectTransform textRt = tutorialText.GetComponent<RectTransform>();
-        textRt.anchorMin = Vector2.zero;
-        textRt.anchorMax = Vector2.one;
-        textRt.offsetMin = new Vector2(12f, 6f);
-        textRt.offsetMax = new Vector2(-12f, -6f);
+        GameObject portraitGo     = new GameObject("Portrait");
+        portraitGo.transform.SetParent(portraitFrame.transform, false);
+        tutorialPortraitImage     = portraitGo.AddComponent<Image>();
+        tutorialPortraitImage.preserveAspect = true;
+        tutorialPortraitImage.sprite         = npcPortrait;
+        if (npcPortrait == null)
+            tutorialPortraitImage.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+
+        RectTransform portRt      = tutorialPortraitImage.GetComponent<RectTransform>();
+        portRt.anchorMin          = new Vector2(0.05f, 0.05f);
+        portRt.anchorMax          = new Vector2(0.95f, 0.95f);
+        portRt.offsetMin          = Vector2.zero;
+        portRt.offsetMax          = Vector2.zero;
+
+        // ── Text area ─────────────────────────────────────────────────────
+        float textAreaX     = edgePad + portraitSz + edgePad;
+        float textAreaWidth = panelW - textAreaX - edgePad;
+
+        // Speaker name
+        GameObject nameGo         = new GameObject("SpeakerName");
+        nameGo.transform.SetParent(tutorialTextRoot.transform, false);
+        tutorialSpeakerText       = nameGo.AddComponent<TextMeshProUGUI>();
+        tutorialSpeakerText.text      = npcSpeakerName;
+        tutorialSpeakerText.fontSize  = 26f;
+        tutorialSpeakerText.fontStyle = FontStyles.Bold;
+        tutorialSpeakerText.color     = new Color(0.95f, 0.85f, 0.45f, 1f);
+        tutorialSpeakerText.alignment = TextAlignmentOptions.TopLeft;
+
+        RectTransform nameRt          = tutorialSpeakerText.GetComponent<RectTransform>();
+        nameRt.anchorMin              = new Vector2(0f, 1f);
+        nameRt.anchorMax              = new Vector2(0f, 1f);
+        nameRt.pivot                  = new Vector2(0f, 1f);
+        nameRt.anchoredPosition       = new Vector2(textAreaX, -edgePad);
+        nameRt.sizeDelta              = new Vector2(textAreaWidth, 34f);
+
+        // Dialogue body
+        GameObject bodyGo             = new GameObject("TutorialText");
+        bodyGo.transform.SetParent(tutorialTextRoot.transform, false);
+        tutorialText                  = bodyGo.AddComponent<TextMeshProUGUI>();
+        tutorialText.fontSize         = 28f;
+        tutorialText.color            = Color.white;
+        tutorialText.alignment        = TextAlignmentOptions.TopLeft;
+        tutorialText.enableWordWrapping = true;
+
+        RectTransform textRt          = tutorialText.GetComponent<RectTransform>();
+        textRt.anchorMin              = new Vector2(0f, 0f);
+        textRt.anchorMax              = new Vector2(0f, 1f);
+        textRt.pivot                  = new Vector2(0f, 1f);
+        textRt.anchoredPosition       = new Vector2(textAreaX, -(edgePad + 34f + 6f));
+        textRt.sizeDelta              = new Vector2(textAreaWidth, -(edgePad * 2f + 34f + 6f));
 
         ShowText(false);
     }

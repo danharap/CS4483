@@ -1,55 +1,87 @@
+using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Simple NPC dialogue interaction.
-/// - Player enters trigger -> can press E to interact
-/// - Guide mode supports questions 1-4
-/// - Lore mode shows random one-line flavor text
+/// Stardew Valley-style NPC dialogue.
+///
+/// Layout (bottom of screen):
+///   ┌──────────────────────────────────────────────────────────────┐
+///   │ [Portrait] │ SpeakerName                                     │
+///   │            │ Dialogue text here...                           │
+///   │            │                                          [E] ▶  │
+///   └──────────────────────────────────────────────────────────────┘
+///
+/// Usage:
+///   - Assign speakerPortrait and speakerName in the Inspector.
+///   - Guide mode answers questions 1-4 via keyboard.
+///   - Lore mode shows random one-line flavor text.
+///   - The panel animates in/out with a small vertical slide.
 /// Requires Collider IsTrigger = true and player tagged "Player".
 /// </summary>
 public class NPCDialogue : MonoBehaviour
 {
     public enum DialogueMode { Guide, Lore }
 
+    // ── Inspector ─────────────────────────────────────────────────────────
+
     [Header("Mode")]
     [SerializeField] private DialogueMode mode = DialogueMode.Guide;
 
+    [Header("Speaker Identity")]
+    [SerializeField] private string     speakerName         = "Guide";
+    [SerializeField] private Sprite     speakerPortrait;
+    [Tooltip("Resources path to load portrait at runtime if speakerPortrait is not set (e.g. 'Portraits/TutorialNPC_Portrait').")]
+    [SerializeField] private string     portraitResourcePath = "Portraits/TutorialNPC_Portrait";
+
     [Header("Input")]
-    [SerializeField] private KeyCode interactKey = KeyCode.E;
+    [SerializeField] private KeyCode    interactKey    = KeyCode.E;
 
-    [Header("UI (optional - auto-created)")]
-    [SerializeField] private TMP_Text dialogueText;
+    [Header("UI (auto-created if null)")]
     [SerializeField] private GameObject dialogueRoot;
+    [SerializeField] private TMP_Text   speakerNameText;
+    [SerializeField] private TMP_Text   dialogueBodyText;
+    [SerializeField] private Image      portraitImage;
+    [SerializeField] private TMP_Text   continuePrompt;
 
-    [Header("Prompt")]
-    [SerializeField] private bool showPromptWhenInRange = true;
-    [SerializeField] private string promptText = "Press E to interact";
+    [Header("Panel Slide Animation")]
+    [SerializeField] private float slideInTime  = 0.18f;
+    [SerializeField] private float slideOutTime = 0.12f;
+
+    // ── Internal ──────────────────────────────────────────────────────────
 
     private bool playerInRange;
     private bool guideMenuOpen;
+    private RectTransform panelRt;
+    private float hiddenY;
+    private float shownY;
+    private Coroutine slideCoroutine;
 
     private const string GuideDefault =
-        "You\'re new.\n\n" +
-        "You won\'t last long without understanding this place.\n\n" +
-        "[1] What is this place?\n" +
-        "[2] How do upgrades work?\n" +
-        "[3] How do I survive?\n" +
-        "[4] Who is the King?";
+        "You're new.\n\n" +
+        "You won't last long without understanding this place.\n\n" +
+        "[1] What is this place?     [2] How do upgrades work?\n" +
+        "[3] How do I survive?       [4] Who is the King?";
 
     private static readonly string[] LoreLines =
     {
-        "I\'ve seen dozens fall. You won\'t be different.",
+        "I've seen dozens fall. You won't be different.",
         "They enjoy watching us struggle.",
-        "Don\'t trust the power they give you.",
+        "Don't trust the power they give you.",
         "The King always wins."
     };
 
+    // ── Unity Lifecycle ───────────────────────────────────────────────────
+
     void Awake()
     {
-        EnsureDialogueUI();
-        SetVisible(false);
+        // Auto-load portrait from Resources if not assigned in Inspector
+        if (speakerPortrait == null && !string.IsNullOrEmpty(portraitResourcePath))
+            speakerPortrait = Resources.Load<Sprite>(portraitResourcePath);
+
+        BuildDialogueUI();
+        SetVisible(false, instant: true);
     }
 
     void Update()
@@ -58,16 +90,23 @@ public class NPCDialogue : MonoBehaviour
 
         if (Input.GetKeyDown(interactKey))
         {
-            if (mode == DialogueMode.Guide)
+            if (!guideMenuOpen)
             {
-                guideMenuOpen = true;
-                SetVisible(true);
-                SetText(GuideDefault);
+                if (mode == DialogueMode.Guide)
+                {
+                    guideMenuOpen = true;
+                    ShowPanel(GuideDefault);
+                }
+                else
+                {
+                    ShowPanel(LoreLines[Random.Range(0, LoreLines.Length)]);
+                }
             }
             else
             {
-                SetVisible(true);
-                SetText(LoreLines[Random.Range(0, LoreLines.Length)]);
+                // Second press closes
+                guideMenuOpen = false;
+                SetVisible(false);
             }
         }
 
@@ -75,40 +114,92 @@ public class NPCDialogue : MonoBehaviour
             HandleGuideQuestions();
     }
 
-    private void HandleGuideQuestions()
-    {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-            SetText("A prison disguised as entertainment.\n\nThey call it a game.\n\nIt is not.");
-        else if (Input.GetKeyDown(KeyCode.Alpha2))
-            SetText("Kill enough enemies and pick up their orbs to level up and choose an upgrade. They shape your abilities. No two runs are the same.");
-        else if (Input.GetKeyDown(KeyCode.Alpha3))
-            SetText("Keep moving.\n\nHesitation gets you killed.\n\nLearn the patterns.");
-        else if (Input.GetKeyDown(KeyCode.Alpha4))
-            SetText("The one who never fights... until the end.\n\nIf you reach him... you\'ll understand.");
-    }
-
     void OnTriggerEnter(Collider other)
     {
         if (!other.CompareTag("Player")) return;
         playerInRange = true;
-        if (showPromptWhenInRange)
-        {
-            SetVisible(true);
-            SetText(promptText);
-        }
+        ShowPanel($"Press [{interactKey}] to speak with {speakerName}");
     }
 
     void OnTriggerExit(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-        playerInRange = false;
-        guideMenuOpen = false;
+        playerInRange  = false;
+        guideMenuOpen  = false;
         SetVisible(false);
     }
 
-    private void EnsureDialogueUI()
+    // ── Guide Questions ───────────────────────────────────────────────────
+
+    private void HandleGuideQuestions()
     {
-        if (dialogueText != null) return;
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+            ShowPanel("A prison disguised as entertainment.\n\nThey call it a game.\n\nIt is not.");
+        else if (Input.GetKeyDown(KeyCode.Alpha2))
+            ShowPanel("Kill enough enemies and pick up their orbs to level up and choose an upgrade. They shape your abilities. No two runs are the same.");
+        else if (Input.GetKeyDown(KeyCode.Alpha3))
+            ShowPanel("Keep moving.\n\nHesitation gets you killed.\n\nLearn the patterns.");
+        else if (Input.GetKeyDown(KeyCode.Alpha4))
+            ShowPanel("The one who never fights... until the end.\n\nIf you reach him... you'll understand.");
+    }
+
+    // ── Panel Helpers ─────────────────────────────────────────────────────
+
+    private void ShowPanel(string text)
+    {
+        if (dialogueBodyText != null) dialogueBodyText.text = text;
+        SetVisible(true);
+    }
+
+    private void SetVisible(bool visible, bool instant = false)
+    {
+        if (dialogueRoot == null) return;
+
+        if (slideCoroutine != null) StopCoroutine(slideCoroutine);
+
+        if (instant)
+        {
+            dialogueRoot.SetActive(false);
+            if (panelRt != null) panelRt.anchoredPosition = new Vector2(0f, hiddenY);
+            return;
+        }
+
+        if (visible)
+        {
+            dialogueRoot.SetActive(true);
+            slideCoroutine = StartCoroutine(SlidePanel(hiddenY, shownY, slideInTime));
+        }
+        else
+        {
+            slideCoroutine = StartCoroutine(SlideOutAndHide());
+        }
+    }
+
+    private IEnumerator SlidePanel(float fromY, float toY, float duration)
+    {
+        if (panelRt == null) yield break;
+        float t = 0f;
+        while (t < duration)
+        {
+            t += Time.unscaledDeltaTime;
+            float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / duration));
+            panelRt.anchoredPosition = new Vector2(0f, Mathf.Lerp(fromY, toY, u));
+            yield return null;
+        }
+        panelRt.anchoredPosition = new Vector2(0f, toY);
+    }
+
+    private IEnumerator SlideOutAndHide()
+    {
+        yield return SlidePanel(shownY, hiddenY, slideOutTime);
+        if (dialogueRoot != null) dialogueRoot.SetActive(false);
+    }
+
+    // ── UI Builder ────────────────────────────────────────────────────────
+
+    private void BuildDialogueUI()
+    {
+        if (dialogueBodyText != null && dialogueRoot != null) return;
 
         GameObject canvasGo = GameObject.Find("Canvas_HUD");
         if (canvasGo == null)
@@ -118,41 +209,121 @@ public class NPCDialogue : MonoBehaviour
         }
         if (canvasGo == null) return;
 
-        dialogueRoot = new GameObject($"{name}_DialoguePanel");
+        // ── Root panel ────────────────────────────────────────────────────
+        const float panelH     = 220f;
+        const float panelW     = 1280f;
+        const float portraitSz = 180f;
+        const float edgePad    = 20f;
+
+        shownY  = edgePad;          // slightly off the bottom edge
+        hiddenY = -(panelH + 10f);  // fully below screen
+
+        dialogueRoot = new GameObject($"{name}_DialogueBox");
         dialogueRoot.transform.SetParent(canvasGo.transform, false);
 
-        Image bg = dialogueRoot.AddComponent<Image>();
-        bg.color = new Color(0f, 0f, 0f, 0.6f);
+        panelRt = dialogueRoot.AddComponent<RectTransform>();
+        panelRt.anchorMin        = new Vector2(0.5f, 0f);
+        panelRt.anchorMax        = new Vector2(0.5f, 0f);
+        panelRt.pivot            = new Vector2(0.5f, 0f);
+        panelRt.sizeDelta        = new Vector2(panelW, panelH);
+        panelRt.anchoredPosition = new Vector2(0f, hiddenY);
 
-        RectTransform panelRt = dialogueRoot.GetComponent<RectTransform>();
-        panelRt.anchorMin = new Vector2(0.5f, 0f);
-        panelRt.anchorMax = new Vector2(0.5f, 0f);
-        panelRt.pivot = new Vector2(0.5f, 0f);
-        panelRt.anchoredPosition = new Vector2(0f, 24f);
-        panelRt.sizeDelta = new Vector2(1200f, 300f);
+        // Dark semi-transparent backing
+        Image panelBg = dialogueRoot.AddComponent<Image>();
+        panelBg.color = new Color(0.08f, 0.06f, 0.10f, 0.92f);
 
-        GameObject textGo = new GameObject("DialogueText");
-        textGo.transform.SetParent(dialogueRoot.transform, false);
+        // Coloured top border strip (warm gold accent like Stardew)
+        GameObject border = new GameObject("TopBorder");
+        border.transform.SetParent(dialogueRoot.transform, false);
+        Image borderImg = border.AddComponent<Image>();
+        borderImg.color = new Color(0.82f, 0.65f, 0.18f, 1f);
+        RectTransform borderRt = border.GetComponent<RectTransform>();
+        borderRt.anchorMin        = new Vector2(0f, 1f);
+        borderRt.anchorMax        = new Vector2(1f, 1f);
+        borderRt.pivot            = new Vector2(0.5f, 1f);
+        borderRt.anchoredPosition = Vector2.zero;
+        borderRt.sizeDelta        = new Vector2(0f, 4f);
 
-        dialogueText = textGo.AddComponent<TextMeshProUGUI>();
-        dialogueText.fontSize = 40f;
-        dialogueText.alignment = TextAlignmentOptions.Center;
-        dialogueText.color = Color.white;
+        // ── Portrait frame ────────────────────────────────────────────────
+        GameObject portraitFrame = new GameObject("PortraitFrame");
+        portraitFrame.transform.SetParent(dialogueRoot.transform, false);
+        Image frameBg = portraitFrame.AddComponent<Image>();
+        frameBg.color = new Color(0.18f, 0.14f, 0.22f, 1f);
+        RectTransform frameRt = portraitFrame.GetComponent<RectTransform>();
+        frameRt.anchorMin        = new Vector2(0f, 0.5f);
+        frameRt.anchorMax        = new Vector2(0f, 0.5f);
+        frameRt.pivot            = new Vector2(0f, 0.5f);
+        frameRt.anchoredPosition = new Vector2(edgePad, 0f);
+        frameRt.sizeDelta        = new Vector2(portraitSz, portraitSz);
 
-        RectTransform textRt = dialogueText.GetComponent<RectTransform>();
-        textRt.anchorMin = Vector2.zero;
-        textRt.anchorMax = Vector2.one;
-        textRt.offsetMin = new Vector2(12f, 8f);
-        textRt.offsetMax = new Vector2(-12f, -8f);
-    }
+        // Portrait image inside frame
+        GameObject portraitGo = new GameObject("Portrait");
+        portraitGo.transform.SetParent(portraitFrame.transform, false);
+        portraitImage = portraitGo.AddComponent<Image>();
+        portraitImage.preserveAspect = true;
+        if (speakerPortrait != null)
+            portraitImage.sprite = speakerPortrait;
+        else
+            portraitImage.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
 
-    private void SetText(string value)
-    {
-        if (dialogueText != null) dialogueText.text = value;
-    }
+        RectTransform portRt = portraitImage.GetComponent<RectTransform>();
+        portRt.anchorMin = new Vector2(0.05f, 0.05f);
+        portRt.anchorMax = new Vector2(0.95f, 0.95f);
+        portRt.offsetMin = Vector2.zero;
+        portRt.offsetMax = Vector2.zero;
 
-    private void SetVisible(bool visible)
-    {
-        if (dialogueRoot != null) dialogueRoot.SetActive(visible);
+        // ── Text area ─────────────────────────────────────────────────────
+        float textAreaX     = edgePad + portraitSz + edgePad;
+        float textAreaWidth = panelW - textAreaX - edgePad;
+
+        // Speaker name
+        GameObject nameGo = new GameObject("SpeakerName");
+        nameGo.transform.SetParent(dialogueRoot.transform, false);
+        speakerNameText = nameGo.AddComponent<TextMeshProUGUI>();
+        speakerNameText.text      = speakerName;
+        speakerNameText.fontSize  = 28f;
+        speakerNameText.fontStyle = FontStyles.Bold;
+        speakerNameText.color     = new Color(0.95f, 0.85f, 0.45f, 1f);
+        speakerNameText.alignment = TextAlignmentOptions.TopLeft;
+
+        RectTransform nameRt = speakerNameText.GetComponent<RectTransform>();
+        nameRt.anchorMin        = new Vector2(0f, 1f);
+        nameRt.anchorMax        = new Vector2(0f, 1f);
+        nameRt.pivot            = new Vector2(0f, 1f);
+        nameRt.anchoredPosition = new Vector2(textAreaX, -edgePad);
+        nameRt.sizeDelta        = new Vector2(textAreaWidth, 36f);
+
+        // Dialogue body
+        GameObject bodyGo = new GameObject("DialogueBody");
+        bodyGo.transform.SetParent(dialogueRoot.transform, false);
+        dialogueBodyText = bodyGo.AddComponent<TextMeshProUGUI>();
+        dialogueBodyText.fontSize             = 26f;
+        dialogueBodyText.color                = Color.white;
+        dialogueBodyText.alignment            = TextAlignmentOptions.TopLeft;
+        dialogueBodyText.enableWordWrapping   = true;
+        dialogueBodyText.overflowMode         = TextOverflowModes.Ellipsis;
+
+        RectTransform bodyRt = dialogueBodyText.GetComponent<RectTransform>();
+        bodyRt.anchorMin        = new Vector2(0f, 0f);
+        bodyRt.anchorMax        = new Vector2(0f, 1f);
+        bodyRt.pivot            = new Vector2(0f, 1f);
+        bodyRt.anchoredPosition = new Vector2(textAreaX, -(edgePad + 36f + 8f));
+        bodyRt.sizeDelta        = new Vector2(textAreaWidth, -(edgePad * 2f + 36f + 8f + 32f));
+
+        // Continue prompt (bottom-right)
+        GameObject promptGo = new GameObject("ContinuePrompt");
+        promptGo.transform.SetParent(dialogueRoot.transform, false);
+        continuePrompt = promptGo.AddComponent<TextMeshProUGUI>();
+        continuePrompt.text      = $"[{interactKey}] Close  ▶";
+        continuePrompt.fontSize  = 22f;
+        continuePrompt.color     = new Color(0.7f, 0.7f, 0.7f, 0.85f);
+        continuePrompt.alignment = TextAlignmentOptions.BottomRight;
+
+        RectTransform promptRt = continuePrompt.GetComponent<RectTransform>();
+        promptRt.anchorMin        = new Vector2(1f, 0f);
+        promptRt.anchorMax        = new Vector2(1f, 0f);
+        promptRt.pivot            = new Vector2(1f, 0f);
+        promptRt.anchoredPosition = new Vector2(-edgePad, edgePad);
+        promptRt.sizeDelta        = new Vector2(300f, 30f);
     }
 }
