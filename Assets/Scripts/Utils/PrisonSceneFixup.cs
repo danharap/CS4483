@@ -26,6 +26,8 @@ static class PrisonSceneFixup
         DestroyByName("Tutorial_GuideNPC");
 
         EnsureBlackBackdrop();
+        EnsureOutsideBlackPlates();
+        RemoveLegacyCellBackWalls();
         SnapPrisonTransforms();
     }
 
@@ -42,7 +44,8 @@ static class PrisonSceneFixup
 
         // Attach under TutorialArea if present; otherwise just place at world root.
         Transform parent = null;
-        GameObject tutorialArea = GameObject.Find("TutorialArea");
+        GameObject tutorialArea = GameObject.Find("Tutorial_Prison");
+        if (tutorialArea == null) tutorialArea = GameObject.Find("TutorialArea");
         if (tutorialArea != null) parent = tutorialArea.transform;
 
         GameObject backdrop = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -59,6 +62,70 @@ static class PrisonSceneFixup
         }
     }
 
+    /// <summary>
+    /// Match editor-built black plates beside/beyond the corridor (hides brown ground from other levels).
+    /// </summary>
+    static void EnsureOutsideBlackPlates()
+    {
+        if (GameObject.Find("Tutorial_OutsideBlack_Left") != null) return;
+
+        Transform parent = null;
+        GameObject tutorialArea = GameObject.Find("Tutorial_Prison");
+        if (tutorialArea == null) tutorialArea = GameObject.Find("TutorialArea");
+        if (tutorialArea != null) parent = tutorialArea.transform;
+        if (parent == null) return;
+
+        Material mat = new Material(Shader.Find("Standard")) { color = Color.black };
+
+        void Plate(string name, Vector3 pos, Vector3 scale)
+        {
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            go.name = name;
+            go.transform.SetParent(parent, false);
+            go.transform.position = pos;
+            go.transform.localScale = scale;
+            var rend = go.GetComponent<Renderer>();
+            if (rend != null) rend.sharedMaterial = mat;
+        }
+
+        const float plateThickness = 0.25f;
+        const float plateY = -0.12f;
+        const float plateZExtent = 100f;
+        const float plateXExtent = 45f;
+        const float floorHalfX = 48f;
+        const float cz = -40f;
+        const float floorNorthZ = -47f;
+        const float floorSouthZ = -33f;
+
+        Plate("Tutorial_OutsideBlack_Left",
+            new Vector3(-floorHalfX - plateXExtent * 0.5f - 0.25f, plateY, cz),
+            new Vector3(plateXExtent, plateThickness, plateZExtent));
+        Plate("Tutorial_OutsideBlack_Right",
+            new Vector3(floorHalfX + plateXExtent * 0.5f + 0.25f, plateY, cz),
+            new Vector3(plateXExtent, plateThickness, plateZExtent));
+        Plate("Tutorial_OutsideBlack_North",
+            new Vector3(0f, plateY, floorNorthZ - plateZExtent * 0.5f - 0.5f),
+            new Vector3(plateXExtent * 2f + 20f, plateThickness, plateZExtent));
+        Plate("Tutorial_OutsideBlack_South",
+            new Vector3(0f, plateY, floorSouthZ + plateZExtent * 0.5f + 0.5f),
+            new Vector3(plateXExtent * 2f + 20f, plateThickness, plateZExtent));
+    }
+
+    static void RemoveLegacyCellBackWalls()
+    {
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t == null) continue;
+                if (!t.name.StartsWith("Cell_")) continue;
+                Transform back = t.Find("Back");
+                if (back != null) Object.Destroy(back.gameObject);
+            }
+        }
+        // Old discrete Cell_* groups removed by rebuild; CellRow_* / PrisonCells_* have no legacy Back child.
+    }
+
     static void SnapPrisonTransforms()
     {
         // Snap only known prison/tutorial structural elements to avoid touching gameplay objects.
@@ -69,9 +136,16 @@ static class PrisonSceneFixup
                 if (t == null) continue;
                 string n = t.name;
                 if (!(n.StartsWith("Cell_") ||
+                      n.StartsWith("Cell_T") ||
+                      n.StartsWith("Cell_B") ||
+                      n.StartsWith("Cell_L") ||
+                      n.StartsWith("Cell_R") ||
+                      n.StartsWith("PrisonCells_") ||
+                      n.StartsWith("CellRow_") ||
                       n.StartsWith("T_Wall_") ||
                       n.StartsWith("Tutorial_") ||
-                      n == "TutorialArea"))
+                      n == "TutorialArea" ||
+                      n == "Tutorial_Prison"))
                     continue;
 
                 Vector3 p = t.position;

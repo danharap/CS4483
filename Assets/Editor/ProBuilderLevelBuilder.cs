@@ -38,6 +38,32 @@ public static class ProBuilderLevelBuilder
     };
     static readonly float[] ObstacleBoxScalesXZ = { 2f, 2.25f, 2.25f, 2.5f, 2.5f };
 
+    /// <summary>
+    /// Deterministic tutorial prison (XZ plane): long corridor on +X, narrow in Z. One module = one cell; rows tile on X only.
+    /// Floor half-X must cover all gates/triggers/spawn (was mismatched when floor was ±48 but logic used X to -76).
+    /// </summary>
+    static class TutorialPrisonConstants
+    {
+        public const float CorridorInnerHalfZ = 6.75f;
+        public const float HallwayInnerWidthX = 13.5f;
+        public const float OuterWallFaceOffset = 7.25f;
+        /// <summary>How far the bar plane (and cell root) moves from the walkway inner face toward corridor center (Z). Snapped.</summary>
+        public const float BarProtrusionIntoWalkway = 1.6f;
+        public const float GridSnap = 0.05f;
+        public const float BarModuleWidth = 0.55f;
+        public const int BarsPerCell = 5;
+        public const float BarPostThickness = 0.12f;
+        public const float BarHeight = 2.8f;
+        public const float BarCenterY = 1.4f;
+        public const float CellExtentX = 2.4f;
+        public const float CellSpacingX = 2.65f;
+        public const float CellXMin = -75f;
+        public const float CellXMax = 75f;
+        public const float GateThicknessZ = 0.35f;
+        public const float EndWallThicknessZ = 0.28f;
+        public const float BackStripThicknessX = 0.32f;
+    }
+
     // Called from SetupAll; no menu item (use Full Setup instead)
     public static void BuildLevel()
     {
@@ -292,7 +318,7 @@ public static class ProBuilderLevelBuilder
         CreateLighting();
 
         EditorSceneManager.MarkSceneDirty(scene);
-        Debug.Log("[ProBuilderLevelBuilder] ✓ Tutorial level built.");
+        Debug.Log("[ProBuilderLevelBuilder] ✓ Tutorial level rebuilt (Tutorial_Prison). Save MainScene. Player spawn: Tutorial_PlayerSpawn / " + TutorialPrisonLayout.PlayerSpawnPosition);
     }
 
     /// <summary>
@@ -736,58 +762,68 @@ public static class ProBuilderLevelBuilder
         CreateWorldLabel(portal.transform, "ArenaLabel", "Arena", new Vector3(0f, 2.2f, 0f), Color.yellow);
     }
 
-    // ── Tutorial Jail-Cell Walkthrough ────────────────────────────────────
+    // ── Tutorial prison (rebuilt: single root, grid cells on X, bounds-safe spawn) ──
 
     static void CreateTutorialGeometry()
     {
-        GameObject tutorial = new GameObject("TutorialArea");
-        tutorial.transform.SetParent(levelRoot);
+        float cz = TutorialPrisonLayout.CorridorCenterZ;
+        float hx = TutorialPrisonLayout.FloorHalfX;
+        float hzBand = TutorialPrisonLayout.FloorHalfZ;
+        float floorNorthZ = cz - hzBand;
+        float floorSouthZ = cz + hzBand;
+        float wallSpanX = hx * 2f;
+
+        GameObject prison = new GameObject("Tutorial_Prison");
+        prison.transform.SetParent(levelRoot);
+        prison.transform.localPosition = Vector3.zero;
+        prison.transform.localRotation = Quaternion.identity;
+        prison.transform.localScale = Vector3.one;
 
         Material floorMat = GetOrCreateMat("M_TutorialFloor", new Color(0.45f, 0.45f, 0.48f));
         Material wallMat  = GetOrCreateMat("M_TutorialWall",  new Color(0.20f, 0.20f, 0.24f));
         Material barMat   = GetOrCreateMat("M_JailBars",      new Color(0.62f, 0.62f, 0.66f));
         Material voidMat  = GetOrCreateMat("M_VoidBlack",     new Color(0f, 0f, 0f));
 
-        // Solid black backdrop under/around the prison so nothing unintended shows through.
         GameObject voidFloor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         voidFloor.name = "Tutorial_VoidBackdrop";
-        voidFloor.transform.SetParent(tutorial.transform);
-        voidFloor.transform.position = new Vector3(0f, -2.0f, -40f);
-        voidFloor.transform.localScale = new Vector3(120f, 1f, 180f);
+        voidFloor.transform.SetParent(prison.transform);
+        voidFloor.transform.position = new Vector3(0f, -2.0f, cz);
+        voidFloor.transform.localScale = new Vector3(220f, 1f, 120f);
         voidFloor.GetComponent<Renderer>().sharedMaterial = voidMat;
 
-        // Main corridor (3x longer)
+        CreateTutorialOutsideBlackPlates(prison.transform, voidMat);
+
         GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         floor.name = "Tutorial_Floor";
-        floor.transform.SetParent(tutorial.transform);
-        floor.transform.position = new Vector3(0f, -0.2f, -40f);
-        floor.transform.localScale = new Vector3(14f, 0.4f, 96f);
+        floor.transform.SetParent(prison.transform);
+        floor.transform.position = new Vector3(0f, -0.2f, cz);
+        floor.transform.localScale = new Vector3(wallSpanX, 0.4f, hzBand * 2f);
         floor.GetComponent<Renderer>().sharedMaterial = floorMat;
 
-        // Corridor boundary walls
-        CreateWall(tutorial.transform, "T_Wall_Left",  new Vector3(-7f, 2f, -40f), new Vector3(0.5f, 4f, 96f), wallMat);
-        CreateWall(tutorial.transform, "T_Wall_Right", new Vector3(7f, 2f, -40f),  new Vector3(0.5f, 4f, 96f), wallMat);
-        CreateWall(tutorial.transform, "T_Wall_Start", new Vector3(0f, 2f, -88f),  new Vector3(14f, 4f, 0.5f), wallMat);
-        CreateWall(tutorial.transform, "T_Wall_End",   new Vector3(0f, 2f, 8f),    new Vector3(14f, 4f, 0.5f), wallMat);
+        float wallT = 0.5f;
+        CreateWall(prison.transform, "T_Wall_West",  new Vector3(-hx - wallT * 0.5f, 2f, cz), new Vector3(wallT, 4f, hzBand * 2f), wallMat);
+        CreateWall(prison.transform, "T_Wall_East",   new Vector3( hx + wallT * 0.5f, 2f, cz), new Vector3(wallT, 4f, hzBand * 2f), wallMat);
+        CreateWall(prison.transform, "T_Wall_North",  new Vector3(0f, 2f, floorNorthZ - wallT * 0.5f), new Vector3(wallSpanX, 4f, wallT), wallMat);
+        CreateWall(prison.transform, "T_Wall_South",  new Vector3(0f, 2f, floorSouthZ + wallT * 0.5f), new Vector3(wallSpanX, 4f, wallT), wallMat);
 
-        // Simple jail cells on both sides of the corridor.
-        float[] cellZ = { -82f, -74f, -66f, -58f, -50f, -42f, -34f, -26f, -18f, -10f, -2f };
-        for (int i = 0; i < cellZ.Length; i++)
-        {
-            CreateCell(tutorial.transform, new Vector3(-4.6f, 0f, cellZ[i]), wallMat, barMat, $"Cell_L_{i + 1}");
-            CreateCell(tutorial.transform, new Vector3(4.6f, 0f, cellZ[i]), wallMat, barMat, $"Cell_R_{i + 1}");
-        }
+        GameObject topRow = CreateHorizontalPrisonRow(prison.transform, isNorthRow: true, wallMat, barMat, "PrisonCells_Top");
+        GameObject bottomRow = CreateHorizontalPrisonRow(prison.transform, isNorthRow: false, wallMat, barMat, "PrisonCells_Bottom");
+        LogTutorialPrisonCellLayout(topRow, bottomRow);
 
-        // Three progression gates (opened by tutorial milestones).
-        CreateHallGate(tutorial.transform, "Tutorial_Gate_1", new Vector3(0f, 1.5f, -70f), barMat);
-        CreateHallGate(tutorial.transform, "Tutorial_Gate_2", new Vector3(0f, 1.5f, -40f), barMat);
-        CreateHallGate(tutorial.transform, "Tutorial_Gate_3", new Vector3(0f, 1.5f, -10f), barMat);
+        float gateSpanZ = TutorialPrisonConstants.HallwayInnerWidthX;
+        float gateThicknessX = TutorialPrisonConstants.GateThicknessZ;
+        CreateHallGateAcrossZ(prison.transform, "Tutorial_Gate_1", new Vector3(-70f, 1.5f, cz), barMat, gateSpanZ, gateThicknessX);
+        CreateHallGateAcrossZ(prison.transform, "Tutorial_Gate_2", new Vector3(-40f, 1.5f, cz), barMat, gateSpanZ, gateThicknessX);
+        CreateHallGateAcrossZ(prison.transform, "Tutorial_Gate_3", new Vector3(-10f, 1.5f, cz), barMat, gateSpanZ, gateThicknessX);
 
-        // Exit portal at end of tutorial corridor (back to lobby)
+        GameObject playerSpawn = new GameObject("Tutorial_PlayerSpawn");
+        playerSpawn.transform.SetParent(prison.transform);
+        playerSpawn.transform.position = TutorialPrisonLayout.PlayerSpawnPosition;
+
         GameObject exitPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
         exitPortal.name = "TutorialToArena_Portal";
-        exitPortal.transform.SetParent(tutorial.transform);
-        exitPortal.transform.position = new Vector3(0f, 1.5f, 7.3f);
+        exitPortal.transform.SetParent(prison.transform);
+        exitPortal.transform.position = new Vector3(77f, 1.5f, cz);
         exitPortal.transform.localScale = new Vector3(2f, 3f, 0.3f);
         var exitR = exitPortal.GetComponent<Renderer>();
         if (exitR != null) exitR.sharedMaterial = GetOrCreateMat("M_Boss", new Color(0.40f, 0.02f, 0.02f));
@@ -799,18 +835,16 @@ public static class ProBuilderLevelBuilder
         exitPortal.AddComponent<TutorialExitPortal>();
         CreateWorldLabel(exitPortal.transform, "ExitLabel", "Exit to Lobby", new Vector3(0f, 2.2f, 0f), Color.white);
 
-        // Marker used by TutorialManager for first combat lesson.
         GameObject enemySpawn = new GameObject("Tutorial_EnemySpawn");
-        enemySpawn.transform.SetParent(tutorial.transform);
-        enemySpawn.transform.position = new Vector3(0f, 1f, -62f);
+        enemySpawn.transform.SetParent(prison.transform);
+        enemySpawn.transform.position = new Vector3(-62f, 1f, cz);
 
-        // First checkpoint trigger: once crossed, first gate opens.
         GameObject firstCheckpoint = new GameObject("Tutorial_FirstCheckpoint");
-        firstCheckpoint.transform.SetParent(tutorial.transform);
-        firstCheckpoint.transform.position = new Vector3(0f, 1f, -76f);
+        firstCheckpoint.transform.SetParent(prison.transform);
+        firstCheckpoint.transform.position = new Vector3(-76f, 1f, cz);
         BoxCollider cpCol = firstCheckpoint.AddComponent<BoxCollider>();
         cpCol.isTrigger = true;
-        cpCol.size = new Vector3(6f, 2f, 2f);
+        cpCol.size = new Vector3(2f, 2f, 8f);
         var cpTrigger = firstCheckpoint.AddComponent<TutorialHallTrigger>();
         var soCp = new SerializedObject(cpTrigger);
         soCp.FindProperty("action").enumValueIndex = 0; // FirstGateApproach
@@ -818,11 +852,11 @@ public static class ProBuilderLevelBuilder
 
         // Trigger just beyond gate 1: starts delayed enemy spawn.
         GameObject firstPassed = new GameObject("Tutorial_FirstGatePassed");
-        firstPassed.transform.SetParent(tutorial.transform);
-        firstPassed.transform.position = new Vector3(0f, 1f, -64f);
+        firstPassed.transform.SetParent(prison.transform);
+        firstPassed.transform.position = new Vector3(-64f, 1f, cz);
         BoxCollider fpCol = firstPassed.AddComponent<BoxCollider>();
         fpCol.isTrigger = true;
-        fpCol.size = new Vector3(6f, 2f, 2f);
+        fpCol.size = new Vector3(2f, 2f, 8f);
         var fpTrigger = firstPassed.AddComponent<TutorialHallTrigger>();
         var soFp = new SerializedObject(fpTrigger);
         soFp.FindProperty("action").enumValueIndex = 1; // FirstGatePassed
@@ -830,11 +864,11 @@ public static class ProBuilderLevelBuilder
 
         // Trigger just beyond gate 2: starts orb objective.
         GameObject secondPassed = new GameObject("Tutorial_SecondGatePassed");
-        secondPassed.transform.SetParent(tutorial.transform);
-        secondPassed.transform.position = new Vector3(0f, 1f, -34f);
+        secondPassed.transform.SetParent(prison.transform);
+        secondPassed.transform.position = new Vector3(-34f, 1f, cz);
         BoxCollider spCol = secondPassed.AddComponent<BoxCollider>();
         spCol.isTrigger = true;
-        spCol.size = new Vector3(6f, 2f, 2f);
+        spCol.size = new Vector3(2f, 2f, 8f);
         var spTrigger = secondPassed.AddComponent<TutorialHallTrigger>();
         var soSp = new SerializedObject(spTrigger);
         soSp.FindProperty("action").enumValueIndex = 2; // SecondGatePassed
@@ -842,11 +876,11 @@ public static class ProBuilderLevelBuilder
 
         // Trigger entering orb area.
         GameObject upgradeTrigger = new GameObject("Tutorial_UpgradeTrigger");
-        upgradeTrigger.transform.SetParent(tutorial.transform);
-        upgradeTrigger.transform.position = new Vector3(0f, 1f, -32f);
+        upgradeTrigger.transform.SetParent(prison.transform);
+        upgradeTrigger.transform.position = new Vector3(-32f, 1f, cz);
         BoxCollider upCol = upgradeTrigger.AddComponent<BoxCollider>();
         upCol.isTrigger = true;
-        upCol.size = new Vector3(8f, 2f, 4f);
+        upCol.size = new Vector3(4f, 2f, 8f);
         var upTrigger = upgradeTrigger.AddComponent<TutorialHallTrigger>();
         var soUp = new SerializedObject(upTrigger);
         soUp.FindProperty("action").enumValueIndex = 3; // OrbAreaStart
@@ -854,45 +888,46 @@ public static class ProBuilderLevelBuilder
 
         // Orb spawn points (6 total) for the XP collection objective.
         GameObject orbSpawns = new GameObject("Tutorial_OrbSpawns");
-        orbSpawns.transform.SetParent(tutorial.transform);
+        orbSpawns.transform.SetParent(prison.transform);
         Vector3[] orbPositions =
         {
-            new Vector3(-2.5f, 0.5f, -28f),
-            new Vector3( 0.0f, 0.5f, -28f),
-            new Vector3( 2.5f, 0.5f, -28f),
-            new Vector3(-2.5f, 0.5f, -22f),
-            new Vector3( 0.0f, 0.5f, -22f),
-            new Vector3( 2.5f, 0.5f, -22f)
+            new Vector3(-28f, 0.5f, cz - 2.5f),
+            new Vector3(-28f, 0.5f, cz),
+            new Vector3(-28f, 0.5f, cz + 2.5f),
+            new Vector3(-22f, 0.5f, cz - 2.5f),
+            new Vector3(-22f, 0.5f, cz),
+            new Vector3(-22f, 0.5f, cz + 2.5f)
         };
         for (int i = 0; i < orbPositions.Length; i++)
         {
-            GameObject p = new GameObject($"OrbSpawn_{i + 1}");
-            p.transform.SetParent(orbSpawns.transform);
-            p.transform.localPosition = orbPositions[i];
+            GameObject orbGo = new GameObject($"OrbSpawn_{i + 1}");
+            orbGo.transform.SetParent(orbSpawns.transform);
+            orbGo.transform.localPosition = orbPositions[i];
         }
 
-        // Trigger near NPC: show interaction hint.
         GameObject npcHintTrigger = new GameObject("Tutorial_NpcHintTrigger");
-        npcHintTrigger.transform.SetParent(tutorial.transform);
-        npcHintTrigger.transform.position = new Vector3(0f, 1f, -2f);
+        npcHintTrigger.transform.SetParent(prison.transform);
+        npcHintTrigger.transform.position = new Vector3(-2f, 1f, cz);
         BoxCollider hintCol = npcHintTrigger.AddComponent<BoxCollider>();
         hintCol.isTrigger = true;
-        hintCol.size = new Vector3(6f, 2f, 2f);
+        hintCol.size = new Vector3(8f, 2f, 2f);
         var hintTrigger = npcHintTrigger.AddComponent<TutorialHallTrigger>();
         var soHint = new SerializedObject(hintTrigger);
         soHint.FindProperty("action").enumValueIndex = 4; // NpcHint
         soHint.ApplyModifiedPropertiesWithoutUndo();
 
-        // NOTE: Removed the tutorial guide NPC from inside the prison tutorial area.
+        Debug.Log($"[TutorialPrison] Rebuild complete. Floor X∈[-{hx:F1},{hx:F1}] Z∈[{floorNorthZ:F1},{floorSouthZ:F1}]. PlayerSpawn={TutorialPrisonLayout.PlayerSpawnPosition}.");
     }
 
-    static void CreateHallGate(Transform parent, string name, Vector3 localPos, Material mat)
+    static void CreateHallGate(Transform parent, string name, Vector3 localPos, Material mat,
+        float widthX = TutorialPrisonConstants.HallwayInnerWidthX,
+        float depthZ = TutorialPrisonConstants.GateThicknessZ)
     {
         GameObject gate = GameObject.CreatePrimitive(PrimitiveType.Cube);
         gate.name = name;
         gate.transform.SetParent(parent);
         gate.transform.localPosition = localPos;
-        gate.transform.localScale = new Vector3(11f, 3f, 0.4f);
+        gate.transform.localScale = new Vector3(widthX, 3f, depthZ);
         gate.GetComponent<Renderer>().sharedMaterial = mat;
 
         TutorialGate gateComp = gate.AddComponent<TutorialGate>();
@@ -901,59 +936,205 @@ public static class ProBuilderLevelBuilder
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
-    static void CreateCell(Transform parent, Vector3 center, Material wallMat, Material barMat, string name)
+    /// <summary>Gate blocking movement along X: thin in X, spans inner width across Z.</summary>
+    static void CreateHallGateAcrossZ(Transform parent, string name, Vector3 localPos, Material mat,
+        float spanZ, float thicknessX)
     {
-        // Build cells with explicit snapped world-space so walls/bars line up cleanly.
-        // Corridor walls are at x=±7 with thickness 0.5 → inner faces at ±6.75.
-        float grid = 0.05f;
-        float xSign = center.x < 0f ? -1f : 1f;
+        GameObject gate = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        gate.name = name;
+        gate.transform.SetParent(parent);
+        gate.transform.localPosition = localPos;
+        gate.transform.localScale = new Vector3(thicknessX, 3f, spanZ);
+        gate.GetComponent<Renderer>().sharedMaterial = mat;
 
-        float innerWallX = xSign * 6.75f;
-        float barsX      = innerWallX - xSign * 0.35f;  // slightly inside corridor
-        float backX      = innerWallX + xSign * 1.85f;  // outside corridor
-        float sideZ0     = center.z - 1.0f;
-        float sideZ1     = center.z + 1.0f;
+        TutorialGate gateComp = gate.AddComponent<TutorialGate>();
+        var so = new SerializedObject(gateComp);
+        so.FindProperty("startOpen").boolValue = false;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
 
-        // Snap to grid to eliminate visible seams.
-        innerWallX = Mathf.Round(innerWallX / grid) * grid;
-        barsX      = Mathf.Round(barsX      / grid) * grid;
-        backX      = Mathf.Round(backX      / grid) * grid;
-        sideZ0     = Mathf.Round(sideZ0     / grid) * grid;
-        sideZ1     = Mathf.Round(sideZ1     / grid) * grid;
+    /// <summary>
+    /// Floor-level black quads beside the corridor so other level geometry (brown ground) does not show.
+    /// Walkway is long in X (~[-48,48]) and narrow in Z (~[-47,-33]) at CorridorCenterZ.
+    /// </summary>
+    static void CreateTutorialOutsideBlackPlates(Transform tutorialParent, Material voidMat)
+    {
+        float floorHalfX = TutorialPrisonLayout.FloorHalfX;
+        const float plateThickness = 0.25f;
+        const float plateY = -0.12f;
+        const float plateZExtent = 100f;
+        const float plateXExtent = 45f;
+        float cz = TutorialPrisonLayout.CorridorCenterZ;
 
-        GameObject root = new GameObject(name);
-        root.transform.SetParent(parent);
-        root.transform.position = new Vector3(Mathf.Round(center.x / grid) * grid, 0f, Mathf.Round(center.z / grid) * grid);
+        GameObject west = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        west.name = "Tutorial_OutsideBlack_Left";
+        west.transform.SetParent(tutorialParent);
+        west.transform.position = new Vector3(-floorHalfX - plateXExtent * 0.5f - 0.25f, plateY, cz);
+        west.transform.localScale = new Vector3(plateXExtent, plateThickness, plateZExtent);
+        west.GetComponent<Renderer>().sharedMaterial = voidMat;
 
-        // Back wall (parallel to corridor, i.e., along Z)
-        CreateWall(root.transform, "Back",
-            new Vector3(backX - root.transform.position.x, 1.5f, 0f),
-            new Vector3(0.3f, 3f, 3f),
-            wallMat);
+        GameObject east = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        east.name = "Tutorial_OutsideBlack_Right";
+        east.transform.SetParent(tutorialParent);
+        east.transform.position = new Vector3(floorHalfX + plateXExtent * 0.5f + 0.25f, plateY, cz);
+        east.transform.localScale = new Vector3(plateXExtent, plateThickness, plateZExtent);
+        east.GetComponent<Renderer>().sharedMaterial = voidMat;
 
-        // Side walls (perpendicular, i.e., along X)
-        CreateWall(root.transform, "SideA",
-            new Vector3((backX + barsX) * 0.5f - root.transform.position.x, 1.5f, sideZ0 - root.transform.position.z),
-            new Vector3(Mathf.Abs(backX - barsX), 3f, 0.3f),
-            wallMat);
-        CreateWall(root.transform, "SideB",
-            new Vector3((backX + barsX) * 0.5f - root.transform.position.x, 1.5f, sideZ1 - root.transform.position.z),
-            new Vector3(Mathf.Abs(backX - barsX), 3f, 0.3f),
-            wallMat);
+        float floorNorthZ = TutorialPrisonLayout.CorridorCenterZ - TutorialPrisonLayout.FloorHalfZ;
+        float floorSouthZ = TutorialPrisonLayout.CorridorCenterZ + TutorialPrisonLayout.FloorHalfZ;
 
-        // Front bars (vertical posts) on the opening plane.
-        float barSpanZ = 2.4f;
-        for (int i = 0; i < 5; i++)
+        GameObject north = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        north.name = "Tutorial_OutsideBlack_North";
+        north.transform.SetParent(tutorialParent);
+        north.transform.position = new Vector3(0f, plateY, floorNorthZ - plateZExtent * 0.5f - 0.5f);
+        north.transform.localScale = new Vector3(plateXExtent * 2f + 20f, plateThickness, plateZExtent);
+        north.GetComponent<Renderer>().sharedMaterial = voidMat;
+
+        GameObject south = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        south.name = "Tutorial_OutsideBlack_South";
+        south.transform.SetParent(tutorialParent);
+        south.transform.position = new Vector3(0f, plateY, floorSouthZ + plateZExtent * 0.5f + 0.5f);
+        south.transform.localScale = new Vector3(plateXExtent * 2f + 20f, plateThickness, plateZExtent);
+        south.GetComponent<Renderer>().sharedMaterial = voidMat;
+    }
+
+    static float SnapToTutorialGrid(float v)
+    {
+        float g = TutorialPrisonConstants.GridSnap;
+        return Mathf.Round(v / g) * g;
+    }
+
+    /// <summary>Inner face of T_Wall_North (south-facing plane toward cells) — must match CreateTutorialGeometry floorNorthZ.</summary>
+    static float GetNorthPerimeterInnerFaceZ()
+    {
+        return SnapToTutorialGrid(TutorialPrisonLayout.CorridorCenterZ - TutorialPrisonLayout.FloorHalfZ);
+    }
+
+    /// <summary>Inner face of T_Wall_South (north-facing plane toward cells) — must match CreateTutorialGeometry floorSouthZ.</summary>
+    static float GetSouthPerimeterInnerFaceZ()
+    {
+        return SnapToTutorialGrid(TutorialPrisonLayout.CorridorCenterZ + TutorialPrisonLayout.FloorHalfZ);
+    }
+
+    /// <summary>
+    /// One row of cells along +X at fixed Z (north or south of walkway). Each module has a unique X; Y is 0 for all roots.
+    /// </summary>
+    static GameObject CreateHorizontalPrisonRow(Transform parent, bool isNorthRow, Material wallMat, Material barMat, string rowName)
+    {
+        GameObject row = new GameObject(rowName);
+        row.transform.SetParent(parent);
+        row.transform.localPosition = Vector3.zero;
+        row.transform.localRotation = Quaternion.identity;
+        row.transform.localScale = Vector3.one;
+
+        float halfCell = TutorialPrisonConstants.CellExtentX * 0.5f;
+        float xStart = SnapToTutorialGrid(TutorialPrisonConstants.CellXMin + halfCell);
+        float xLimit = SnapToTutorialGrid(TutorialPrisonConstants.CellXMax - halfCell);
+        float step = SnapToTutorialGrid(TutorialPrisonConstants.CellSpacingX);
+        if (step < 0.05f) step = TutorialPrisonConstants.GridSnap;
+
+        int index = 0;
+        string prefix = isNorthRow ? "Cell_T" : "Cell_B";
+        for (float x = xStart; x <= xLimit + 0.001f; x += step)
         {
-            float t = i / 4f;
-            float z = Mathf.Lerp(-barSpanZ * 0.5f, barSpanZ * 0.5f, t);
+            x = SnapToTutorialGrid(x);
+            index++;
+            CreateOneDiscreteCellNorthSouth(row.transform, isNorthRow, x, wallMat, barMat, $"{prefix}_{index:000}");
+        }
+
+        return row;
+    }
+
+    /// <summary>
+    /// Bars run along local X (bar-module spacing); end caps at ±X; back strip along Z — faces the walkway across Z.
+    /// </summary>
+    static void CreateOneDiscreteCellNorthSouth(Transform rowParent, bool isNorthRow, float xCenterWorld, Material wallMat, Material barMat, string cellName)
+    {
+        float cz = TutorialPrisonLayout.CorridorCenterZ;
+        float zSign = isNorthRow ? -1f : 1f;
+
+        float innerFaceZ = SnapToTutorialGrid(cz + zSign * TutorialPrisonConstants.CorridorInnerHalfZ);
+        float protrusion = SnapToTutorialGrid(TutorialPrisonConstants.BarProtrusionIntoWalkway);
+        // North row: +Z toward center; south row: −Z toward center.
+        float barsZ = SnapToTutorialGrid(innerFaceZ - zSign * protrusion);
+
+        // CellBack north/south outer edge flush with T_Wall inner face (same Z as floorNorthZ / floorSouthZ).
+        float perimeterInnerZ = isNorthRow ? GetNorthPerimeterInnerFaceZ() : GetSouthPerimeterInnerFaceZ();
+        float halfBackZ = SnapToTutorialGrid(TutorialPrisonConstants.BackStripThicknessX * 0.5f);
+        float backZ = isNorthRow
+            ? SnapToTutorialGrid(perimeterInnerZ + halfBackZ)
+            : SnapToTutorialGrid(perimeterInnerZ - halfBackZ);
+
+        float depthBarsToOuter = Mathf.Abs(barsZ - perimeterInnerZ);
+        if (depthBarsToOuter < 0.08f) depthBarsToOuter = 0.08f;
+        float midZ = SnapToTutorialGrid((barsZ + perimeterInnerZ) * 0.5f);
+        xCenterWorld = SnapToTutorialGrid(xCenterWorld);
+
+        GameObject cell = new GameObject(cellName);
+        cell.transform.SetParent(rowParent);
+        cell.transform.position = new Vector3(xCenterWorld, 0f, barsZ);
+        cell.transform.localRotation = Quaternion.identity;
+        cell.transform.localScale = Vector3.one;
+
+        float halfSpan = (TutorialPrisonConstants.BarsPerCell - 1) * 0.5f * TutorialPrisonConstants.BarModuleWidth;
+        halfSpan = SnapToTutorialGrid(halfSpan);
+        for (int b = 0; b < TutorialPrisonConstants.BarsPerCell; b++)
+        {
+            float lx = SnapToTutorialGrid(-halfSpan + b * TutorialPrisonConstants.BarModuleWidth);
             GameObject bar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            bar.name = $"Bar_{i + 1}";
-            bar.transform.SetParent(root.transform);
-            bar.transform.localPosition = new Vector3(barsX - root.transform.position.x, 1.4f, Mathf.Round(z / grid) * grid);
-            bar.transform.localScale = new Vector3(0.1f, 2.8f, 0.1f);
+            bar.name = $"Bar_{b + 1}";
+            bar.transform.SetParent(cell.transform);
+            bar.transform.localPosition = new Vector3(lx, TutorialPrisonConstants.BarCenterY, 0f);
+            bar.transform.localScale = new Vector3(TutorialPrisonConstants.BarPostThickness, TutorialPrisonConstants.BarHeight, TutorialPrisonConstants.BarPostThickness);
             bar.GetComponent<Renderer>().sharedMaterial = barMat;
         }
+
+        float hx = TutorialPrisonConstants.CellExtentX * 0.5f;
+        hx = SnapToTutorialGrid(hx);
+
+        CreateWallWorld(cell.transform, "EndWall_NegX",
+            new Vector3(xCenterWorld - hx, 1.5f, midZ),
+            new Vector3(TutorialPrisonConstants.EndWallThicknessZ, 3f, depthBarsToOuter),
+            wallMat);
+        CreateWallWorld(cell.transform, "EndWall_PosX",
+            new Vector3(xCenterWorld + hx, 1.5f, midZ),
+            new Vector3(TutorialPrisonConstants.EndWallThicknessZ, 3f, depthBarsToOuter),
+            wallMat);
+
+        CreateWallWorld(cell.transform, "CellBack",
+            new Vector3(xCenterWorld, 1.5f, backZ),
+            new Vector3(TutorialPrisonConstants.CellExtentX, 3.5f, TutorialPrisonConstants.BackStripThicknessX),
+            wallMat);
+    }
+
+    static void LogTutorialPrisonCellLayout(GameObject topRow, GameObject bottomRow)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("[TutorialPrison] Cell root world positions — X must step by CellSpacingX; Z constant per row; Y=0.");
+        void AppendRow(string label, GameObject row)
+        {
+            if (row == null) return;
+            sb.AppendLine($"  {label}:");
+            foreach (Transform t in row.transform)
+            {
+                Vector3 p = t.position;
+                sb.AppendLine($"    {t.name}: ({p.x:F2}, {p.y:F2}, {p.z:F2})");
+            }
+        }
+
+        AppendRow("PrisonCells_Top (north)", topRow);
+        AppendRow("PrisonCells_Bottom (south)", bottomRow);
+        Debug.Log(sb.ToString());
+    }
+
+    static void CreateWallWorld(Transform parent, string name, Vector3 worldPosition, Vector3 scale, Material mat)
+    {
+        GameObject wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        wall.name = name;
+        wall.transform.SetParent(parent);
+        wall.transform.position = worldPosition;
+        wall.transform.localScale = scale;
+        wall.GetComponent<Renderer>().sharedMaterial = mat;
     }
 
     static void CreateWall(Transform parent, string name, Vector3 position, Vector3 scale, Material mat)

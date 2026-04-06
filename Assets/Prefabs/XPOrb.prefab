@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7422296822822783817}
   - component: {fileID: 5611084369001600214}
   - component: {fileID: 6244052100567944019}
-  - component: {fileID: 358016833347040539}
+  - component: {fileID: 690424736455755349}
   m_Layer: 0
   m_Name: XPOrb
   m_TagString: XPOrb
@@ -124,7 +124,7 @@ MonoBehaviour:
   collectRadius: 0.4
   maxLifetime: 30
   tutorialOrb: 0
---- !u!114 &358016833347040539
+--- !u!114 &690424736455755349
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
