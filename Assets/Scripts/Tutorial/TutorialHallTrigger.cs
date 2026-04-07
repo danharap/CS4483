@@ -48,7 +48,7 @@ public class TutorialHallTrigger : MonoBehaviour
                 TutorialManager.Instance?.OnEnteredOrbArea();
                 break;
             case TriggerAction.NpcHint:
-                TutorialManager.Instance?.ShowTemporaryMessage("Press E to speak with the Guide.", 4f);
+                TutorialManager.Instance?.ShowTemporaryMessage("Head through the portal ahead to return to the lobby.", 4f);
                 break;
         }
     }

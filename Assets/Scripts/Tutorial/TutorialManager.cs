@@ -133,6 +133,31 @@ public class TutorialManager : MonoBehaviour
         if (pc != null) pc.SetInputLocked(false);
     }
 
+    /// <summary>
+    /// Called when the player steps through the tutorial exit portal back to the lobby.
+    /// Ends the tutorial and briefly shows a welcome message directing them to the Guide NPC.
+    /// </summary>
+    public void TransitionToLobby()
+    {
+        StopAllCoroutines();
+        tutorialRoomStarted = false;
+        phase = TutorialPhase.Complete;
+
+        PlayerController pc = GameManager.Instance?.PlayerController;
+        if (pc != null) pc.SetInputLocked(false);
+
+        StartCoroutine(ShowLobbyReturnMessage());
+    }
+
+    private IEnumerator ShowLobbyReturnMessage()
+    {
+        ShowText(true);
+        SetText("Speak with the Guide (Press E) if you have any questions, then head into the arena when you're ready!");
+        yield return new WaitForSecondsRealtime(5f);
+        ShowText(false);
+        phase = TutorialPhase.Inactive;
+    }
+
     public void NotifyTrigger(TutorialTriggerType trigger)
     {
         if (!tutorialRoomStarted) return;
@@ -147,7 +172,7 @@ public class TutorialManager : MonoBehaviour
         {
             OpenGate(gate3);
             phase = TutorialPhase.NpcSection;
-            SetText("Speak with the guide (Press E), then continue to the exit.");
+            SetText("Head through the portal to return to the lobby.");
         }
     }
 
@@ -348,7 +373,13 @@ public class TutorialManager : MonoBehaviour
         }
         if (canvasGo == null) return;
 
-        // Load portrait from Resources if not set in Inspector
+        // Load portrait — prefer the Guide NPC sprite asset directly (editor), fall back to Resources.
+        if (npcPortrait == null)
+        {
+#if UNITY_EDITOR
+            npcPortrait = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Guide NPC/0.png");
+#endif
+        }
         if (npcPortrait == null)
             npcPortrait = Resources.Load<Sprite>("Portraits/TutorialNPC_Portrait");
 
@@ -384,33 +415,64 @@ public class TutorialManager : MonoBehaviour
         borderRt.sizeDelta        = new Vector2(0f, 4f);
 
         // ── Portrait frame ────────────────────────────────────────────────
+        // Frame fills most of the panel height; gold border matches the top accent.
+        const float frameSz = 172f; // slightly smaller than panelH so there's breathing room
+        const float frameBorderThickness = 3f;
+
         GameObject portraitFrame  = new GameObject("PortraitFrame");
         portraitFrame.transform.SetParent(tutorialTextRoot.transform, false);
         Image frameBg             = portraitFrame.AddComponent<Image>();
-        frameBg.color             = new Color(0.18f, 0.14f, 0.22f, 1f);
+        frameBg.color             = new Color(0.82f, 0.65f, 0.18f, 1f); // gold border colour
         RectTransform frameRt     = portraitFrame.GetComponent<RectTransform>();
         frameRt.anchorMin         = new Vector2(0f, 0.5f);
         frameRt.anchorMax         = new Vector2(0f, 0.5f);
         frameRt.pivot             = new Vector2(0f, 0.5f);
         frameRt.anchoredPosition  = new Vector2(edgePad, 0f);
-        frameRt.sizeDelta         = new Vector2(portraitSz, portraitSz);
+        frameRt.sizeDelta         = new Vector2(frameSz, frameSz);
 
+        // Dark inner background (sits inside the gold border)
+        GameObject frameInner     = new GameObject("PortraitInner");
+        frameInner.transform.SetParent(portraitFrame.transform, false);
+        Image innerBg             = frameInner.AddComponent<Image>();
+        innerBg.color             = new Color(0.12f, 0.10f, 0.16f, 1f);
+        RectTransform innerRt     = frameInner.GetComponent<RectTransform>();
+        innerRt.anchorMin         = Vector2.zero;
+        innerRt.anchorMax         = Vector2.one;
+        innerRt.offsetMin         = new Vector2( frameBorderThickness,  frameBorderThickness);
+        innerRt.offsetMax         = new Vector2(-frameBorderThickness, -frameBorderThickness);
+
+        // Portrait image — RawImage so uvRect can crop legs and show only head + chest.
         GameObject portraitGo     = new GameObject("Portrait");
-        portraitGo.transform.SetParent(portraitFrame.transform, false);
-        tutorialPortraitImage     = portraitGo.AddComponent<Image>();
-        tutorialPortraitImage.preserveAspect = true;
-        tutorialPortraitImage.sprite         = npcPortrait;
-        if (npcPortrait == null)
-            tutorialPortraitImage.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+        portraitGo.transform.SetParent(frameInner.transform, false);
+        RawImage portraitRaw      = portraitGo.AddComponent<RawImage>();
+        // Show only the top ~62 % of the sprite (head + chest; hides legs).
+        // In Unity UV space y=0 is bottom, y=1 is top, so Rect(0, 0.38, 1, 0.62)
+        // starts at 38 % from the bottom and covers 62 % of the height upward.
+        portraitRaw.uvRect        = new Rect(0f, 0.38f, 1f, 0.62f);
 
-        RectTransform portRt      = tutorialPortraitImage.GetComponent<RectTransform>();
-        portRt.anchorMin          = new Vector2(0.05f, 0.05f);
-        portRt.anchorMax          = new Vector2(0.95f, 0.95f);
+        // Fill the inner frame
+        RectTransform portRt      = portraitRaw.GetComponent<RectTransform>();
+        portRt.anchorMin          = Vector2.zero;
+        portRt.anchorMax          = Vector2.one;
         portRt.offsetMin          = Vector2.zero;
         portRt.offsetMax          = Vector2.zero;
 
+        // Load Guide NPC frame 2 (3rd frame = index 2) as the portrait texture.
+#if UNITY_EDITOR
+        Texture2D guidePortraitTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprites/Guide NPC/2.png");
+        if (guidePortraitTex != null)
+            portraitRaw.texture = guidePortraitTex;
+        else
+            portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+#else
+        portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+#endif
+
+        // tutorialPortraitImage is unused now (replaced by RawImage above).
+        tutorialPortraitImage = null;
+
         // ── Text area ─────────────────────────────────────────────────────
-        float textAreaX     = edgePad + portraitSz + edgePad;
+        float textAreaX     = edgePad + frameSz + edgePad;
         float textAreaWidth = panelW - textAreaX - edgePad;
 
         // Speaker name

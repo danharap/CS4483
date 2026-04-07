@@ -124,8 +124,17 @@ public static class EnvironmentSprites
             return;
         }
 
-        ApplyFloorMapForRoot(levelRoot.transform, mapSprite);
-        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (fits within borders, background visible outside, parented to Arena 1 root)");
+        // Hide the ProBuilder floor mesh so the Floor_Map sprite is what the player sees.
+        // (Stage 2 does the same — without this the opaque mesh renders on top of the sprite.)
+        Transform floorMesh = levelRoot.transform.Find("Floor");
+        if (floorMesh != null)
+        {
+            MeshRenderer mr = floorMesh.GetComponent<MeshRenderer>();
+            if (mr != null) mr.enabled = false;
+        }
+
+        ApplyFloorMapForRoot(levelRoot.transform, mapSprite, FloorMapDesiredWorldSize_Arena1);
+        Debug.Log("[EnvironmentSprites] ✓ Arena 1 floor applied (sMap.png, ProBuilder mesh hidden).");
     }
 
     /// <summary>
@@ -137,17 +146,20 @@ public static class EnvironmentSprites
     public static void ApplyFloorMapForRoot(Transform levelRoot, Sprite mapSprite,
                                              float desiredWorldSize = FloorMapDesiredWorldSize_Arena1)
     {
-        GameObject mapPlane = levelRoot.Find("Floor_Map")?.gameObject;
-        if (mapPlane == null)
+        // Destroy every existing Floor_Map in the entire subtree so stale duplicates never accumulate.
+        // (Transform.Find only checks direct children, so deep leftovers from old setup runs stack up.)
+        foreach (Transform t in levelRoot.GetComponentsInChildren<Transform>(true))
         {
-            mapPlane = new GameObject("Floor_Map");
-            mapPlane.transform.SetParent(levelRoot, false);
-            mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            mapPlane.transform.localScale = Vector3.one;
+            if (t != null && t.name == "Floor_Map")
+                Object.DestroyImmediate(t.gameObject);
         }
 
+        GameObject mapPlane = new GameObject("Floor_Map");
+        mapPlane.transform.SetParent(levelRoot, false);
+        mapPlane.transform.rotation    = Quaternion.Euler(90f, 0f, 0f);
+        mapPlane.transform.localScale  = Vector3.one;
+
         // Y = 0.05 keeps the sprite below the wall-base height (wall bottom at y = 0).
-        // This prevents the sprite plane from intersecting wall mesh faces, eliminating z-fighting tears.
         mapPlane.transform.position = new Vector3(0f, 0.05f, 0f);
 
         SpriteRenderer sr = mapPlane.GetComponent<SpriteRenderer>();

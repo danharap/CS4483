@@ -44,6 +44,13 @@ public static class FullSetupOneClick
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
+            // 7) Save the scene NOW — steps 3-6 (sprite wiring, Floor_Map creation,
+            //    ProBuilder mesh hiding) all ran AFTER SetupAll saved the scene, so none
+            //    of those changes were persisted.  This final save ensures the scene on
+            //    disk matches what is in memory and what the player will see at runtime.
+            UnityEditor.SceneManagement.EditorSceneManager.SaveScene(
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+
             Debug.Log("[FullSetupOneClick] ✓ FULL SETUP complete. Press Play.");
         }
         catch (System.Exception ex)

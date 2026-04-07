@@ -1,0 +1,220 @@
+Deliverable 2 — Mid-Project Report
+Course: CS 4483
+Team: [TEAM NAME]
+Members: [Member Names]
+Date: April 7, 2025
+
+
+================================================================================
+INTRODUCTION
+================================================================================
+
+Our game is a top-down arena survival experience in which the player is cast as a condemned soul fighting for their life inside a hellish colosseum ruled by Satan. Each run places the player in an escalating wave-based combat loop across two arenas, challenging them to master enemy patterns, manage their positioning, and grow powerful enough to confront a two-phase final boss. The game blends roguelite run progression — where each attempt rewards meaningful upgrade choices — with a persistent meta-progression system that carries permanent unlocks across sessions. The result is a game designed around replayability, mastery, and the slow, satisfying erosion of a seemingly impossible fight.
+
+This report documents the design and implementation decisions made during the development of this prototype, covering level design, narrative, systems, progression, iteration, and technical architecture.
+
+
+================================================================================
+1. LEVEL DESIGN & PLAYER GUIDANCE
+================================================================================
+
+Spatial Layout & Pacing
+
+The game is structured across three distinct zones: a Lobby, Arena 1, and Arena 2. The Lobby functions as a safe home base between runs — a calm, enclosed space containing the arrival portal, the Merchant NPC, and the exit portal into combat. Its small footprint communicates clearly that this is a place to breathe and prepare, not to fight. Once the player steps through the portal into Arena 1, the tone shifts immediately.
+
+Arena 1 is a circular colosseum roughly 22 units in radius, ringed by tiered stone audience stands that serve as both a visual spectacle and a hard spatial boundary. The stands communicate to the player intuitively: you are inside the arena, and there is no leaving. Cover boxes are distributed across the arena floor in two loose rings, providing tactical cover and breaking up enemy pathing. Rather than running straight at the player, enemies must navigate around obstacles, creating natural choke points and rewarding players who position themselves thoughtfully.
+
+Arena 2 expands on this foundation with a larger floor and a new environmental focal point: the Satan throne platform at the north end of the arena. Built into the colosseum architecture itself, the throne is visible and imposing from the moment the player arrives. Satan sits dormant on it for the entirety of the player's first nine waves — watching. This transforms the environment from a neutral fighting ground into something with presence and weight. Flame Traps are placed in two concentric rings across the arena floor, adding a persistent environmental hazard that rewards mobility and punishes players who stand still.
+
+Player Guidance & Onboarding
+
+Rather than overwhelming new players with mechanics immediately, the game offers a dedicated Tutorial Room accessible from the Lobby. The tutorial is structured as a series of gated phases: the player first learns to move, then passes through a gate, fights a single weakened enemy, collects XP orbs, chooses an upgrade, and finally interacts with the Merchant. Each phase cannot be skipped, ensuring every mechanic is introduced in a low-stakes context before the player enters real combat.
+
+In the arenas, guidance is built into the environment rather than delivered through text. Portal objects are clearly lit and positioned along the player's natural path. Portals only unlock once the required wave count is cleared, so the player is never lost — there is always a clear goal. The on-screen HUD displays the current wave number, a countdown during breaks, and an active enemy count, giving the player constant situational awareness without cluttering the screen.
+
+Enemy spawn points are distributed around the arena perimeter, with a minimum proximity check to the player preventing unfair spawns. A dedicated exclusion zone around the Arena 2 arrival portal ensures no enemies spawn directly on top of a player who has just transitioned from Arena 1.
+
+
+================================================================================
+2. NARRATIVE DESIGN & WORLD-BUILDING
+================================================================================
+
+Setting & Tone
+
+The world of the game is built on a single clear premise: the player is a condemned soul sentenced to fight for eternity inside Satan's colosseum. This premise does not need to be spelled out — the environment communicates it entirely. The stone walls, the tiered audience stands, the open flames, and the ever-present figure of Satan watching from his elevated throne all tell the same story. The player is not a hero exploring a dungeon. They are a prisoner performing for a god who has already decided their fate.
+
+This tone was a deliberate creative choice. We wanted the player to feel the weight of the setting from the first moment they enter Arena 2, not through a cutscene or dialogue, but through atmosphere. Satan sitting on his throne during the early waves is not just a design detail — it is a narrative statement. He is not threatened by the player yet. He is entertained.
+
+Satan as a Character and Mechanic
+
+Satan's design bridges narrative and gameplay in a way that makes the boss fight feel earned rather than arbitrary. For the entire first half of Arena 2, he exists as a passive presence: a large, motionless figure on a raised platform at the far end of the arena. Players who notice him understand that something is coming. Players who are focused on survival may not register him consciously — but they feel the unease.
+
+At wave 10, that dynamic breaks. Satan's awakening animation plays, and he physically descends from the throne in a sweeping arc jump into the arena floor. The transition is deliberate and theatrical — the colosseum's ruler has decided the player is finally worth his attention. Phase 1 of the boss fight begins immediately after he lands.
+
+When the player depletes Satan's Phase 1 health bar, the game subverts expectations. Rather than dying, Satan plays a death animation, the HP bar empties — and then he rises. He floats upward and off-screen, and Phase 2 begins: only his feet slam down from above, becoming the new targets. This fake-out is a key emotional beat. The player thinks they have won. Then they realize the fight has only just begun. This moment of narrative surprise reinforces the game's core theme: Satan is not just a boss encounter. He is in control until the very end.
+
+The Merchant & World Framing
+
+The Lobby Merchant is a small but meaningful narrative element. As an animated NPC who offers upgrades between runs, the Merchant implies that the colosseum has an economy, that the player's survival is not entirely without allies, and that power can be earned incrementally even within damnation. Players interact with the Merchant by pressing E when nearby, opening the Skill Tree. The Merchant blinks and idles naturally while waiting, making the world feel inhabited rather than static.
+
+
+================================================================================
+3. SYSTEMS DESIGN & GAME BALANCE
+================================================================================
+
+Health & Damage Systems
+
+The player's health system is designed around moment-to-moment risk and reward. The PlayerHealth component manages current HP and processes damage from all sources uniformly — enemy contact, projectiles, environmental traps — through a single TakeDamage interface. Health packs spawn around the arena during waves, but collecting them requires the player to move out of safe positions and into contested space. This creates a constant low-level tension: is the health pack worth the risk of crossing the arena right now?
+
+Flame Traps introduce a distinct damage type: burn. Rather than dealing instant damage, a triggered Flame Trap begins a burn cycle that deals small amounts of damage repeatedly over three seconds. A cooldown prevents the same trap from immediately re-triggering. This design teaches players to treat specific areas of the arena as hazard zones — not because they deal massive single-hit damage, but because standing in them compounds over time. Players who learn the trap layout gain a meaningful advantage in later waves.
+
+Enemy Design & Wave Scaling
+
+The game introduces enemy types gradually across waves to maintain a clear learning curve. Early waves feature the Chaser enemy type — straightforward, direct, easy to read. Fast enemies are introduced from wave 3, adding speed pressure. Heavy enemies join at the same point, adding durability and hit threat. BigBats arrive from wave 6, introducing a different movement pattern that disrupts the routines players have developed.
+
+Enemy HP scales by 12% per wave, ensuring enemies never feel trivially easy as the player grows stronger. The wave system caps the number of simultaneous active enemies at 30 and tightens spawn intervals as waves progress — the arena gradually becomes more crowded and intense without ever becoming technically unplayable. Every fifth wave triggers a mini-boss variant, providing a harder challenge and a natural pacing beat before the next standard wave.
+
+Boss Fight: Phase Structure & Balance
+
+Satan's Phase 1 uses a state-machine-driven attack loop with four distinct patterns: a direct targeted projectile burst, a vertical laser column, a spread shot fan, and a dual hand beam that fires two pinching lasers from Satan's hands with a safe center gap. Each attack is designed to teach a different player behavior — dodging linearly, repositioning vertically, reading spread patterns, and finding safe zones. The variety prevents Phase 1 from feeling repetitive while ensuring no single attack dominates the engagement.
+
+When Phase 1 health hits zero, the fake-death transition plays, and Phase 2 begins. Satan's Phase 2 is built entirely around a foot-stomp mechanic. Feet descend from off-screen, preceded by visible warning indicators showing exactly where they will land. After impact, each foot remains grounded for a window of time during which the player can attack and damage it. Once the damage window closes, the foot retracts. No more than two feet can be active simultaneously, creating a manageable rhythm: dodge the stomp, punish the foot, repeat. A shared Phase 2 HP pool is drained by these hits, and the fight ends when it reaches zero.
+
+This two-phase design creates a satisfying arc. Phase 1 is a ranged duel against a powerful figure. Phase 2 is a grounded, reactive, punish-based loop. The emotional transition between them — the fake death — gives the fight a dramatic shape that most arena survival games lack.
+
+Resource Flow
+
+XP orbs drop from every killed enemy and are attracted toward the player within a configurable pickup radius. These fill a level bar visible on the HUD. On level-up, the game briefly pauses and offers the player a choice of upgrades — weapon damage, HP, dash improvements, and others. The XP threshold required for each level-up scales by 1.15x, meaning early levels come quickly to establish the loop, and later levels require more sustained performance.
+
+
+================================================================================
+4. PROGRESSION & REWARDS
+================================================================================
+
+Run-Level Progression
+
+Within a single run, the player grows through upgrade choices made at each level-up. These upgrades stack and interact, creating a build that feels increasingly tailored as the run continues. Because the player's run level and all accumulated upgrades reset on death, each run begins from the same baseline — but the player's skill and understanding carry forward. This is the core roguelite tension: temporary power, permanent knowledge.
+
+Meta-Progression & the Skill Tree
+
+Across runs, the game tracks permanent account-level progression through the AccountProgression system. Clearing waves earns meta XP that fills an account-level bar persisted via PlayerPrefs. Leveling up grants Skill Points that can be spent in the Skill Tree, accessed through the Lobby Merchant.
+
+The Skill Tree is organized into three character-defining tracks, each with small incremental nodes leading to a powerful capstone ability:
+
+The Striker track increases permanent base weapon damage across three nodes and culminates in Opening Strike, which causes the player's first shot each wave to deal double damage. This capstone rewards aggressive, proactive playstyles.
+
+The Survivor track increases permanent max HP across three nodes and culminates in Second Wind, which allows the player to survive one lethal hit per run at 1 HP. This capstone rewards players who prioritize endurance and staying power.
+
+The Skirmisher track increases move speed and reduces dash cooldown across two nodes and culminates in Ghost Step, which grants a brief invulnerability window after dashing. This capstone rewards mobile, evasion-focused playstyles.
+
+Each node is gated by account level and requires its predecessor in the chain to be unlocked first. This means capstones are earned, not purchased on day one — players must invest multiple runs before the most powerful abilities become available. This structure is central to long-term engagement: there is always a next thing to work toward.
+
+Balancing Intrinsic and Extrinsic Motivation
+
+The game is designed to keep players motivated through both types of reward. Extrinsic rewards — account level numbers, skill points, visible unlocks in the Skill Tree UI — give players concrete goals to chase across sessions. Intrinsic rewards — the satisfaction of reading an attack pattern correctly, surviving a near-death moment, finally defeating the two-phase boss — ensure the game remains meaningful even for players who are not focused on the meta numbers. Together, these layers are designed to sustain engagement across both short and long play sessions.
+
+
+================================================================================
+5. TESTING & ITERATION
+================================================================================
+
+Debug Tooling & Playtesting Infrastructure
+
+To support rapid iteration, the project includes an editor-only debug hotkey system (stripped from the final build) that allows testers to instantly spawn any enemy type, skip waves, force level-ups, and trigger the Satan boss intro at any point. This was critical for testing late-game content without requiring a full playthrough each time. It allowed us to identify bugs in boss behavior, upgrade balance, and enemy pathfinding much earlier in development than would otherwise have been possible.
+
+Level Design Iteration
+
+The throne area went through several redesign cycles. The initial version placed a solid canopy roof over the throne, which completely obscured Satan from the top-down camera perspective — making the narrative presence element entirely invisible to the player. The canopy was replaced with an open architectural design featuring tall columns, a central obelisk monument, and flanking pillars with decorative gold caps. This preserves the grandeur and visual identity of the throne while keeping Satan fully visible from above.
+
+The audience stands at the base of the throne platform initially clipped through the raised floor geometry. Several approaches were tested — stand exclusion zones, height adjustments, geometry reordering — before settling on a configuration that allows minor visual contact at the base of the steps without the floating appearance that came from removing stands entirely.
+
+Enemy Behavior Iteration
+
+Early versions of the NavMesh baking configuration unintentionally included the player's own collider in the navigation mesh, creating dead zones that caused enemies to stop pathfinding in areas where the player was standing. Correcting the bake configuration to use only the static level geometry resolved this. Enemy clustering around the Arena 2 portal arrival zone was a separate issue addressed by adding a spatial exclusion radius to the spawn system, preventing enemies from being placed directly on the arrival point.
+
+Boss Fight Iteration
+
+The Satan spawn behavior was iteratively refined to ensure the full throne intro sequence — awakening animation followed by an arc jump into the arena — plays correctly in both the live wave-10 trigger and the debug hotkey path. A timing issue was identified where the awakening function was being called before the boss state machine had finished initializing, causing the debug hotkey to require two presses. This was resolved by polling the state each frame until the correct state was confirmed before proceeding. Additionally, the boss sprite was found to render only the top half during combat because the sprite was centered at ground level, placing the lower half underground. A configurable vertical offset was added to the animation controller to correctly align the sprite's base with the floor.
+
+Playtesting Feedback & Changes
+
+Through internal playtesting sessions, several issues were identified and addressed. Cover boxes on Arena 1 were visually clipped — half the sprite was cut off — because the billboard sprite was centered at the object's origin rather than raised to sit on the ground. Raising the sprite's local vertical position by half its rendered height resolved this. A recurring visual artifact appearing as colored tears or streaks on the arena walls and stairs was traced to a background plane sprite being projected as shadows onto the geometry. Removing the background plane system entirely and relying solely on the floor map sprite eliminated the issue. Enemy prefabs in Arena 2 were found to stop pathfinding after a short time due to the NavMesh issues described above, which was resolved through the baking fix.
+
+
+================================================================================
+6. TECHNICAL NOTES
+================================================================================
+
+One-Click Setup Pipeline
+
+The entire scene — level geometry, materials, prefabs, NavMesh, managers, UI, and all component references — is generated and wired through a single editor menu command. This pipeline runs sequentially through level building, sprite assignment, environment decoration, portal and gate setup, reference wiring, NavMesh baking, and boss intro controller initialization. Every time the command is run, the scene is rebuilt from scratch to a known, deterministic state. This was essential for team collaboration: any team member can rebuild the full scene reliably without manual wiring or scene-file conflicts.
+
+Procedural Level Geometry with ProBuilder
+
+All colosseum geometry is authored entirely in code using Unity's ProBuilder API. Arena radius, wall height, step proportions, trap positions, and throne dimensions are all exposed as parameters. This means the layout can be adjusted and rebuilt in seconds rather than repositioned manually in the scene view. ProBuilder meshes integrate with Unity's NavMesh system, enabling the NavMesh to be baked from the same code that generates the geometry.
+
+Boss State Machine
+
+The Satan boss is implemented as an explicit state machine with ten clearly defined states: ThroneWatch, Awakening, JumpingToArena, CombatPhase, FakeDying, TransitionToPhase2, FootPhase, FinalDying, and Dead. Every transition is guarded — states cannot be entered out of order or from invalid predecessors. The foot stomp phase is managed by a dedicated controller, and individual foot behavior is isolated in its own component. This separation of concerns keeps the system readable and makes it straightforward to tune individual phases without risk of side effects.
+
+Sprite Rendering in a 3D Environment
+
+All characters and interactive objects are rendered as 2D sprites in a 3D world using a custom Billboard component that keeps sprites camera-facing at all times. Animation is handled through coroutine-driven frame controllers rather than Unity's Animator system, allowing attack animations and game state transitions to remain precisely synchronized — an attack's damage window opens and closes in exact alignment with the corresponding animation frames.
+
+Meta-Progression Persistence
+
+Account level, meta XP, skill points, and the full set of unlocked skill node IDs are saved and loaded via Unity's PlayerPrefs system. The AccountProgression singleton persists across scene loads using DontDestroyOnLoad, ensuring that meta data is available immediately when the Lobby or Skill Tree UI is accessed. Skill node unlock state is serialized as a comma-separated string of node IDs, making it straightforward to extend the skill tree with new nodes without breaking existing save data.
+
+
+================================================================================
+
+This report reflects the state of the project as of Deliverable 2. All described systems are implemented and functional in the submitted Unity project and Windows build.
+
+
+================================================================================
+ASSETS & ATTRIBUTION
+================================================================================
+
+The following external assets were used in this project. All sprites sourced from The Spriters Resource are ripped from The Binding of Isaac: Rebirth (Nicalis, 2014) and are used strictly for non-commercial educational purposes as part of a university course project.
+
+Player, Gun & Regular Enemy Sprites
+Source: "Top Down Shooter" asset pack by BlobfishDev
+URL: https://blobfishdev.itch.io/top-down-shooter
+
+Upgrade Option Buttons
+Source: "Simple Pixel Art Buttons" by gleao
+URL: https://gleao.itch.io/simple-pixel-art-buttons
+
+Fast Enemy / Small Bat Sprites
+Source: The Spriters Resource — The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/146171/
+
+Heavy Enemy Sprites
+Source: The Spriters Resource — The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/167086/
+
+Stage 2 Heavy Enemy Sprites
+Source: The Spriters Resource — The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/525030/
+
+Fat Bat Sprites
+Source: The Spriters Resource — The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/146172/
+
+First Stage Boss Sprites
+Source: The Spriters Resource — The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/269565/
+
+Final Boss (Satan) Sprites
+Source: The Spriters Resource — The Binding of Isaac: Rebirth
+URLs:
+  https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/88056/
+  https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/101199/
+  https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/237573/
+Reference Video: https://www.youtube.com/watch?v=VtWJRiFaa4w
+
+XP Orb
+Generated using AI image generation tools. No external license required.
+
+Medkit / Health Pack
+Generated using AI image generation tools. No external license required.

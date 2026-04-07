@@ -58,7 +58,7 @@ public static class ProBuilderLevelBuilder
         public const float CellExtentX = 2.4f;
         public const float CellSpacingX = 2.65f;
         public const float CellXMin = -75f;
-        public const float CellXMax = 75f;
+        public const float CellXMax = 20f; // shortened to match EastHalfX
         public const float GateThicknessZ = 0.35f;
         public const float EndWallThicknessZ = 0.28f;
         public const float BackStripThicknessX = 0.32f;
@@ -738,11 +738,28 @@ public static class ProBuilderLevelBuilder
         GameObject tutorialNpc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         tutorialNpc.name = "GuideNPC";
         tutorialNpc.transform.SetParent(lobby.transform);
-        tutorialNpc.transform.position = new Vector3(8.8f, 1.0f, lobbyZ);
-        tutorialNpc.transform.localScale = new Vector3(1.1f, 1.6f, 1.1f);
+        // Root at ground level (y=0) with uniform scale — non-uniform scale would distort the sprite child.
+        tutorialNpc.transform.position   = new Vector3(5.5f, 0f, lobbyZ);
+        tutorialNpc.transform.localScale = Vector3.one;
+        // Hide the capsule mesh — sprite replaces it visually.
         var npcR = tutorialNpc.GetComponent<Renderer>();
-        if (npcR != null)
-            npcR.sharedMaterial = GetOrCreateMat("M_Blue", new Color(0.1f, 0.3f, 1f));
+        if (npcR != null) npcR.enabled = false;
+
+        // Sprite billboard — SpriteSetup.WireGuideNPCSprite() sets frames + TrapSpriteAnimator on step 3.
+        // We create the child here so Setup All places it; SpriteSetup then animates it.
+        GameObject guideSpritGo = new GameObject("GuideSprite");
+        guideSpritGo.transform.SetParent(tutorialNpc.transform, false);
+        guideSpritGo.transform.localPosition = new Vector3(0f, 2f, 0f); // centre sprite 2 u above ground
+        guideSpritGo.transform.localScale    = Vector3.one;              // spriteScale applied by TrapSpriteAnimator
+        guideSpritGo.AddComponent<Billboard>();
+        // Add a SpriteRenderer with the first frame so the NPC is visible even before step 3 runs.
+        SpriteRenderer guideSR = guideSpritGo.AddComponent<SpriteRenderer>();
+        guideSR.sortingOrder = 10;
+        UnityEngine.Sprite guideSprite = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>("Assets/Sprites/Guide NPC/0.png");
+        if (guideSprite != null)
+            guideSR.sprite = guideSprite;
+        else
+            Debug.LogWarning("[ProBuilderLevelBuilder] Guide NPC sprite not found at Assets/Sprites/Guide NPC/0.png — run step 1 first.");
 
         Object.DestroyImmediate(tutorialNpc.GetComponent<CapsuleCollider>());
         SphereCollider npcTrigger = tutorialNpc.AddComponent<SphereCollider>();
@@ -758,7 +775,7 @@ public static class ProBuilderLevelBuilder
         soNpc.FindProperty("mode").enumValueIndex = 0; // Guide
         soNpc.ApplyModifiedPropertiesWithoutUndo();
 
-        CreateWorldLabel(tutorialNpc.transform, "GuideLabel", "Guide", new Vector3(0f, 2.2f, 0f), Color.cyan);
+        CreateWorldLabel(tutorialNpc.transform, "GuideLabel", "Guide", new Vector3(0f, 4.5f, 0f), Color.black, fontSize: 52);
         CreateWorldLabel(portal.transform, "ArenaLabel", "Arena", new Vector3(0f, 2.2f, 0f), Color.yellow);
     }
 
@@ -766,12 +783,17 @@ public static class ProBuilderLevelBuilder
 
     static void CreateTutorialGeometry()
     {
-        float cz = TutorialPrisonLayout.CorridorCenterZ;
-        float hx = TutorialPrisonLayout.FloorHalfX;
-        float hzBand = TutorialPrisonLayout.FloorHalfZ;
-        float floorNorthZ = cz - hzBand;
-        float floorSouthZ = cz + hzBand;
-        float wallSpanX = hx * 2f;
+        float cz       = TutorialPrisonLayout.CorridorCenterZ;
+        float westHX   = TutorialPrisonLayout.FloorHalfX;   // 85 – needed for spawn at x=-74
+        float eastHX   = TutorialPrisonLayout.EastHalfX;    // 25 – shortened east side
+        float hzBand   = TutorialPrisonLayout.FloorHalfZ;
+        float floorNorthZ  = cz - hzBand;
+        float floorSouthZ  = cz + hzBand;
+        float totalWidth   = westHX + eastHX;                // 110
+        float floorCenterX = (-westHX + eastHX) * 0.5f;     // -30 (asymmetric centre)
+        // Keep legacy alias so existing code below that uses hx still compiles
+        float hx = westHX;
+        float wallSpanX = totalWidth;
 
         GameObject prison = new GameObject("Tutorial_Prison");
         prison.transform.SetParent(levelRoot);
@@ -796,15 +818,16 @@ public static class ProBuilderLevelBuilder
         GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         floor.name = "Tutorial_Floor";
         floor.transform.SetParent(prison.transform);
-        floor.transform.position = new Vector3(0f, -0.2f, cz);
-        floor.transform.localScale = new Vector3(wallSpanX, 0.4f, hzBand * 2f);
+        floor.transform.position = new Vector3(floorCenterX, -0.2f, cz);
+        floor.transform.localScale = new Vector3(totalWidth, 0.4f, hzBand * 2f);
         floor.GetComponent<Renderer>().sharedMaterial = floorMat;
 
         float wallT = 0.5f;
-        CreateWall(prison.transform, "T_Wall_West",  new Vector3(-hx - wallT * 0.5f, 2f, cz), new Vector3(wallT, 4f, hzBand * 2f), wallMat);
-        CreateWall(prison.transform, "T_Wall_East",   new Vector3( hx + wallT * 0.5f, 2f, cz), new Vector3(wallT, 4f, hzBand * 2f), wallMat);
-        CreateWall(prison.transform, "T_Wall_North",  new Vector3(0f, 2f, floorNorthZ - wallT * 0.5f), new Vector3(wallSpanX, 4f, wallT), wallMat);
-        CreateWall(prison.transform, "T_Wall_South",  new Vector3(0f, 2f, floorSouthZ + wallT * 0.5f), new Vector3(wallSpanX, 4f, wallT), wallMat);
+        // West wall uses full FloorHalfX; east wall uses shorter EastHalfX.
+        CreateWall(prison.transform, "T_Wall_West",  new Vector3(-westHX - wallT * 0.5f, 2f, cz),       new Vector3(wallT, 4f, hzBand * 2f), wallMat);
+        CreateWall(prison.transform, "T_Wall_East",  new Vector3( eastHX + wallT * 0.5f, 2f, cz),       new Vector3(wallT, 4f, hzBand * 2f), wallMat);
+        CreateWall(prison.transform, "T_Wall_North", new Vector3(floorCenterX, 2f, floorNorthZ - wallT * 0.5f), new Vector3(totalWidth, 4f, wallT), wallMat);
+        CreateWall(prison.transform, "T_Wall_South", new Vector3(floorCenterX, 2f, floorSouthZ + wallT * 0.5f), new Vector3(totalWidth, 4f, wallT), wallMat);
 
         GameObject topRow = CreateHorizontalPrisonRow(prison.transform, isNorthRow: true, wallMat, barMat, "PrisonCells_Top");
         GameObject bottomRow = CreateHorizontalPrisonRow(prison.transform, isNorthRow: false, wallMat, barMat, "PrisonCells_Bottom");
@@ -823,7 +846,7 @@ public static class ProBuilderLevelBuilder
         GameObject exitPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
         exitPortal.name = "TutorialToArena_Portal";
         exitPortal.transform.SetParent(prison.transform);
-        exitPortal.transform.position = new Vector3(77f, 1.5f, cz);
+        exitPortal.transform.position = new Vector3(20f, 1.5f, cz);
         exitPortal.transform.localScale = new Vector3(2f, 3f, 0.3f);
         var exitR = exitPortal.GetComponent<Renderer>();
         if (exitR != null) exitR.sharedMaterial = GetOrCreateMat("M_Boss", new Color(0.40f, 0.02f, 0.02f));
@@ -907,7 +930,7 @@ public static class ProBuilderLevelBuilder
 
         GameObject npcHintTrigger = new GameObject("Tutorial_NpcHintTrigger");
         npcHintTrigger.transform.SetParent(prison.transform);
-        npcHintTrigger.transform.position = new Vector3(-2f, 1f, cz);
+        npcHintTrigger.transform.position = new Vector3(13f, 1f, cz);
         BoxCollider hintCol = npcHintTrigger.AddComponent<BoxCollider>();
         hintCol.isTrigger = true;
         hintCol.size = new Vector3(8f, 2f, 2f);
@@ -1147,7 +1170,7 @@ public static class ProBuilderLevelBuilder
         wall.GetComponent<Renderer>().sharedMaterial = mat;
     }
 
-    static void CreateWorldLabel(Transform parent, string name, string label, Vector3 localPos, Color color)
+    static void CreateWorldLabel(Transform parent, string name, string label, Vector3 localPos, Color color, int fontSize = 64)
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -1155,12 +1178,17 @@ public static class ProBuilderLevelBuilder
         go.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
 
         TextMesh tm = go.AddComponent<TextMesh>();
-        tm.text = label;
-        tm.characterSize = 0.22f;
-        tm.fontSize = 64;
-        tm.anchor = TextAnchor.MiddleCenter;
-        tm.alignment = TextAlignment.Center;
-        tm.color = color;
+        tm.text          = label;
+        tm.characterSize = fontSize <= 48 ? 0.14f : 0.20f;
+        tm.fontSize      = fontSize;
+        tm.anchor        = TextAnchor.MiddleCenter;
+        tm.alignment     = TextAlignment.Center;
+        tm.color         = color;
+
+        // Ensure the label renders in front of billboard sprites
+        MeshRenderer mr = go.GetComponent<MeshRenderer>();
+        if (mr != null) { mr.sortingLayerName = "Default"; mr.sortingOrder = 25; }
+
         go.AddComponent<Billboard>();
     }
 

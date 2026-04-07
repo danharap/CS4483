@@ -99,7 +99,13 @@ public class TutorialRoomManager : MonoBehaviour
         GameManager.Instance?.PlayerWeapon?.SetShootingEnabled(false);
 
         TeleportPlayer(lobbyReturnSpawnPosition);
-        TutorialManager.Instance?.EndTutorialRoom();
+
+        // TransitionToLobby shows the "speak with the Guide" message briefly instead
+        // of just silently hiding the tutorial UI.
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.TransitionToLobby();
+        else
+            Debug.LogWarning("[TutorialRoomManager] TutorialManager.Instance is null on exit.");
     }
 
     private void EnsureRuntimeTutorialIfMissing()
@@ -196,11 +202,11 @@ public class TutorialRoomManager : MonoBehaviour
 
         // NOTE: Removed the tutorial guide NPC from inside the prison tutorial area.
 
-        // Exit portal back to lobby
+        // Exit portal back to lobby — placed close to gate 3 so the post-upgrade hallway is short.
         GameObject exitPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
         exitPortal.name = "TutorialToArena_Portal";
         exitPortal.transform.SetParent(prison.transform);
-        exitPortal.transform.position = new Vector3(77f, 1.5f, cz);
+        exitPortal.transform.position = new Vector3(20f, 1.5f, cz);
         exitPortal.transform.localScale = new Vector3(2f, 3f, 0.3f);
         BoxCollider exitCol = exitPortal.GetComponent<BoxCollider>();
         exitCol.isTrigger = true;

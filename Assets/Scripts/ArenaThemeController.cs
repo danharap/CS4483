@@ -10,8 +10,10 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class ArenaThemeController : MonoBehaviour
 {
-    /// <summary>Must match <c>EnvironmentSprites.FloorMapDesiredWorldSize</c> (editor).</summary>
-    public const float FloorMapDesiredWorldSize = 86f;
+    /// <summary>Must match <c>EnvironmentSprites.FloorMapDesiredWorldSize_Arena1</c> (editor).</summary>
+    public const float FloorMapDesiredWorldSize_Arena1 = 74f;
+    /// <summary>Must match <c>EnvironmentSprites.FloorMapDesiredWorldSize_Arena2</c> (editor).</summary>
+    public const float FloorMapDesiredWorldSize_Arena2 = 92f;
 
     [Header("Floor")]
     public Sprite arena1FloorSprite;
@@ -32,23 +34,15 @@ public class ArenaThemeController : MonoBehaviour
 
     public void ApplyArena1Theme()
     {
-        ApplyFloorAndBg(
-            "=== LEVEL (ProBuilder) ===",
-            arena1FloorSprite,
-            arena1BgSprite);
+        ApplyFloorAndBg("=== LEVEL (ProBuilder) ===",       arena1FloorSprite, arena1BgSprite, FloorMapDesiredWorldSize_Arena1);
         ApplyTrapFrames(false);
         Debug.Log("[ArenaThemeController] Arena 1 theme applied.");
     }
 
     public void ApplyArena2Theme()
     {
-        // Explicitly disable Arena 1's floor renderers in case they are stray (at scene root).
         DisableArena1FloorRenderers();
-
-        ApplyFloorAndBg(
-            "=== LEVEL (ProBuilder) Arena2 ===",
-            arena2FloorSprite,
-            arena2BgSprite);
+        ApplyFloorAndBg("=== LEVEL (ProBuilder) Arena2 ===", arena2FloorSprite, arena2BgSprite, FloorMapDesiredWorldSize_Arena2);
         ApplyTrapFrames(true);
         Debug.Log("[ArenaThemeController] Arena 2 theme applied.");
     }
@@ -93,84 +87,72 @@ public class ArenaThemeController : MonoBehaviour
         return null;
     }
 
-    void ApplyFloorAndBg(string arenaRootName, Sprite floorSprite, Sprite bgSprite)
+    void ApplyFloorAndBg(string arenaRootName, Sprite floorSprite, Sprite bgSprite, float desiredWorldSize)
     {
-        bool isArena2 = arenaRootName.IndexOf("Arena2", StringComparison.Ordinal) >= 0;
         Transform arenaRoot = FindSceneRootTransform(arenaRootName);
+        if (arenaRoot == null) return;
 
-        if (isArena2 && arenaRoot != null)
+        // Hide every ProBuilder floor mesh in the arena so only the Floor_Map sprite shows.
+        foreach (Transform t in arenaRoot.GetComponentsInChildren<Transform>(true))
         {
-            // Match editor pipeline: hide ProBuilder floor so the sprite map is visible (BuildArena2 has no Floor_Map until EnvironmentSprites runs).
-            Transform floorMesh = arenaRoot.Find("Floor");
-            if (floorMesh != null)
-            {
-                MeshRenderer mr = floorMesh.GetComponent<MeshRenderer>();
-                if (mr != null) mr.enabled = false;
-            }
+            if (t.name != "Floor") continue;
+            MeshRenderer mr = t.GetComponent<MeshRenderer>();
+            if (mr != null) mr.enabled = false;
         }
 
+        bool isArena2 = arenaRootName.IndexOf("Arena2", System.StringComparison.Ordinal) >= 0;
         Sprite s = floorSprite;
-        if (s == null && isArena2)
-            s = Resources.Load<Sprite>("ArenaTheme/sMap2");
-
-        Transform floorT = FindDeepChildInSceneRoot(arenaRootName, "Floor_Map");
-        if (floorT == null && isArena2 && arenaRoot != null && s != null)
+        if (s == null)
         {
-            GameObject mapPlane = new GameObject("Floor_Map");
-            mapPlane.transform.SetParent(arenaRoot, false);
-            mapPlane.transform.position = new Vector3(0f, 0.1f, 0f);
-            mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            mapPlane.transform.localScale = Vector3.one;
-            SpriteRenderer nsr = mapPlane.AddComponent<SpriteRenderer>();
-            nsr.sortingOrder = -50;
-            nsr.drawMode = SpriteDrawMode.Simple;
-            floorT = mapPlane.transform;
+            // Cold-load fallback: serialized sprite refs may not be saved yet if Setup was
+            // run without the final scene save.  Load directly from the asset path instead.
+            string fallbackPath = isArena2 ? "Assets/Sprites/sMap2.png" : "Assets/Sprites/sMap.png";
+#if UNITY_EDITOR
+            s = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(fallbackPath);
+#endif
         }
 
-        if (floorT != null)
-        {
-            SpriteRenderer sr = floorT.GetComponent<SpriteRenderer>();
-            if (sr != null)
-            {
-                if (s != null)
-                {
-                    sr.sprite  = s;
-                    sr.enabled = true; // re-enable in case suppressed by stray-floor pass
-                    ApplyFloorMapScale(floorT, s);
-                    Debug.Log($"[ArenaThemeController] Floor_Map sprite set to '{s.name}' on {arenaRootName}.");
-                }
-                else
-                {
-                    // No sprite available — ensure the renderer stays enabled so the
-                    // ProBuilder floor mesh below is at least visible instead of nothing.
-                    sr.enabled = false;
-                    if (isArena2)
-                        Debug.LogError("[ArenaThemeController] Stage 2 floor sprite missing. " +
-                            "Assign arena2FloorSprite on ArenaThemeController, run CS4483 → Apply Sprites, " +
-                            "or ensure Resources/ArenaTheme/sMap2.png is imported as a Sprite.");
-                }
-            }
-        }
-        else if (isArena2)
-            Debug.LogError("[ArenaThemeController] Stage 2: Floor_Map not found inside " +
-                "=== LEVEL (ProBuilder) Arena2 ===. Run CS4483 → Apply Environment Sprites, " +
-                "or ensure the arena2FloorSprite / Resources/ArenaTheme/sMap2 is set up.");
+        // Destroy every existing Floor_Map in the entire subtree to prevent stale duplicates.
+        var toDestroy = new System.Collections.Generic.List<GameObject>();
+        foreach (Transform t in arenaRoot.GetComponentsInChildren<Transform>(true))
+            if (t != null && t.name == "Floor_Map") toDestroy.Add(t.gameObject);
+        foreach (GameObject go in toDestroy) Destroy(go);
 
+        if (s == null)
+        {
+            Debug.LogWarning($"[ArenaThemeController] No floor sprite for {arenaRootName} — ProBuilder mesh left visible.");
+            return;
+        }
+
+        // Create one clean Floor_Map for this arena.
+        GameObject mapPlane = new GameObject("Floor_Map");
+        mapPlane.transform.SetParent(arenaRoot, false);
+        mapPlane.transform.position   = new Vector3(0f, 0.05f, 0f);
+        mapPlane.transform.rotation   = Quaternion.Euler(90f, 0f, 0f);
+        mapPlane.transform.localScale = Vector3.one;
+        SpriteRenderer sr = mapPlane.AddComponent<SpriteRenderer>();
+        sr.sprite       = s;
+        sr.sortingOrder = -50;
+        sr.drawMode     = SpriteDrawMode.Simple;
+        ApplyFloorMapScale(mapPlane.transform, s, desiredWorldSize);
+        Debug.Log($"[ArenaThemeController] Floor_Map created for {arenaRootName} using '{s.name}'.");
+
+        // Background plane (legacy; usually removed — update if still present)
         Transform bgT = FindDeepChildInSceneRoot(arenaRootName, "Background_Plane");
         if (bgT != null && bgSprite != null)
         {
-            SpriteRenderer sr = bgT.GetComponent<SpriteRenderer>();
-            if (sr != null) sr.sprite = bgSprite;
+            SpriteRenderer bgSr = bgT.GetComponent<SpriteRenderer>();
+            if (bgSr != null) bgSr.sprite = bgSprite;
         }
     }
 
-    static void ApplyFloorMapScale(Transform mapPlane, Sprite sprite)
+    static void ApplyFloorMapScale(Transform mapPlane, Sprite sprite, float desiredWorldSize)
     {
         if (mapPlane == null || sprite == null) return;
         float w = sprite.bounds.size.x;
         if (w > 0.001f)
         {
-            float s = FloorMapDesiredWorldSize / w;
+            float s = desiredWorldSize / w;
             mapPlane.localScale = new Vector3(s, s, 1f);
         }
     }

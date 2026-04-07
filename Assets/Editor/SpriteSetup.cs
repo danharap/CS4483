@@ -49,6 +49,9 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Idle.png");
         ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Blink.png");
 
+        // Guide NPC idle animation frames (0-3.png)
+        ConfigureSpritesInFolder("Assets/Sprites/Guide NPC");
+
         // Heavy body frames (pre-cut individual PNGs in folders)
         ConfigureSpritesInFolder("Assets/Sprites/TankWalking");
         ConfigureSpritesInFolder("Assets/Sprites/Tank Walking Right");
@@ -172,9 +175,7 @@ public static class SpriteSetup
         ArenaThemeController theme = mgr.GetComponent<ArenaThemeController>();
         if (theme == null) return;
 
-        // Floor sprites
         theme.arena1FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
-        // Prefer sMap2.png for arena 2 floor; fall back to the red variant if not present
         Sprite map2 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap2.png");
         theme.arena2FloorSprite = map2 != null ? map2 : AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
 
@@ -362,7 +363,10 @@ public static class SpriteSetup
             AddDeadBodySprite(db.gameObject, deadBodySprite);
             deadBodyCount++;
         }
-        
+
+        // Wire Guide NPC idle animation in lobby
+        WireGuideNPCSprite();
+
         Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, {trapCount} spike traps, {flameTrapCount} flame traps, and {deadBodyCount} dead bodies in scene!");
 
         // Same wiring as step 2 so Arena 2 floor (sMap2) is assigned if you only ran step 3.
@@ -460,6 +464,68 @@ public static class SpriteSetup
         }
         Debug.Log($"[SpriteSetup] Loaded {list.Count} flame trap frame(s) from '{dir}'.");
         return list.ToArray();
+    }
+
+    // ── Guide NPC sprite / animation wiring ───────────────────────────────
+
+    private static Sprite[] LoadGuideNPCFrames()
+    {
+        string dir = "Assets/Sprites/Guide NPC";
+        var list = new List<Sprite>();
+        for (int i = 0; i < 16; i++)
+        {
+            string path = $"{dir}/{i}.png";
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s == null) break;
+            list.Add(s);
+        }
+        if (list.Count == 0)
+            Debug.LogWarning("[SpriteSetup] No Guide NPC frames found in Assets/Sprites/Guide NPC — run step 1 first.");
+        else
+            Debug.Log($"[SpriteSetup] Loaded {list.Count} Guide NPC frame(s).");
+        return list.ToArray();
+    }
+
+    private static void WireGuideNPCSprite()
+    {
+        Sprite[] frames = LoadGuideNPCFrames();
+        if (frames.Length == 0) return;
+
+        GameObject guideNpc = GameObject.Find("GuideNPC");
+        if (guideNpc == null)
+        {
+            Debug.LogWarning("[SpriteSetup] GuideNPC not found in scene — run Setup All to recreate.");
+            return;
+        }
+
+        // Ensure the capsule root is at ground level with uniform scale so the sprite child isn't distorted.
+        guideNpc.transform.position = new Vector3(guideNpc.transform.position.x, 0f, guideNpc.transform.position.z);
+        guideNpc.transform.localScale = Vector3.one;
+
+        // Find or create GuideSprite child
+        Transform existingChild = guideNpc.transform.Find("GuideSprite");
+        GameObject guideSpritGo = existingChild != null ? existingChild.gameObject : new GameObject("GuideSprite");
+        guideSpritGo.transform.SetParent(guideNpc.transform, false);
+        guideSpritGo.transform.localPosition = new Vector3(0f, 2f, 0f); // raise centre 2 units above ground
+        guideSpritGo.transform.localScale    = new Vector3(1f, 1f, 1f); // TrapSpriteAnimator.spriteScale controls world size
+
+        if (guideSpritGo.GetComponent<Billboard>() == null)
+            guideSpritGo.AddComponent<Billboard>();
+
+        // Remove stale SpriteRenderer (TrapSpriteAnimator manages its own)
+        SpriteRenderer oldSr = guideSpritGo.GetComponent<SpriteRenderer>();
+        if (oldSr != null) Object.DestroyImmediate(oldSr);
+
+        TrapSpriteAnimator anim = guideSpritGo.GetComponent<TrapSpriteAnimator>();
+        if (anim == null) anim = guideSpritGo.AddComponent<TrapSpriteAnimator>();
+        anim.frameRate    = 8f;
+        anim.sortingOrder = 10;
+        anim.playOnAwake  = false;  // NPCDialogue starts it when the player opens dialogue
+        anim.enableGlow   = false;
+        anim.spriteScale  = new Vector3(1.8f, 1.8f, 1f); // slightly smaller than before
+        anim.SetFrames(frames);
+
+        Debug.Log("[SpriteSetup] ✓ Guide NPC sprite + animation wired.");
     }
 
     // ── Helper Methods ────────────────────────────────────────────────────

@@ -13,16 +13,18 @@ using UnityEngine.UI;
 ///   │            │                                          [E] ▶  │
 ///   └──────────────────────────────────────────────────────────────┘
 ///
-/// Usage:
-///   - Assign speakerPortrait and speakerName in the Inspector.
-///   - Guide mode answers questions 1-4 via keyboard.
-///   - Lore mode shows random one-line flavor text.
-///   - The panel animates in/out with a small vertical slide.
+/// Guide mode flow:
+///   E → intro text  →  E → 4-option menu  →  [1-4] answer  →  E → menu  →  E → close
+/// Lore mode flow:
+///   E → random line  →  E → close
+///
 /// Requires Collider IsTrigger = true and player tagged "Player".
 /// </summary>
 public class NPCDialogue : MonoBehaviour
 {
     public enum DialogueMode { Guide, Lore }
+
+    private enum GuidePhase { Closed, Intro, Menu, Answer }
 
     // ── Inspector ─────────────────────────────────────────────────────────
 
@@ -30,19 +32,18 @@ public class NPCDialogue : MonoBehaviour
     [SerializeField] private DialogueMode mode = DialogueMode.Guide;
 
     [Header("Speaker Identity")]
-    [SerializeField] private string     speakerName         = "Guide";
-    [SerializeField] private Sprite     speakerPortrait;
-    [Tooltip("Resources path to load portrait at runtime if speakerPortrait is not set (e.g. 'Portraits/TutorialNPC_Portrait').")]
-    [SerializeField] private string     portraitResourcePath = "Portraits/TutorialNPC_Portrait";
+    [SerializeField] private string  speakerName          = "Guide";
+    [SerializeField] private Sprite  speakerPortrait;
+    [Tooltip("Resources path to load portrait at runtime if speakerPortrait is not set.")]
+    [SerializeField] private string  portraitResourcePath = "Portraits/TutorialNPC_Portrait";
 
     [Header("Input")]
-    [SerializeField] private KeyCode    interactKey    = KeyCode.E;
+    [SerializeField] private KeyCode interactKey = KeyCode.E;
 
     [Header("UI (auto-created if null)")]
     [SerializeField] private GameObject dialogueRoot;
     [SerializeField] private TMP_Text   speakerNameText;
     [SerializeField] private TMP_Text   dialogueBodyText;
-    [SerializeField] private Image      portraitImage;
     [SerializeField] private TMP_Text   continuePrompt;
 
     [Header("Panel Slide Animation")]
@@ -51,18 +52,21 @@ public class NPCDialogue : MonoBehaviour
 
     // ── Internal ──────────────────────────────────────────────────────────
 
-    private bool playerInRange;
-    private bool guideMenuOpen;
-    private RectTransform panelRt;
-    private float hiddenY;
-    private float shownY;
-    private Coroutine slideCoroutine;
+    private bool             playerInRange;
+    private GuidePhase       guidePhase    = GuidePhase.Closed;
+    private bool             guideMenuOpen; // used only by Lore mode
+    private RectTransform    panelRt;
+    private float            hiddenY;
+    private float            shownY;
+    private Coroutine        slideCoroutine;
+    private TrapSpriteAnimator spriteAnim; // optional — drives Guide NPC idle animation
 
-    private const string GuideDefault =
-        "You're new.\n\n" +
-        "You won't last long without understanding this place.\n\n" +
-        "[1] What is this place?     [2] How do upgrades work?\n" +
-        "[3] How do I survive?       [4] Who is the King?";
+    private const string GuideIntroText =
+        "You're new.\n\nYou won't last long without understanding this place...";
+
+    private const string GuideMenuText =
+        "[1] What is this place?       [2] How do upgrades work?\n" +
+        "[3] How do I survive?         [4] Who is the King?";
 
     private static readonly string[] LoreLines =
     {
@@ -76,9 +80,13 @@ public class NPCDialogue : MonoBehaviour
 
     void Awake()
     {
-        // Auto-load portrait from Resources if not assigned in Inspector
         if (speakerPortrait == null && !string.IsNullOrEmpty(portraitResourcePath))
             speakerPortrait = Resources.Load<Sprite>(portraitResourcePath);
+
+        // Cache the sprite animator so we can play it only while dialogue is open
+        Transform spriteChild = transform.Find("GuideSprite");
+        if (spriteChild != null)
+            spriteAnim = spriteChild.GetComponent<TrapSpriteAnimator>();
 
         BuildDialogueUI();
         SetVisible(false, instant: true);
@@ -90,27 +98,13 @@ public class NPCDialogue : MonoBehaviour
 
         if (Input.GetKeyDown(interactKey))
         {
-            if (!guideMenuOpen)
-            {
-                if (mode == DialogueMode.Guide)
-                {
-                    guideMenuOpen = true;
-                    ShowPanel(GuideDefault);
-                }
-                else
-                {
-                    ShowPanel(LoreLines[Random.Range(0, LoreLines.Length)]);
-                }
-            }
+            if (mode == DialogueMode.Guide)
+                HandleGuideInteract();
             else
-            {
-                // Second press closes
-                guideMenuOpen = false;
-                SetVisible(false);
-            }
+                HandleLoreInteract();
         }
 
-        if (mode == DialogueMode.Guide && guideMenuOpen)
+        if (mode == DialogueMode.Guide && guidePhase == GuidePhase.Menu)
             HandleGuideQuestions();
     }
 
@@ -119,28 +113,94 @@ public class NPCDialogue : MonoBehaviour
         if (!other.CompareTag("Player")) return;
         playerInRange = true;
         ShowPanel($"Press [{interactKey}] to speak with {speakerName}");
+        UpdatePrompt($"[{interactKey}] Speak ▶");
     }
 
     void OnTriggerExit(Collider other)
     {
         if (!other.CompareTag("Player")) return;
-        playerInRange  = false;
-        guideMenuOpen  = false;
+        playerInRange = false;
+        guidePhase    = GuidePhase.Closed;
+        guideMenuOpen = false;
+        StopNPCAnimation();
         SetVisible(false);
     }
 
-    // ── Guide Questions ───────────────────────────────────────────────────
+    // ── Guide dialogue phases ─────────────────────────────────────────────
+
+    private void HandleGuideInteract()
+    {
+        switch (guidePhase)
+        {
+            case GuidePhase.Closed:
+                guidePhase = GuidePhase.Intro;
+                StartNPCAnimation();
+                ShowPanel(GuideIntroText);
+                UpdatePrompt($"[{interactKey}] Continue ▶");
+                break;
+
+            case GuidePhase.Intro:
+            case GuidePhase.Answer:
+                guidePhase = GuidePhase.Menu;
+                ShowPanel(GuideMenuText);
+                UpdatePrompt($"[{interactKey}] Close  •  [1–4] Select");
+                break;
+
+            case GuidePhase.Menu:
+                guidePhase = GuidePhase.Closed;
+                StopNPCAnimation();
+                SetVisible(false);
+                break;
+        }
+    }
 
     private void HandleGuideQuestions()
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-            ShowPanel("A prison disguised as entertainment.\n\nThey call it a game.\n\nIt is not.");
+        string answer = null;
+        if      (Input.GetKeyDown(KeyCode.Alpha1))
+            answer = "A prison disguised as entertainment.\n\nThey call it a game.\n\nIt is not.";
         else if (Input.GetKeyDown(KeyCode.Alpha2))
-            ShowPanel("Kill enough enemies and pick up their orbs to level up and choose an upgrade. They shape your abilities. No two runs are the same.");
+            answer = "Kill enough enemies and pick up their orbs to level up and choose an upgrade. They shape your abilities. No two runs are the same.";
         else if (Input.GetKeyDown(KeyCode.Alpha3))
-            ShowPanel("Keep moving.\n\nHesitation gets you killed.\n\nLearn the patterns.");
+            answer = "Keep moving.\n\nHesitation gets you killed.\n\nLearn the patterns.";
         else if (Input.GetKeyDown(KeyCode.Alpha4))
-            ShowPanel("The one who never fights... until the end.\n\nIf you reach him... you'll understand.");
+            answer = "The one who never fights... until the end.\n\nIf you reach him... you'll understand.";
+
+        if (answer != null)
+        {
+            guidePhase = GuidePhase.Answer;
+            ShowPanel(answer);
+            UpdatePrompt($"[{interactKey}] Back ▶");
+        }
+    }
+
+    // ── Lore dialogue (Merchant etc.) ─────────────────────────────────────
+
+    private void HandleLoreInteract()
+    {
+        if (!guideMenuOpen)
+        {
+            guideMenuOpen = true;
+            ShowPanel(LoreLines[Random.Range(0, LoreLines.Length)]);
+            UpdatePrompt($"[{interactKey}] Close ▶");
+        }
+        else
+        {
+            guideMenuOpen = false;
+            SetVisible(false);
+        }
+    }
+
+    // ── Sprite animation helpers ──────────────────────────────────────────
+
+    private void StartNPCAnimation()
+    {
+        if (spriteAnim != null) spriteAnim.enabled = true;
+    }
+
+    private void StopNPCAnimation()
+    {
+        if (spriteAnim != null) spriteAnim.enabled = false;
     }
 
     // ── Panel Helpers ─────────────────────────────────────────────────────
@@ -149,6 +209,11 @@ public class NPCDialogue : MonoBehaviour
     {
         if (dialogueBodyText != null) dialogueBodyText.text = text;
         SetVisible(true);
+    }
+
+    private void UpdatePrompt(string text)
+    {
+        if (continuePrompt != null) continuePrompt.text = text;
     }
 
     private void SetVisible(bool visible, bool instant = false)
@@ -215,8 +280,8 @@ public class NPCDialogue : MonoBehaviour
         const float portraitSz = 180f;
         const float edgePad    = 20f;
 
-        shownY  = edgePad;          // slightly off the bottom edge
-        hiddenY = -(panelH + 10f);  // fully below screen
+        shownY  = edgePad;
+        hiddenY = -(panelH + 10f);
 
         dialogueRoot = new GameObject($"{name}_DialogueBox");
         dialogueRoot.transform.SetParent(canvasGo.transform, false);
@@ -228,11 +293,10 @@ public class NPCDialogue : MonoBehaviour
         panelRt.sizeDelta        = new Vector2(panelW, panelH);
         panelRt.anchoredPosition = new Vector2(0f, hiddenY);
 
-        // Dark semi-transparent backing
         Image panelBg = dialogueRoot.AddComponent<Image>();
         panelBg.color = new Color(0.08f, 0.06f, 0.10f, 0.92f);
 
-        // Coloured top border strip (warm gold accent like Stardew)
+        // Gold top border
         GameObject border = new GameObject("TopBorder");
         border.transform.SetParent(dialogueRoot.transform, false);
         Image borderImg = border.AddComponent<Image>();
@@ -245,35 +309,62 @@ public class NPCDialogue : MonoBehaviour
         borderRt.sizeDelta        = new Vector2(0f, 4f);
 
         // ── Portrait frame ────────────────────────────────────────────────
+        const float frameSz = 172f;
+
         GameObject portraitFrame = new GameObject("PortraitFrame");
         portraitFrame.transform.SetParent(dialogueRoot.transform, false);
         Image frameBg = portraitFrame.AddComponent<Image>();
-        frameBg.color = new Color(0.18f, 0.14f, 0.22f, 1f);
+        frameBg.color = new Color(0.82f, 0.65f, 0.18f, 1f); // gold border
         RectTransform frameRt = portraitFrame.GetComponent<RectTransform>();
         frameRt.anchorMin        = new Vector2(0f, 0.5f);
         frameRt.anchorMax        = new Vector2(0f, 0.5f);
         frameRt.pivot            = new Vector2(0f, 0.5f);
         frameRt.anchoredPosition = new Vector2(edgePad, 0f);
-        frameRt.sizeDelta        = new Vector2(portraitSz, portraitSz);
+        frameRt.sizeDelta        = new Vector2(frameSz, frameSz);
 
-        // Portrait image inside frame
+        // Inner dark backing (inset 3px from gold border)
+        GameObject frameInner = new GameObject("PortraitInner");
+        frameInner.transform.SetParent(portraitFrame.transform, false);
+        Image innerBg = frameInner.AddComponent<Image>();
+        innerBg.color = new Color(0.18f, 0.14f, 0.22f, 1f);
+        RectTransform innerRt = frameInner.GetComponent<RectTransform>();
+        innerRt.anchorMin = Vector2.zero;
+        innerRt.anchorMax = Vector2.one;
+        innerRt.offsetMin = new Vector2(3f, 3f);
+        innerRt.offsetMax = new Vector2(-3f, -3f);
+
+        // Portrait image (RawImage for UV-crop to show head + chest only)
         GameObject portraitGo = new GameObject("Portrait");
-        portraitGo.transform.SetParent(portraitFrame.transform, false);
-        portraitImage = portraitGo.AddComponent<Image>();
-        portraitImage.preserveAspect = true;
-        if (speakerPortrait != null)
-            portraitImage.sprite = speakerPortrait;
-        else
-            portraitImage.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+        portraitGo.transform.SetParent(frameInner.transform, false);
+        RawImage portraitRaw = portraitGo.AddComponent<RawImage>();
+        // Show top 62 % of the sprite — hides legs, focuses on chest + head
+        portraitRaw.uvRect = new Rect(0f, 0.38f, 1f, 0.62f);
 
-        RectTransform portRt = portraitImage.GetComponent<RectTransform>();
-        portRt.anchorMin = new Vector2(0.05f, 0.05f);
-        portRt.anchorMax = new Vector2(0.95f, 0.95f);
+        RectTransform portRt = portraitRaw.GetComponent<RectTransform>();
+        portRt.anchorMin = Vector2.zero;
+        portRt.anchorMax = Vector2.one;
         portRt.offsetMin = Vector2.zero;
         portRt.offsetMax = Vector2.zero;
 
+        // Load portrait texture (editor only; builds fall back to tinted placeholder)
+#if UNITY_EDITOR
+        string texPath = mode == DialogueMode.Guide
+            ? "Assets/Sprites/Guide NPC/2.png"
+            : "Assets/Sprites/NPC/Merchant_Idle.png";
+        Texture2D portraitTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
+        if (portraitTex != null)
+            portraitRaw.texture = portraitTex;
+        else
+#endif
+        {
+            if (speakerPortrait != null)
+                portraitRaw.texture = speakerPortrait.texture;
+            else
+                portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+        }
+
         // ── Text area ─────────────────────────────────────────────────────
-        float textAreaX     = edgePad + portraitSz + edgePad;
+        float textAreaX     = edgePad + frameSz + edgePad;
         float textAreaWidth = panelW - textAreaX - edgePad;
 
         // Speaker name
@@ -297,11 +388,11 @@ public class NPCDialogue : MonoBehaviour
         GameObject bodyGo = new GameObject("DialogueBody");
         bodyGo.transform.SetParent(dialogueRoot.transform, false);
         dialogueBodyText = bodyGo.AddComponent<TextMeshProUGUI>();
-        dialogueBodyText.fontSize             = 26f;
-        dialogueBodyText.color                = Color.white;
-        dialogueBodyText.alignment            = TextAlignmentOptions.TopLeft;
-        dialogueBodyText.enableWordWrapping   = true;
-        dialogueBodyText.overflowMode         = TextOverflowModes.Ellipsis;
+        dialogueBodyText.fontSize           = 26f;
+        dialogueBodyText.color              = Color.white;
+        dialogueBodyText.alignment          = TextAlignmentOptions.TopLeft;
+        dialogueBodyText.enableWordWrapping = true;
+        dialogueBodyText.overflowMode       = TextOverflowModes.Ellipsis;
 
         RectTransform bodyRt = dialogueBodyText.GetComponent<RectTransform>();
         bodyRt.anchorMin        = new Vector2(0f, 0f);
@@ -314,7 +405,7 @@ public class NPCDialogue : MonoBehaviour
         GameObject promptGo = new GameObject("ContinuePrompt");
         promptGo.transform.SetParent(dialogueRoot.transform, false);
         continuePrompt = promptGo.AddComponent<TextMeshProUGUI>();
-        continuePrompt.text      = $"[{interactKey}] Close  ▶";
+        continuePrompt.text      = $"[{interactKey}] Speak ▶";
         continuePrompt.fontSize  = 22f;
         continuePrompt.color     = new Color(0.7f, 0.7f, 0.7f, 0.85f);
         continuePrompt.alignment = TextAlignmentOptions.BottomRight;
@@ -324,6 +415,6 @@ public class NPCDialogue : MonoBehaviour
         promptRt.anchorMax        = new Vector2(1f, 0f);
         promptRt.pivot            = new Vector2(1f, 0f);
         promptRt.anchoredPosition = new Vector2(-edgePad, edgePad);
-        promptRt.sizeDelta        = new Vector2(300f, 30f);
+        promptRt.sizeDelta        = new Vector2(380f, 30f);
     }
 }
