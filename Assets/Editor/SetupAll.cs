@@ -754,7 +754,8 @@ public static class SetupAll
 
         // Create empty NPC object (sprite-based, not a primitive)
         GameObject merchant = new GameObject("LobbyMerchant");
-        merchant.transform.position = new Vector3(4f, 1f, -4f);
+        // West side of the lobby (Guide stays east); Skill Tree / “devil” NPC.
+        merchant.transform.position = new Vector3(-5.5f, 1f, 0f);
 
         // Interaction trigger (no visual collider needed — sprite handles visuals)
         SphereCollider trigger = merchant.AddComponent<SphereCollider>();
@@ -773,35 +774,10 @@ public static class SetupAll
         if (blinkSprite == null)
             Debug.LogWarning("[SetupAll] Merchant_Blink.png not found at Assets/Sprites/NPC/.");
 
-        // "Press E" world-space canvas
-        GameObject promptGO    = new GameObject("MerchantPrompt");
-        promptGO.transform.SetParent(merchant.transform, false);
-        promptGO.transform.localPosition = new Vector3(0f, 2f, 0f);
-        Canvas wCanvas = promptGO.AddComponent<Canvas>();
-        wCanvas.renderMode = RenderMode.WorldSpace;
-        wCanvas.worldCamera = Camera.main;
-        promptGO.AddComponent<UnityEngine.UI.CanvasScaler>();
-        promptGO.AddComponent<UnityEngine.UI.GraphicRaycaster>();
-        RectTransform wRT = promptGO.GetComponent<RectTransform>();
-        wRT.sizeDelta = new Vector2(200f, 50f);
-        wRT.localScale = Vector3.one * 0.01f;
-
-        GameObject promptText = new GameObject("PromptText", typeof(RectTransform));
-        promptText.transform.SetParent(promptGO.transform, false);
-        RectTransform pRT = promptText.GetComponent<RectTransform>();
-        pRT.anchorMin = Vector2.zero; pRT.anchorMax = Vector2.one;
-        pRT.offsetMin = Vector2.zero; pRT.offsetMax = Vector2.zero;
-        TMP_Text pTMP = promptText.AddComponent<TextMeshProUGUI>();
-        pTMP.text      = "[E] Open Skill Tree";
-        pTMP.fontSize  = 14f;
-        pTMP.alignment = TextAlignmentOptions.Center;
-        pTMP.color     = Color.white;
-
-        // LobbyMerchant component with sprite references
+        // LobbyMerchant: proximity UI is the same bottom HUD panel as the Guide (built at runtime on Canvas_HUD).
         lobbyMerchantComp = merchant.AddComponent<LobbyMerchant>();
         var soM = new SerializedObject(lobbyMerchantComp);
         soM.FindProperty("skillTreeUI").objectReferenceValue  = skillTreeUI;
-        soM.FindProperty("promptText").objectReferenceValue   = pTMP;
         soM.FindProperty("idleSprite").objectReferenceValue   = idleSprite;
         soM.FindProperty("blinkSprite").objectReferenceValue  = blinkSprite;
         soM.ApplyModifiedPropertiesWithoutUndo();
@@ -809,6 +785,11 @@ public static class SetupAll
         // Parent under lobby if found (so it hides with the lobby)
         if (lobbyRoot != null)
             merchant.transform.SetParent(lobbyRoot.transform, true);
+
+        // World-space title above the upgrades / devil NPC (HUD panel uses the portrait separately)
+        ProBuilderLevelBuilder.CreateWorldLabel(
+            merchant.transform, "UpgradesLabel", "Upgrades",
+            new Vector3(0f, 3.5f, 0f), Color.black, fontSize: 52);
 
         Debug.Log("[SetupAll] Lobby merchant created (sprite-based with blink).");
     }

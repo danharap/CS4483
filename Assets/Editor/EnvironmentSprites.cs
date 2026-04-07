@@ -81,12 +81,14 @@ public static class EnvironmentSprites
             if (floorRenderer != null) floorRenderer.enabled = false;
         }
 
-        // No Background_Plane for Arena 2 either — Floor_Map is sufficient.
         ApplyFloorMapForRoot(levelRoot.transform, mapSprite, FloorMapDesiredWorldSize_Arena2);
-        ArenaThemeController.EnsureBlackBackdrop(levelRoot.transform);
+        {
+            Sprite bg = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
+            ArenaThemeController.EnsureArenaBackdrop(levelRoot.transform, bg);
+        }
         EnableProBuilderWallsForRoot(levelRoot.transform);
 
-        Debug.Log("[EnvironmentSprites] ✓ Arena 2 floor applied (enlarged to fill arena, black backdrop).");
+        Debug.Log("[EnvironmentSprites] ✓ Arena 2 floor applied (enlarged to fill arena, sBg backdrop).");
     }
     
     /// <summary>
@@ -137,8 +139,11 @@ public static class EnvironmentSprites
         }
 
         ApplyFloorMapForRoot(levelRoot.transform, mapSprite, FloorMapDesiredWorldSize_Arena1);
-        ArenaThemeController.EnsureBlackBackdrop(levelRoot.transform);
-        Debug.Log("[EnvironmentSprites] ✓ Arena 1 floor applied (sMap.png, ProBuilder mesh hidden).");
+        {
+            Sprite bg = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
+            ArenaThemeController.EnsureArenaBackdrop(levelRoot.transform, bg);
+        }
+        Debug.Log("[EnvironmentSprites] ✓ Arena 1 floor applied (sMap.png, sBg backdrop, ProBuilder mesh hidden).");
     }
 
     /// <summary>

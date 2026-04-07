@@ -35,6 +35,7 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sMap.png");
         ConfigureSingleSprite("Assets/Sprites/sMap_Arena2_Red.png");
         ConfigureSingleSprite("Assets/Sprites/sMap2.png"); // Arena 2 floor
+        ConfigureSingleSprite("Assets/Sprites/sBg.png");
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
         ConfigureSingleSprite("Assets/Sprites/sExperience.png"); // Custom XP orb
         ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
@@ -176,6 +177,8 @@ public static class SpriteSetup
         theme.arena1FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
         Sprite map2 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap2.png");
         theme.arena2FloorSprite = map2 != null ? map2 : AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
+
+        theme.arena1BackdropSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
 
         // Trap animations (use unified spike trap frames for both arenas)
         Sprite[] spikeFrames = LoadSpikeTrapFrames();
@@ -988,7 +991,9 @@ public static class SpriteSetup
         
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Single;
-        importer.filterMode = FilterMode.Point;
+        // Full-screen backdrop: bilinear + full-res import — point filter made sBg look harshly pixelated when scaled.
+        bool isBackdrop = path.IndexOf("sBg", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        importer.filterMode = isBackdrop ? FilterMode.Bilinear : FilterMode.Point;
         importer.spritePixelsPerUnit = GlobalPPU;
         importer.alphaSource = TextureImporterAlphaSource.FromInput; // Preserve alpha channel
         importer.alphaIsTransparency = true; // Enable transparency
@@ -996,7 +1001,7 @@ public static class SpriteSetup
         importer.textureCompression = TextureImporterCompression.Uncompressed;
         importer.crunchedCompression = false;
         importer.npotScale = TextureImporterNPOTScale.None;
-        importer.maxTextureSize = path.Contains("sMap") ? 8192 : 4096;
+        importer.maxTextureSize = (path.Contains("sMap") || path.Contains("sBg")) ? 8192 : 4096;
         importer.SaveAndReimport();
         
         Debug.Log($"[SpriteSetup] Configured single sprite with transparency: {path}");

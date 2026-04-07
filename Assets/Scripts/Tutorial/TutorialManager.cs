@@ -24,6 +24,10 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private Sprite npcPortrait;
     [SerializeField] private string npcSpeakerName = "The Watcher";
 
+    private RawImage tutorialPortraitRaw;
+    private Texture2D texGuidePortrait;
+    private Texture2D texDevilPortrait;
+
     [Header("Timing")]
     [SerializeField] private float introLineDuration = 1.8f;
     [SerializeField] private float introGap = 0.35f;
@@ -42,6 +46,7 @@ public class TutorialManager : MonoBehaviour
         AwaitSecondGatePass,
         CollectOrbs,
         PickUpgrade,
+        SkillTreeExplanation,
         NpcSection,
         Complete
     }
@@ -127,6 +132,7 @@ public class TutorialManager : MonoBehaviour
         StopAllCoroutines();
         tutorialRoomStarted = false;
         phase = TutorialPhase.Inactive;
+        ApplyDialogueSpeaker(devil: false);
         ShowText(false);
 
         PlayerController pc = GameManager.Instance?.PlayerController;
@@ -152,6 +158,7 @@ public class TutorialManager : MonoBehaviour
     private IEnumerator ShowLobbyReturnMessage()
     {
         ShowText(true);
+        ApplyDialogueSpeaker(devil: false);
         SetText("Speak with the Guide (Press E) if you have any questions, then head into the arena when you're ready!");
         yield return new WaitForSecondsRealtime(5f);
         ShowText(false);
@@ -171,8 +178,8 @@ public class TutorialManager : MonoBehaviour
         if (trigger == TutorialTriggerType.SelectUpgrade && phase == TutorialPhase.PickUpgrade)
         {
             OpenGate(gate3);
-            phase = TutorialPhase.NpcSection;
-            SetText("Head through the portal to return to the lobby.");
+            phase = TutorialPhase.SkillTreeExplanation;
+            StartCoroutine(PlaySkillTreeDialogue());
         }
     }
 
@@ -241,7 +248,37 @@ public class TutorialManager : MonoBehaviour
     public void ShowTemporaryMessage(string message, float duration = 3f)
     {
         if (!tutorialRoomStarted) return;
+        if (phase == TutorialPhase.SkillTreeExplanation) return;
         StartCoroutine(ShowMessageRoutine(message, duration));
+    }
+
+    private IEnumerator PlaySkillTreeDialogue()
+    {
+        ShowText(true);
+        ApplyDialogueSpeaker(devil: true);
+
+        string[] lines =
+        {
+            "Hold on — before you sprint back into the meat grinder, listen.",
+            "Every run earns you Account XP. The longer you survive, the more you bank.",
+            "When your account levels up, you get a Skill Point.",
+            "Back in the lobby, find the red devil by the Skill Tree.",
+            "Spend those points on permanent upgrades. They carry into every future run — and make the next trip down here a little less one-sided.",
+            "I'll see you by the Skill Tree. Now move — portal's waiting."
+        };
+
+        const float lineDur = 2.35f;
+        const float gap     = 0.28f;
+        foreach (string line in lines)
+        {
+            SetText(line);
+            yield return new WaitForSecondsRealtime(lineDur);
+            yield return new WaitForSecondsRealtime(gap);
+        }
+
+        ApplyDialogueSpeaker(devil: false);
+        phase = TutorialPhase.NpcSection;
+        SetText("Head through the portal to return to the lobby.");
     }
 
     private IEnumerator PlayIntroThenStart()
@@ -250,6 +287,7 @@ public class TutorialManager : MonoBehaviour
         if (pc != null) pc.SetInputLocked(true);
 
         ShowText(true);
+        ApplyDialogueSpeaker(devil: false);
         for (int i = 0; i < IntroLines.Length; i++)
         {
             SetText(IntroLines[i]);
@@ -457,16 +495,24 @@ public class TutorialManager : MonoBehaviour
         portRt.offsetMin          = Vector2.zero;
         portRt.offsetMax          = Vector2.zero;
 
-        // Load Guide NPC frame 2 (3rd frame = index 2) as the portrait texture.
+        tutorialPortraitRaw = portraitRaw;
+
 #if UNITY_EDITOR
-        Texture2D guidePortraitTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprites/Guide NPC/2.png");
-        if (guidePortraitTex != null)
-            portraitRaw.texture = guidePortraitTex;
+        texGuidePortrait = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprites/Guide NPC/2.png");
+        texDevilPortrait = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprites/NPC/Merchant_Idle.png");
+#endif
+        if (texGuidePortrait == null)
+            texGuidePortrait = Resources.Load<Texture2D>("Portraits/GuideNPC_Portrait");
+        if (texDevilPortrait == null)
+            texDevilPortrait = Resources.Load<Texture2D>("Portraits/Merchant_Idle");
+
+        if (texGuidePortrait != null)
+        {
+            portraitRaw.texture = texGuidePortrait;
+            portraitRaw.color   = Color.white;
+        }
         else
             portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-#else
-        portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-#endif
 
         // tutorialPortraitImage is unused now (replaced by RawImage above).
         tutorialPortraitImage = null;
@@ -509,6 +555,27 @@ public class TutorialManager : MonoBehaviour
         textRt.sizeDelta              = new Vector2(textAreaWidth, -(edgePad * 2f + 34f + 6f));
 
         ShowText(false);
+    }
+
+    /// <summary>Watcher (Guide) vs. lobby devil (Merchant) portrait + label.</summary>
+    void ApplyDialogueSpeaker(bool devil)
+    {
+        if (tutorialSpeakerText != null)
+            tutorialSpeakerText.text = devil ? "The Devil" : npcSpeakerName;
+
+        if (tutorialPortraitRaw == null) return;
+
+        Texture2D tex = devil ? texDevilPortrait : texGuidePortrait;
+        if (tex != null)
+        {
+            tutorialPortraitRaw.texture = tex;
+            tutorialPortraitRaw.color   = Color.white;
+        }
+
+        // Crop: devil sprite is shorter/wider — tweak UVs so face reads well in frame.
+        tutorialPortraitRaw.uvRect = devil
+            ? new Rect(0f, 0.22f, 1f, 0.78f)
+            : new Rect(0f, 0.38f, 1f, 0.62f);
     }
 
     private void SetText(string text)

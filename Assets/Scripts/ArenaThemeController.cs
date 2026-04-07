@@ -8,7 +8,7 @@ using UnityEngine.SceneManagement;
 /// Runtime theme switcher between Arena 1 and Arena 2.
 /// Swaps the floor sprite and zap-trap animation frames when transitioning through the portal.
 /// Floor scale is driven by desired world size so sMap vs sMap2 PPU differences never stretch the floor.
-/// Backdrop is a solid black plane (no sBg textures).
+/// Backdrop uses <c>sBg.png</c> for both arenas (large sprite under the arena); falls back to solid black if unset.
 /// </summary>
 public class ArenaThemeController : MonoBehaviour
 {
@@ -16,10 +16,18 @@ public class ArenaThemeController : MonoBehaviour
     public const float FloorMapDesiredWorldSize_Arena1 = 92f;
     /// <summary>Must match <c>EnvironmentSprites.FloorMapDesiredWorldSize_Arena2</c> (editor).</summary>
     public const float FloorMapDesiredWorldSize_Arena2 = 92f;
+    /// <summary>
+    /// World width/height for the backdrop sprite (uniform scale). Slightly above arena floor (~92) so it still
+    /// fills the view, but lower than the old 128 — packs more texels into the visible area (less blocky sBg).
+    /// </summary>
+    public const float BackdropDesiredWorldSize = 96f;
 
     [Header("Floor")]
     public Sprite arena1FloorSprite;
     public Sprite arena2FloorSprite;
+
+    [Header("Backdrop (sBg — both arenas)")]
+    public Sprite arena1BackdropSprite;
 
     [Header("Zap Trap Animations")]
     public Sprite[] zapTrapBlueFrames;
@@ -136,13 +144,23 @@ public class ArenaThemeController : MonoBehaviour
                       $"bounds.x={boundsW:F2} desiredSize={desiredWorldSize} scale={scale:F4}");
         }
 
-        EnsureBlackBackdrop(arenaRoot);
+        Sprite backdrop = arena1BackdropSprite;
+        if (backdrop == null)
+        {
+#if UNITY_EDITOR
+            backdrop = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
+#endif
+        }
+
+        EnsureArenaBackdrop(arenaRoot, backdrop);
     }
 
     /// <summary>
-    /// Solid black plane below the arena (replaces sBg / sBg_Red). Safe to call from editor tools.
+    /// Large horizontal backdrop under the arena (<see cref="Background_Plane"/>).
+    /// Uses <paramref name="backdropSprite"/> when set; otherwise a solid black quad (<c>Background_Black</c>).
+    /// Safe to call from editor tools — pass sprites loaded via <c>AssetDatabase</c>.
     /// </summary>
-    public static void EnsureBlackBackdrop(Transform arenaRoot)
+    public static void EnsureArenaBackdrop(Transform arenaRoot, Sprite backdropSprite)
     {
         if (arenaRoot == null) return;
 
@@ -155,6 +173,27 @@ public class ArenaThemeController : MonoBehaviour
         }
         foreach (GameObject go in remove)
             DestroyBackdropObject(go);
+
+        if (backdropSprite != null)
+        {
+            GameObject bgGo = new GameObject("Background_Plane");
+            bgGo.transform.SetParent(arenaRoot, false);
+            bgGo.transform.position   = new Vector3(0f, -0.55f, 0f);
+            bgGo.transform.rotation   = Quaternion.Euler(90f, 0f, 0f);
+            bgGo.transform.localScale = Vector3.one;
+            SpriteRenderer sr = bgGo.AddComponent<SpriteRenderer>();
+            sr.sprite       = backdropSprite;
+            sr.sortingOrder = -100;
+            sr.drawMode     = SpriteDrawMode.Simple;
+
+            float w = backdropSprite.bounds.size.x;
+            if (w > 0.001f)
+            {
+                float sc = BackdropDesiredWorldSize / w;
+                bgGo.transform.localScale = new Vector3(sc, sc, 1f);
+            }
+            return;
+        }
 
         GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
         quad.name = "Background_Black";

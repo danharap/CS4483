@@ -59,6 +59,9 @@ public class SkillTreeUI : MonoBehaviour
 
     private void OnSkillUnlockedRefresh(string _) => RefreshNodes();
 
+    /// <summary>True while the skill tree overlay is open (hides lobby NPC proximity prompts).</summary>
+    public bool IsOpen => panel != null && panel.activeSelf;
+
     public void Show()
     {
         // Activate the panel BEFORE building nodes so coroutines can start

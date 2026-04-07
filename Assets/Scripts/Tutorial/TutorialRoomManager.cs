@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 /// <summary>
@@ -155,6 +156,19 @@ public class TutorialRoomManager : MonoBehaviour
         floor.transform.SetParent(prison.transform);
         floor.transform.position = new Vector3(0f, -0.2f, cz);
         floor.transform.localScale = new Vector3(spanX, 0.4f, hz * 2f);
+
+        GameObject floorVis = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        floorVis.name = "Tutorial_FloorVisual";
+        floorVis.transform.SetParent(prison.transform, false);
+        floorVis.transform.position = new Vector3(0f, 0.03f, cz);
+        floorVis.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        floorVis.transform.localScale = new Vector3(spanX, hz * 2f, 1f);
+        Object.Destroy(floorVis.GetComponent<Collider>());
+        Renderer fr = floorVis.GetComponent<Renderer>();
+        Material fm = new Material(Shader.Find("Standard"));
+        fm.color = new Color(0.45f, 0.45f, 0.48f);
+        fr.material = fm;
+        fr.shadowCastingMode = ShadowCastingMode.Off;
 
         Transform pt = prison.transform;
         CreateRuntimeWall("West", new Vector3(-hx - 0.25f, 2f, cz), new Vector3(0.5f, 4f, hz * 2f), pt);

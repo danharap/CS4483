@@ -6,6 +6,7 @@ using UnityEngine.SceneManagement;
 using UnityEngine.ProBuilder;
 using UnityEngine.ProBuilder.Shapes;
 using Unity.AI.Navigation;
+using UnityEngine.Rendering;
 
 /// <summary>
 /// Editor tool: CS4483 → Build ProBuilder Graybox Level
@@ -777,7 +778,8 @@ public static class ProBuilderLevelBuilder
         soNpc.FindProperty("mode").enumValueIndex = 0; // Guide
         soNpc.ApplyModifiedPropertiesWithoutUndo();
 
-        CreateWorldLabel(tutorialNpc.transform, "GuideLabel", "Guide", new Vector3(0f, 4.5f, 0f), Color.black, fontSize: 52);
+        // Clear of the Guide sprite face (sprite centre ~y=2 on root).
+        CreateWorldLabel(tutorialNpc.transform, "GuideLabel", "Guide", new Vector3(0f, 6.25f, 1.17f), Color.black, fontSize: 52);
         CreateWorldLabel(portal.transform, "ArenaLabel", "Arena", new Vector3(0f, 2.2f, 0f), Color.yellow);
     }
 
@@ -823,6 +825,19 @@ public static class ProBuilderLevelBuilder
         floor.transform.position = new Vector3(floorCenterX, -0.2f, cz);
         floor.transform.localScale = new Vector3(totalWidth, 0.4f, hzBand * 2f);
         floor.GetComponent<Renderer>().sharedMaterial = floorMat;
+
+        // Walkable surface quad — clearer footing than the raw cube top alone (avoids looking “open” to the void).
+        GameObject floorVis = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        floorVis.name = "Tutorial_FloorVisual";
+        floorVis.transform.SetParent(prison.transform, false);
+        floorVis.transform.position = new Vector3(floorCenterX, 0.03f, cz);
+        floorVis.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        floorVis.transform.localScale = new Vector3(totalWidth, hzBand * 2f, 1f);
+        Object.DestroyImmediate(floorVis.GetComponent<Collider>());
+        Renderer floorVisR = floorVis.GetComponent<Renderer>();
+        floorVisR.sharedMaterial = floorMat;
+        floorVisR.shadowCastingMode = ShadowCastingMode.Off;
+        floorVisR.receiveShadows = true;
 
         float wallT = 0.5f;
         // West wall uses full FloorHalfX; east wall uses shorter EastHalfX.
@@ -1277,7 +1292,7 @@ public static class ProBuilderLevelBuilder
         wall.GetComponent<Renderer>().sharedMaterial = mat;
     }
 
-    static void CreateWorldLabel(Transform parent, string name, string label, Vector3 localPos, Color color, int fontSize = 64)
+    public static void CreateWorldLabel(Transform parent, string name, string label, Vector3 localPos, Color color, int fontSize = 64)
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
