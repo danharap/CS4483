@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 5870232047782001457}
   - component: {fileID: 3603407426575167655}
   - component: {fileID: 1233950861260775332}
-  - component: {fileID: 2738689103602664723}
+  - component: {fileID: 4045472565533106935}
   m_Layer: 0
   m_Name: Enemy_Chaser
   m_TagString: Untagged
@@ -184,7 +184,7 @@ MonoBehaviour:
   deathSound: {fileID: 8300000, guid: fc6f79d2f98db4596b98804d2a93b5ca, type: 3}
   deathVolume: 0.5
   damageNumberPrefab: {fileID: 7687715987023145794, guid: 6ffd80c52447ca049bdcf42f0fc7a4ec, type: 3}
---- !u!114 &2738689103602664723
+--- !u!114 &4045472565533106935
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
