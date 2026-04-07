@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using Unity.AI.Navigation;
 
@@ -234,14 +235,17 @@ public class ArenaPortalManager : MonoBehaviour
             Debug.LogWarning("[ArenaPortalManager] No ArenaThemeController found — Stage 2 floor may not swap.");
 
         // Bake NavMesh for Arena 2.
-        // Arena 1 is now disabled, so CollectObjects.All only picks up Arena 2 geometry.
-        // If the surface uses CollectObjects.Children, only Arena 2's own colliders are included
-        // regardless — either way, the bake is clean at this point.
+        // IMPORTANT: force CollectObjects.Children so the player's CharacterController capsule
+        // (and any other scene-level colliders) are excluded from the bake.  Using .All would
+        // carve a player-shaped hole in the NavMesh at the portal area, causing enemies to stop
+        // dead whenever they tried to path toward that region.
         NavMeshSurface nav = arena2Root.GetComponent<NavMeshSurface>();
         if (nav != null)
         {
+            nav.collectObjects = CollectObjects.Children;
+            nav.useGeometry    = NavMeshCollectGeometry.PhysicsColliders;
             nav.BuildNavMesh();
-            Debug.Log("[ArenaPortalManager] Arena 2 NavMesh baked.");
+            Debug.Log("[ArenaPortalManager] Arena 2 NavMesh baked (CollectObjects.Children).");
         }
         else
             Debug.LogWarning("[ArenaPortalManager] No NavMeshSurface on Arena 2 root — enemies may not navigate.");
@@ -435,11 +439,18 @@ public class ArenaPortalManager : MonoBehaviour
             if (n != "Floor_Map" && n != "Background_Plane") continue;
             if (IsDescendantOf(sr.transform, validArena.transform)) continue;
 
-            // Disable the renderer so the sprite can no longer show, but leave the object
-            // in place so the hierarchy reference isn't broken.
             sr.enabled = false;
             Debug.Log($"[ArenaPortalManager] Suppressed stray floor renderer '{sr.gameObject.name}' " +
                       $"(parent: {(sr.transform.parent != null ? sr.transform.parent.name : "scene root")})");
+        }
+
+        // Solid black backdrop quads (replaces old sBg sprites)
+        foreach (MeshRenderer mr in FindObjectsByType<MeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (mr.gameObject.name != "Background_Black") continue;
+            if (IsDescendantOf(mr.transform, validArena.transform)) continue;
+            mr.enabled = false;
+            Debug.Log($"[ArenaPortalManager] Suppressed stray black backdrop '{mr.gameObject.name}'.");
         }
     }
 

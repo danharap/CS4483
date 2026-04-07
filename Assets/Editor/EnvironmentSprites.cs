@@ -8,8 +8,13 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public static class EnvironmentSprites
 {
-    /// <summary>World width/depth for the floor sprite (matches ProBuilder arena interior; see ApplyFloorMap).</summary>
-    public const float FloorMapDesiredWorldSize = 86f;
+    // Both arenas share ArenaRadius = 38 (diameter 76, but octagon corner-to-corner is wider).
+    // 92 fills the full visual interior including diagonal camera views.
+    // IMPORTANT: Arena 1 and Arena 2 use identical geometry, so they must use the same floor size.
+    public const float FloorMapDesiredWorldSize_Arena1 = 92f;
+    public const float FloorMapDesiredWorldSize_Arena2 = 92f;
+    // Legacy alias kept for any external callers (now matches both arenas at 92).
+    public const float FloorMapDesiredWorldSize = FloorMapDesiredWorldSize_Arena1;
 
     /// <summary>Finds a root GameObject by name including inactive objects.</summary>
     static GameObject FindRootByName(string name)
@@ -21,44 +26,44 @@ public static class EnvironmentSprites
     [MenuItem("CS4483/🎨 4. Apply Environment Sprites")]
     public static void ApplyEnvironmentSprites()
     {
-        Debug.Log("[EnvironmentSprites] Applying background and floor sprites...");
-        
-        // Load sprites
-        Sprite bgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
+        Debug.Log("[EnvironmentSprites] Applying floor sprites...");
+
+        // Remove any stale Background_Plane objects left by previous setup runs.
+        RemoveBackgroundPlanes();
+
+        // ONE-TIME global nuke: destroy every Floor_Map in the entire scene before
+        // recreating them per-arena.  This prevents stale orphans from earlier runs.
+        NukeAllFloorMaps_Editor();
+
         Sprite mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
-        
-        if (bgSprite == null || mapSprite == null)
+        if (mapSprite == null)
         {
-            Debug.LogError("[EnvironmentSprites] Sprites not found! Run '🎨 1. Slice Sprite Sheets' first.");
+            Debug.LogError("[EnvironmentSprites] sMap.png not found! Run '🎨 1. Slice Sprite Sheets' first.");
             return;
         }
-        
-        // Apply background (outer layer)
-        ApplyBackground(bgSprite);
-        
+
         // Apply floor map (playable area)
         ApplyFloorMap(mapSprite);
-        
-        // Re-enable ProBuilder walls (3D green walls)
+
+        // Re-enable ProBuilder walls (3D walls)
         EnableProBuilderWalls();
-        
-        // Arena 2: same footprint/scale as Arena 1, nether visuals (sMap2 / sBg_Red)
+
+        // Arena 2: same footprint/scale as Arena 1, nether visuals (sMap2)
         ApplyArena2EnvironmentSprites();
 
-        Debug.Log("[EnvironmentSprites] ✓ Environment sprites applied! Using 3D green ProBuilder walls.");
+        Debug.Log("[EnvironmentSprites] ✓ Environment sprites applied (Floor_Map only, no background plane).");
     }
 
-    /// <summary>Stage 2 floor/background: identical layout and scale to Stage 1; only sprites differ.</summary>
+    /// <summary>Stage 2 floor: same layout as Stage 1; only the floor sprite differs.</summary>
     public static void ApplyArena2EnvironmentSprites()
     {
-        Sprite bgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg_Red.png");
         Sprite mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap2.png");
         if (mapSprite == null)
             mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
 
-        if (bgSprite == null || mapSprite == null)
+        if (mapSprite == null)
         {
-            Debug.LogWarning("[EnvironmentSprites] Arena 2 sprites (sBg_Red / sMap2) missing — skip Arena 2 env.");
+            Debug.LogWarning("[EnvironmentSprites] Arena 2 floor sprite (sMap2.png) missing — skip Arena 2 env.");
             return;
         }
 
@@ -76,62 +81,43 @@ public static class EnvironmentSprites
             if (floorRenderer != null) floorRenderer.enabled = false;
         }
 
-        ApplyBackgroundForRoot(levelRoot.transform, bgSprite);
-        ApplyFloorMapForRoot(levelRoot.transform, mapSprite);
+        ApplyFloorMapForRoot(levelRoot.transform, mapSprite, FloorMapDesiredWorldSize_Arena2);
+        {
+            Sprite bg = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
+            ArenaThemeController.EnsureArenaBackdrop(levelRoot.transform, bg);
+        }
         EnableProBuilderWallsForRoot(levelRoot.transform);
 
-        Debug.Log("[EnvironmentSprites] ✓ Arena 2 floor/background applied (same scale as Arena 1).");
+        Debug.Log("[EnvironmentSprites] ✓ Arena 2 floor applied (enlarged to fill arena, sBg backdrop).");
     }
     
-    static void ApplyBackground(Sprite bgSprite)
+    /// <summary>
+    /// Removes any Background_Plane GameObjects from both arena roots and the lobby.
+    /// Legacy Background_Plane objects could project tiled textures onto wall/stair surfaces
+    /// via shadow casting. The Floor_Map sprite is sufficient for the ground visual.
+    /// </summary>
+    static void RemoveBackgroundPlanes()
     {
-        // Arena 1 level root — sprite planes are parented here so they deactivate with the arena.
-        // Use FindRootByName (not GameObject.Find) to locate it even when inactive.
-        GameObject levelRoot = FindRootByName("=== LEVEL (ProBuilder) ===");
-
-        if (levelRoot != null)
+        string[] roots = new[]
         {
-            Transform floor = levelRoot.transform.Find("Floor");
-            if (floor != null)
+            "=== LEVEL (ProBuilder) ===",
+            "=== LEVEL (ProBuilder) Arena2 ===",
+            "=== LEVEL (Lobby) ===",
+        };
+        int removed = 0;
+        foreach (string rootName in roots)
+        {
+            GameObject root = FindRootByName(rootName);
+            if (root == null) continue;
+            Transform bg = root.transform.Find("Background_Plane");
+            if (bg != null)
             {
-                MeshRenderer floorRenderer = floor.GetComponent<MeshRenderer>();
-                if (floorRenderer != null)
-                {
-                    floorRenderer.enabled = false;
-                    Debug.Log("[EnvironmentSprites] Disabled floor mesh renderer");
-                }
+                Object.DestroyImmediate(bg.gameObject);
+                removed++;
             }
         }
-
-        if (levelRoot == null)
-        {
-            Debug.LogWarning("[EnvironmentSprites] Arena 1 root not found for background.");
-            return;
-        }
-
-        ApplyBackgroundForRoot(levelRoot.transform, bgSprite);
-        Debug.Log("[EnvironmentSprites] ✓ Background applied (parented to Arena 1 root)");
-    }
-
-    static void ApplyBackgroundForRoot(Transform levelRoot, Sprite bgSprite)
-    {
-        GameObject bgPlane = levelRoot.Find("Background_Plane")?.gameObject;
-        if (bgPlane == null)
-        {
-            bgPlane = new GameObject("Background_Plane");
-            bgPlane.transform.SetParent(levelRoot, false);
-            bgPlane.transform.position = new Vector3(0f, 0.01f, 0f);
-            bgPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            bgPlane.transform.localScale = new Vector3(15f, 15f, 1f);
-        }
-
-        SpriteRenderer sr = bgPlane.GetComponent<SpriteRenderer>();
-        if (sr == null) sr = bgPlane.AddComponent<SpriteRenderer>();
-        sr.sprite = bgSprite;
-        sr.sortingOrder = -100;
-        sr.drawMode = SpriteDrawMode.Tiled;
-        sr.tileMode = SpriteTileMode.Continuous;
-        sr.size = new Vector2(100f, 100f);
+        if (removed > 0)
+            Debug.Log($"[EnvironmentSprites] Removed {removed} Background_Plane object(s) from scene roots.");
     }
 
     static void ApplyFloorMap(Sprite mapSprite)
@@ -143,35 +129,81 @@ public static class EnvironmentSprites
             return;
         }
 
-        ApplyFloorMapForRoot(levelRoot.transform, mapSprite);
-        Debug.Log("[EnvironmentSprites] ✓ Floor map applied (fits within borders, background visible outside, parented to Arena 1 root)");
+        // Hide the ProBuilder floor mesh so the Floor_Map sprite is what the player sees.
+        // (Stage 2 does the same — without this the opaque mesh renders on top of the sprite.)
+        Transform floorMesh = levelRoot.transform.Find("Floor");
+        if (floorMesh != null)
+        {
+            MeshRenderer mr = floorMesh.GetComponent<MeshRenderer>();
+            if (mr != null) mr.enabled = false;
+        }
+
+        ApplyFloorMapForRoot(levelRoot.transform, mapSprite, FloorMapDesiredWorldSize_Arena1);
+        {
+            Sprite bg = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
+            ArenaThemeController.EnsureArenaBackdrop(levelRoot.transform, bg);
+        }
+        Debug.Log("[EnvironmentSprites] ✓ Arena 1 floor applied (sMap.png, sBg backdrop, ProBuilder mesh hidden).");
     }
 
-    /// <summary>Same world footprint as Arena 1: scale from sprite bounds and <see cref="FloorMapDesiredWorldSize"/>.</summary>
-    public static void ApplyFloorMapForRoot(Transform levelRoot, Sprite mapSprite)
+    /// <summary>
+    /// Places / updates the Floor_Map sprite plane.
+    /// <paramref name="desiredWorldSize"/> controls the sprite's rendered world diameter.
+    /// </summary>
+    public static void ApplyFloorMapForRoot(Transform levelRoot, Sprite mapSprite,
+                                             float desiredWorldSize = FloorMapDesiredWorldSize_Arena1)
     {
-        GameObject mapPlane = levelRoot.Find("Floor_Map")?.gameObject;
-        if (mapPlane == null)
+        // Per-root cleanup: destroy any Floor_Map already under this specific root.
+        // (The global nuke in ApplyEnvironmentSprites handles cross-root orphans.)
+        foreach (Transform t in levelRoot.GetComponentsInChildren<Transform>(true))
         {
-            mapPlane = new GameObject("Floor_Map");
-            mapPlane.transform.SetParent(levelRoot, false);
-            mapPlane.transform.position = new Vector3(0f, 0.1f, 0f);
-            mapPlane.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-            mapPlane.transform.localScale = Vector3.one;
+            if (t != null && t.name == "Floor_Map")
+                Object.DestroyImmediate(t.gameObject);
         }
 
-        SpriteRenderer sr = mapPlane.GetComponent<SpriteRenderer>();
-        if (sr == null) sr = mapPlane.AddComponent<SpriteRenderer>();
-        sr.sprite = mapSprite;
+        GameObject mapPlane = new GameObject("Floor_Map");
+        mapPlane.transform.SetParent(levelRoot, false);
+        mapPlane.transform.rotation    = Quaternion.Euler(90f, 0f, 0f);
+        mapPlane.transform.localScale  = Vector3.one;
+        mapPlane.transform.position    = new Vector3(0f, 0.05f, 0f);
+
+        SpriteRenderer sr = mapPlane.AddComponent<SpriteRenderer>();
+        sr.sprite       = mapSprite;
         sr.sortingOrder = -50;
-        sr.drawMode = SpriteDrawMode.Simple;
+        sr.drawMode     = SpriteDrawMode.Simple;
 
-        float spriteWorldSize = mapSprite.bounds.size.x;
-        if (spriteWorldSize > 0.001f)
+        float boundsW = mapSprite.bounds.size.x;
+        if (boundsW > 0.001f)
         {
-            float scale = FloorMapDesiredWorldSize / spriteWorldSize;
+            float scale = desiredWorldSize / boundsW;
             mapPlane.transform.localScale = new Vector3(scale, scale, 1f);
+            Debug.Log($"[EnvironmentSprites] Floor_Map under '{levelRoot.name}' → " +
+                      $"sprite='{mapSprite.name}' tex={mapSprite.texture.width}x{mapSprite.texture.height} " +
+                      $"PPU={mapSprite.pixelsPerUnit} bounds.x={boundsW:F2} " +
+                      $"desiredSize={desiredWorldSize} scale={scale:F4}");
         }
+    }
+
+    /// <summary>
+    /// Editor-time: destroy EVERY Floor_Map in the entire scene hierarchy to
+    /// prevent stale duplicates from accumulating across setup runs.
+    /// </summary>
+    static void NukeAllFloorMaps_Editor()
+    {
+        int count = 0;
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t != null && t.name == "Floor_Map")
+                {
+                    Object.DestroyImmediate(t.gameObject);
+                    count++;
+                }
+            }
+        }
+        if (count > 0)
+            Debug.Log($"[EnvironmentSprites] NukeAllFloorMaps_Editor: destroyed {count} stale Floor_Map(s).");
     }
     
     static void EnableProBuilderWalls()

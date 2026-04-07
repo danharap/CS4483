@@ -121,6 +121,7 @@ MonoBehaviour:
   - {fileID: 21300000, guid: def6bffcea999f340910989acabb3b49, type: 3}
   deathFPS: 7
   spriteScale: 2.4
+  spriteYOffset: 3.5
   hitFlashDuration: 0.12
 --- !u!114 &1160829305766759121
 MonoBehaviour:
@@ -205,6 +206,12 @@ MonoBehaviour:
   satanXRange: 4
   fakeDeathPause: 1.5
   riseOffScreenTime: 2.5
+  throneWatchMode: 0
+  throneWatchPosition: {x: 0, y: 13.9, z: 45.3}
+  jumpLandingPosition: {x: 0, y: 1.1, z: 12}
+  jumpArcHeight: 9
+  jumpDuration: 2
+  landingPause: 0.6
   footPhaseController: {fileID: 6976211367266585335}
   damageNumberPrefab: {fileID: 7687715987023145794, guid: 6ffd80c52447ca049bdcf42f0fc7a4ec, type: 3}
 --- !u!114 &4812240995918654357
@@ -234,6 +241,7 @@ MonoBehaviour:
   deathFrames: []
   deathFPS: 7
   spriteScale: 2.4
+  spriteYOffset: 3.5
   hitFlashDuration: 0.12
 --- !u!114 &6976211367266585335
 MonoBehaviour:

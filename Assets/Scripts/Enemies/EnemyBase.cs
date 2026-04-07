@@ -54,6 +54,8 @@ public abstract class EnemyBase : MonoBehaviour
         rb = GetComponent<Rigidbody>();
         rb.useGravity = false;
         rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
+        rb.drag = 0f;
+        rb.angularDrag = 0.05f;
 
         agent = GetComponent<NavMeshAgent>();
         if (agent != null)
@@ -61,6 +63,9 @@ public abstract class EnemyBase : MonoBehaviour
             agent.speed = moveSpeed;
             agent.angularSpeed = 360f;
             agent.acceleration = 20f;
+            // Prevent corner/avoidance braking that looks like "slowing near chests/props".
+            agent.autoBraking = false;
+            agent.stoppingDistance = 0f;
             useNavMesh = agent.isOnNavMesh;
         }
 
@@ -80,6 +85,29 @@ public abstract class EnemyBase : MonoBehaviour
     {
         GameObject p = GameObject.FindGameObjectWithTag("Player");
         if (p != null) player = p.transform;
+
+        // Snap agent to NavMesh one frame after spawn.
+        // The bake is synchronous and finishes before enemies are ever instantiated,
+        // but the NavMeshAgent needs one physics tick to register its position.
+        if (agent != null)
+            StartCoroutine(SnapAgentToNavMesh());
+    }
+
+    private IEnumerator SnapAgentToNavMesh()
+    {
+        yield return null; // wait one fixed-update frame
+        if (agent == null || agent.isOnNavMesh) yield break;
+
+        NavMeshHit hit;
+        if (NavMesh.SamplePosition(transform.position, out hit, 3f, NavMesh.AllAreas))
+        {
+            agent.Warp(hit.position);
+            Debug.Log($"[EnemyBase] {name} warped to NavMesh at {hit.position}");
+        }
+        else
+        {
+            Debug.LogWarning($"[EnemyBase] {name} could not find NavMesh near {transform.position} — falling back to direct movement.");
+        }
     }
 
     protected virtual void Update()
@@ -100,7 +128,15 @@ public abstract class EnemyBase : MonoBehaviour
         }
         else
         {
-            // Fallback: direct movement on XZ plane
+            // Try to re-snap to NavMesh every 60 frames (~1 s) in case the agent slipped off
+            if (agent != null && Time.frameCount % 60 == 0)
+            {
+                NavMeshHit hit;
+                if (NavMesh.SamplePosition(transform.position, out hit, 3f, NavMesh.AllAreas))
+                    agent.Warp(hit.position);
+            }
+
+            // Fallback: direct movement on XZ plane (no wall avoidance, but better than standing still)
             Vector3 dir = (player.position - transform.position);
             dir.y = 0f;
             dir.Normalize();
@@ -138,6 +174,13 @@ public abstract class EnemyBase : MonoBehaviour
         if (CurrentHP <= 0f) Die();
     }
 
+    public void ScaleMaxHP(float multiplier)
+    {
+        if (multiplier <= 0f) return;
+        maxHP *= multiplier;
+        CurrentHP = maxHP;
+    }
+
     protected virtual void Die()
     {
         if (!IsAlive) return;
@@ -162,6 +205,7 @@ public abstract class EnemyBase : MonoBehaviour
 
         GameManager.Instance?.Logger?.RecordFirstKill();
         GameManager.Instance?.WaveManager?.NotifyEnemyDied(gameObject);
+        TutorialManager.Instance?.NotifyTrigger(TutorialTriggerType.KillEnemy);
 
         EnemyRegistry.Unregister(this);
         

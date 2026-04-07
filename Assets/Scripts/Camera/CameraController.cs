@@ -61,8 +61,15 @@ public class CameraController : MonoBehaviour
         Vector3 targetPos = target.position;
         if (!followTargetY) targetPos.y = 0f;
         Vector3 desired = targetPos + offset;
+        if (!IsFinite(desired)) return;
+        if (followSpeed <= 0.01f) followSpeed = 0.01f;
         transform.position = Vector3.SmoothDamp(
             transform.position, desired, ref velocity, 1f / followSpeed);
+    }
+
+    static bool IsFinite(Vector3 v)
+    {
+        return float.IsFinite(v.x) && float.IsFinite(v.y) && float.IsFinite(v.z);
     }
 
     public void SetZoom(float zoom)

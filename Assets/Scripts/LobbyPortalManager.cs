@@ -51,6 +51,14 @@ public class LobbyPortalManager : MonoBehaviour
         // ── Show Arena 1 ──────────────────────────────────────────────────
         if (arena1Root != null) arena1Root.SetActive(true);
 
+        // After a Stage 1→2 run, ArenaPortalManager / ArenaThemeController leave Arena 1's Floor_Map and
+        // Background_Plane renderers disabled. SetActive(true) alone does not re-enable them — rebuild floor+sBg.
+        ArenaThemeController themeCtl = Object.FindFirstObjectByType<ArenaThemeController>(FindObjectsInactive.Include);
+        if (themeCtl != null)
+            themeCtl.ApplyArena1Theme();
+        else
+            Debug.LogWarning("[LobbyPortalManager] No ArenaThemeController — Arena 1 floor/backdrop may stay hidden after respawn.");
+
         // ── Move player ───────────────────────────────────────────────────
         var cc = FindFirstObjectByType<CharacterController>();
         if (cc != null)
@@ -65,6 +73,12 @@ public class LobbyPortalManager : MonoBehaviour
         // since the screen transition hides it).  After rebuilding, the space formerly
         // occupied by the Lobby walls becomes walkable so enemies can navigate freely.
         RebakeArena1NavMesh();
+
+        // ── Apply meta passives before waves start ────────────────────────
+        GameManager.Instance?.ApplyMetaPassives();
+
+        // Player is now in the arena: allow shooting.
+        GameManager.Instance?.PlayerWeapon?.SetShootingEnabled(true);
 
         // ── Start waves ───────────────────────────────────────────────────
         GameManager.Instance?.WaveManager?.BeginWaves();

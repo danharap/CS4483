@@ -32,11 +32,10 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sEnemyDead.png");
         ConfigureSingleSprite("Assets/Sprites/sBullet.png");
         ConfigureSingleSprite("Assets/Sprites/sGun.png");
-        ConfigureSingleSprite("Assets/Sprites/sBg.png");
-        ConfigureSingleSprite("Assets/Sprites/sBg_Red.png");
         ConfigureSingleSprite("Assets/Sprites/sMap.png");
         ConfigureSingleSprite("Assets/Sprites/sMap_Arena2_Red.png");
         ConfigureSingleSprite("Assets/Sprites/sMap2.png"); // Arena 2 floor
+        ConfigureSingleSprite("Assets/Sprites/sBg.png");
         ConfigureSingleSprite("Assets/Sprites/sWall.png");
         ConfigureSingleSprite("Assets/Sprites/sExperience.png"); // Custom XP orb
         ConfigureSingleSprite("Assets/Sprites/sMedkit.png"); // Custom health pack
@@ -44,6 +43,13 @@ public static class SpriteSetup
         ConfigureSingleSprite("Assets/Sprites/sHeavyHead.png"); // Heavy enemy head (up/down)
         ConfigureSingleSprite("Assets/Sprites/sHeavyHead_Right.png"); // Heavy enemy head (right)
         ConfigureSingleSprite("Assets/Sprites/sBox.png"); // Colosseum cover boxes (replaces sObstacleBox)
+
+        // Merchant NPC (idle + blink)
+        ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Idle.png");
+        ConfigureSingleSprite("Assets/Sprites/NPC/Merchant_Blink.png");
+
+        // Guide NPC idle animation frames (0-3.png)
+        ConfigureSpritesInFolder("Assets/Sprites/Guide NPC");
 
         // Heavy body frames (pre-cut individual PNGs in folders)
         ConfigureSpritesInFolder("Assets/Sprites/TankWalking");
@@ -139,7 +145,7 @@ public static class SpriteSetup
         Sprite[] bigBatFast = LoadSpritesInFolder("Assets/Sprites/big Bat Fast");
         Sprite[] bigBatBite = LoadSpritesInFolder("Assets/Sprites/big Bat Fast Biting");
         ApplyBigBatSprites("Assets/Prefabs/Enemy_BigBat.prefab", bigBatFast, bigBatBite, deathSprite);
-        
+
         // Apply bullet sprite to projectile prefab
         ApplyBulletSpriteToPrefab("Assets/Prefabs/Projectile.prefab", bulletSprite);
         
@@ -168,15 +174,11 @@ public static class SpriteSetup
         ArenaThemeController theme = mgr.GetComponent<ArenaThemeController>();
         if (theme == null) return;
 
-        // Floor sprites
         theme.arena1FloorSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
-        // Prefer sMap2.png for arena 2 floor; fall back to the red variant if not present
         Sprite map2 = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap2.png");
         theme.arena2FloorSprite = map2 != null ? map2 : AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap_Arena2_Red.png");
 
-        // Background sprites
-        theme.arena1BgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
-        theme.arena2BgSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg_Red.png");
+        theme.arena1BackdropSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sBg.png");
 
         // Trap animations (use unified spike trap frames for both arenas)
         Sprite[] spikeFrames = LoadSpikeTrapFrames();
@@ -303,6 +305,53 @@ public static class SpriteSetup
             trapCount++;
         }
         
+        // Apply flame trap sprites to all FlameTrap objects in the scene (Arena 2)
+        Sprite[] flameFrames = LoadFlameTrapFrames();
+        int flameTrapCount = 0;
+        foreach (FlameTrap ft in Resources.FindObjectsOfTypeAll<FlameTrap>())
+        {
+            if (ft == null) continue;
+            if (EditorUtility.IsPersistent(ft.gameObject)) continue;
+
+            Transform visual = ft.transform.Find("TrapVisual");
+            if (visual == null)
+            {
+                GameObject v = new GameObject("TrapVisual");
+                v.transform.SetParent(ft.transform, false);
+                v.transform.localPosition = Vector3.zero;
+                visual = v.transform;
+            }
+
+            foreach (Transform child in visual)
+            {
+                if (child.name == "Trap_Sprite")
+                    Object.DestroyImmediate(child.gameObject);
+            }
+            SpriteRenderer existingSrFt = visual.GetComponent<SpriteRenderer>();
+            if (existingSrFt != null) Object.DestroyImmediate(existingSrFt);
+
+            TrapSpriteAnimator anim = visual.GetComponent<TrapSpriteAnimator>();
+            if (anim == null) anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
+
+            anim.frameRate    = 15f;
+            anim.sortingOrder = 2;
+            anim.playOnAwake  = true;   // flame is always burning
+            // Warm orange fire glow
+            anim.enableGlow   = true;
+            anim.glowColor    = new Color(1f, 0.4f, 0.1f);
+            anim.glowIntensity = 1.6f;
+            anim.glowRange     = 2.8f;
+            anim.spriteScale   = new Vector3(1.8f, 1.8f, 1f);
+            anim.SetFrames(flameFrames);
+
+            // Wire the animator reference into FlameTrap.
+            SerializedObject soFt = new SerializedObject(ft);
+            soFt.FindProperty("spriteAnimator").objectReferenceValue = anim;
+            soFt.ApplyModifiedPropertiesWithoutUndo();
+
+            flameTrapCount++;
+        }
+
         // Apply to all dead bodies in scene (billboard sprite only)
         int deadBodyCount = 0;
         DeadBody[] deadBodies = Object.FindObjectsOfType<DeadBody>();
@@ -311,8 +360,11 @@ public static class SpriteSetup
             AddDeadBodySprite(db.gameObject, deadBodySprite);
             deadBodyCount++;
         }
-        
-        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, {trapCount} traps, and {deadBodyCount} dead bodies in scene!");
+
+        // Wire Guide NPC idle animation in lobby
+        WireGuideNPCSprite();
+
+        Debug.Log($"[SpriteSetup] ✓ Applied sprites to {count} enemies, {projCount} projectiles, {xpCount} XP orbs, {healthCount} health packs, {trapCount} spike traps, {flameTrapCount} flame traps, and {deadBodyCount} dead bodies in scene!");
 
         // Same wiring as step 2 so Arena 2 floor (sMap2) is assigned if you only ran step 3.
         WireThemeControllerAssets();
@@ -371,6 +423,108 @@ public static class SpriteSetup
         return list.ToArray();
     }
     
+    private static Sprite[] LoadFlameTrapFrames()
+    {
+        // Frames placed as individual PNGs under Assets/Sprites/Flame Trap/0.png, 1.png, ...
+        string dir = "Assets/Sprites/Flame Trap";
+        string[] fileNames = System.IO.Directory.GetFiles(dir, "*.png");
+        foreach (string fsPath in fileNames)
+        {
+            string unityPath = fsPath.Replace("\\", "/");
+            TextureImporter imp = AssetImporter.GetAtPath(unityPath) as TextureImporter;
+            if (imp != null && imp.textureType != TextureImporterType.Sprite)
+            {
+                imp.textureType = TextureImporterType.Sprite;
+                imp.spriteImportMode = SpriteImportMode.Single;
+                imp.filterMode = FilterMode.Point;
+                imp.spritePixelsPerUnit = GlobalPPU;
+                imp.mipmapEnabled = false;
+                imp.textureCompression = TextureImporterCompression.Uncompressed;
+                imp.crunchedCompression = false;
+                imp.npotScale = TextureImporterNPOTScale.None;
+                imp.alphaIsTransparency = true;
+                imp.SaveAndReimport();
+            }
+        }
+
+        var list = new System.Collections.Generic.List<Sprite>();
+        for (int i = 0; i < 32; i++)
+        {
+            string path = $"{dir}/{i}.png";
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s != null) list.Add(s);
+        }
+        if (list.Count == 0)
+        {
+            Debug.LogWarning("[SpriteSetup] No flame trap frames found in Assets/Sprites/Flame Trap; traps will use default frame.");
+            return System.Array.Empty<Sprite>();
+        }
+        Debug.Log($"[SpriteSetup] Loaded {list.Count} flame trap frame(s) from '{dir}'.");
+        return list.ToArray();
+    }
+
+    // ── Guide NPC sprite / animation wiring ───────────────────────────────
+
+    private static Sprite[] LoadGuideNPCFrames()
+    {
+        string dir = "Assets/Sprites/Guide NPC";
+        var list = new List<Sprite>();
+        for (int i = 0; i < 16; i++)
+        {
+            string path = $"{dir}/{i}.png";
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (s == null) break;
+            list.Add(s);
+        }
+        if (list.Count == 0)
+            Debug.LogWarning("[SpriteSetup] No Guide NPC frames found in Assets/Sprites/Guide NPC — run step 1 first.");
+        else
+            Debug.Log($"[SpriteSetup] Loaded {list.Count} Guide NPC frame(s).");
+        return list.ToArray();
+    }
+
+    private static void WireGuideNPCSprite()
+    {
+        Sprite[] frames = LoadGuideNPCFrames();
+        if (frames.Length == 0) return;
+
+        GameObject guideNpc = GameObject.Find("GuideNPC");
+        if (guideNpc == null)
+        {
+            Debug.LogWarning("[SpriteSetup] GuideNPC not found in scene — run Setup All to recreate.");
+            return;
+        }
+
+        // Ensure the capsule root is at ground level with uniform scale so the sprite child isn't distorted.
+        guideNpc.transform.position = new Vector3(guideNpc.transform.position.x, 0f, guideNpc.transform.position.z);
+        guideNpc.transform.localScale = Vector3.one;
+
+        // Find or create GuideSprite child
+        Transform existingChild = guideNpc.transform.Find("GuideSprite");
+        GameObject guideSpritGo = existingChild != null ? existingChild.gameObject : new GameObject("GuideSprite");
+        guideSpritGo.transform.SetParent(guideNpc.transform, false);
+        guideSpritGo.transform.localPosition = new Vector3(0f, 2f, 0f); // raise centre 2 units above ground
+        guideSpritGo.transform.localScale    = new Vector3(1f, 1f, 1f); // TrapSpriteAnimator.spriteScale controls world size
+
+        if (guideSpritGo.GetComponent<Billboard>() == null)
+            guideSpritGo.AddComponent<Billboard>();
+
+        // Remove stale SpriteRenderer (TrapSpriteAnimator manages its own)
+        SpriteRenderer oldSr = guideSpritGo.GetComponent<SpriteRenderer>();
+        if (oldSr != null) Object.DestroyImmediate(oldSr);
+
+        TrapSpriteAnimator anim = guideSpritGo.GetComponent<TrapSpriteAnimator>();
+        if (anim == null) anim = guideSpritGo.AddComponent<TrapSpriteAnimator>();
+        anim.frameRate    = 8f;
+        anim.sortingOrder = 10;
+        anim.playOnAwake  = false;  // NPCDialogue starts it when the player opens dialogue
+        anim.enableGlow   = false;
+        anim.spriteScale  = new Vector3(1.8f, 1.8f, 1f); // slightly smaller than before
+        anim.SetFrames(frames);
+
+        Debug.Log("[SpriteSetup] ✓ Guide NPC sprite + animation wired.");
+    }
+
     // ── Helper Methods ────────────────────────────────────────────────────
     
     private static void SliceSpriteSheet(string path, int frameCount)
@@ -837,7 +991,9 @@ public static class SpriteSetup
         
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Single;
-        importer.filterMode = FilterMode.Point;
+        // Full-screen backdrop: bilinear + full-res import — point filter made sBg look harshly pixelated when scaled.
+        bool isBackdrop = path.IndexOf("sBg", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        importer.filterMode = isBackdrop ? FilterMode.Bilinear : FilterMode.Point;
         importer.spritePixelsPerUnit = GlobalPPU;
         importer.alphaSource = TextureImporterAlphaSource.FromInput; // Preserve alpha channel
         importer.alphaIsTransparency = true; // Enable transparency

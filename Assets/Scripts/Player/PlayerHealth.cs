@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -25,6 +26,12 @@ public class PlayerHealth : MonoBehaviour
 
     public event Action OnDeath;
     public event Action<float, float> OnHealthChanged; // current, max
+
+    /// <summary>
+    /// Subscribed by <see cref="SecondWindPassive"/>. Return true to absorb the killing blow
+    /// (HP will be clamped to 1 HP instead of triggering death).
+    /// </summary>
+    public event Func<bool> OnAboutToTakeFatalDamage;
 
     void Awake()
     {
@@ -61,7 +68,31 @@ public class PlayerHealth : MonoBehaviour
         OnHealthChanged?.Invoke(CurrentHP, maxHP);
 
         if (CurrentHP <= 0f)
-            OnDeath?.Invoke();
+        {
+            // Give SecondWindPassive a chance to absorb the kill
+            bool absorbed = false;
+            if (OnAboutToTakeFatalDamage != null)
+            {
+                foreach (Func<bool> listener in OnAboutToTakeFatalDamage.GetInvocationList())
+                {
+                    if (listener())
+                    {
+                        absorbed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (absorbed)
+            {
+                CurrentHP = 1f;
+                OnHealthChanged?.Invoke(CurrentHP, maxHP);
+            }
+            else
+            {
+                OnDeath?.Invoke();
+            }
+        }
     }
 
     public void HealHP(float amount)
@@ -80,6 +111,12 @@ public class PlayerHealth : MonoBehaviour
     /// <summary>
     /// Restore HP back to max and clear any death state / screen tint.
     /// </summary>
+    /// <summary>Instantly grant iFrames for the given duration (used by Ghost Step).</summary>
+    public void ForceIFrames(float duration)
+    {
+        iFramesTimer = Mathf.Max(iFramesTimer, duration);
+    }
+
     public void ResetHealthToMax()
     {
         CurrentHP = maxHP;

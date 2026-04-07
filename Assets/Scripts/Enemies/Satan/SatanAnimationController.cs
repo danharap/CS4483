@@ -49,6 +49,11 @@ public class SatanAnimationController : MonoBehaviour
     [Tooltip("Uniform scale applied to Satan's sprite. 2.4 = 3/5 of the original 4x size.")]
     [SerializeField] private float spriteScale = 2.4f;
 
+    [Header("Visual Placement")]
+    [Tooltip("Lifts the sprite child so the visual bottom sits on the ground (y=0). " +
+             "Roughly half the rendered sprite height — tune per sprite PPU. Default 3.5.")]
+    [SerializeField] private float spriteYOffset = 3.5f;
+
     [Header("Flash")]
     [SerializeField] private float hitFlashDuration = 0.12f;
 
@@ -68,11 +73,15 @@ public class SatanAnimationController : MonoBehaviour
         {
             GameObject child = new GameObject("Satan_Sprite");
             child.transform.SetParent(transform, false);
-            child.transform.localPosition = Vector3.zero;
             child.AddComponent<Billboard>();
             sr = child.AddComponent<SpriteRenderer>();
             sr.sortingOrder = 25;
         }
+
+        // Raise the sprite so its visual bottom sits on the ground.
+        // Without this the sprite is centered at the parent's origin (y=0) so the
+        // lower half is buried underground when Satan stands at ground level.
+        sr.transform.localPosition = new Vector3(0f, spriteYOffset, 0f);
 
         // Apply uniform visual scale so Satan appears large on screen
         sr.transform.localScale = new Vector3(spriteScale, spriteScale, 1f);

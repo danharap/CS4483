@@ -12,6 +12,7 @@ public class XPOrb : MonoBehaviour
     [SerializeField] private float attractSpeed = 8f;
     [SerializeField] private float collectRadius = 0.4f;   // snap-collect distance
     [SerializeField] private float maxLifetime   = 30f;
+    [SerializeField] private bool tutorialOrb;
 
     // ── State ─────────────────────────────────────────────────────────────
     private Transform player;
@@ -49,8 +50,15 @@ public class XPOrb : MonoBehaviour
             if (dist <= collectRadius)
             {
                 playerXP.AddXP(xpValue);
+                if (tutorialOrb)
+                    TutorialManager.Instance?.NotifyTutorialOrbCollected();
                 Destroy(gameObject);
             }
         }
+    }
+
+    public void MarkAsTutorialOrb(bool value)
+    {
+        tutorialOrb = value;
     }
 }

@@ -128,11 +128,29 @@ public class SatanFootPhaseController : MonoBehaviour
     {
         if (!active || player == null) return;
 
-        // Smooth the raw frame-to-frame delta to avoid jitter from a single big frame.
+        // Guard against Time.deltaTime == 0 (e.g. timeScale = 0 during upgrade pause).
+        // Division by zero produces NaN which then propagates into targetPos and breaks
+        // the stomp sequence with "transform.position is not valid" errors.
+        if (Time.deltaTime <= 0f) return;
+
         Vector3 rawVel = (player.position - lastPlayerPos) / Time.deltaTime;
         rawVel.y = 0f;
+
+        // Sanitize in case player was teleported across a large distance (produces huge vel).
+        if (float.IsNaN(rawVel.x) || float.IsNaN(rawVel.z) ||
+            float.IsInfinity(rawVel.x) || float.IsInfinity(rawVel.z))
+        {
+            lastPlayerPos = player.position;
+            return;
+        }
+
         playerVelocity = Vector3.Lerp(playerVelocity, rawVel, Time.deltaTime * 8f);
-        lastPlayerPos  = player.position;
+
+        // Safety net: reset if playerVelocity somehow still ends up non-finite.
+        if (float.IsNaN(playerVelocity.x) || float.IsNaN(playerVelocity.z))
+            playerVelocity = Vector3.zero;
+
+        lastPlayerPos = player.position;
     }
 
     #endregion
@@ -177,22 +195,29 @@ public class SatanFootPhaseController : MonoBehaviour
 
         Vector3 currentPos = new Vector3(player.position.x, 0f, player.position.z);
 
-        // Predict where the player will be after warningDuration seconds at current velocity.
-        // Clamped to predictionMaxLead so the foot can't land impossibly far ahead.
-        Vector3 lead = playerVelocity * predictionTime;
+        // If velocity is somehow non-finite, fall back to current position (no prediction).
+        Vector3 safeVel = (float.IsNaN(playerVelocity.x) || float.IsNaN(playerVelocity.z) ||
+                           float.IsInfinity(playerVelocity.x) || float.IsInfinity(playerVelocity.z))
+                          ? Vector3.zero : playerVelocity;
+
+        Vector3 lead = safeVel * predictionTime;
         lead.y = 0f;
-        if (lead.magnitude > predictionMaxLead)
+        if (lead.sqrMagnitude > predictionMaxLead * predictionMaxLead)
             lead = lead.normalized * predictionMaxLead;
 
-        // Blend: 0 = current pos, 1 = fully predicted pos.
         Vector3 baseTarget = currentPos + lead * predictionStrength;
 
-        // Add scatter on top so the attack isn't perfectly accurate — keeps it fair.
-        return new Vector3(
+        Vector3 result = new Vector3(
             baseTarget.x + Random.Range(-aimScatter, aimScatter),
             0f,
             baseTarget.z + Random.Range(-aimScatter * aimScatterZMultiplier,
                                          aimScatter * aimScatterZMultiplier));
+
+        // Final sanity check — should never be needed after the guards above.
+        if (float.IsNaN(result.x) || float.IsNaN(result.z))
+            return currentPos;
+
+        return result;
     }
 
     private void LaunchFoot(Vector3 targetPos)
