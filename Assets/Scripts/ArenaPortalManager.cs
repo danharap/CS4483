@@ -439,11 +439,18 @@ public class ArenaPortalManager : MonoBehaviour
             if (n != "Floor_Map" && n != "Background_Plane") continue;
             if (IsDescendantOf(sr.transform, validArena.transform)) continue;
 
-            // Disable the renderer so the sprite can no longer show, but leave the object
-            // in place so the hierarchy reference isn't broken.
             sr.enabled = false;
             Debug.Log($"[ArenaPortalManager] Suppressed stray floor renderer '{sr.gameObject.name}' " +
                       $"(parent: {(sr.transform.parent != null ? sr.transform.parent.name : "scene root")})");
+        }
+
+        // Solid black backdrop quads (replaces old sBg sprites)
+        foreach (MeshRenderer mr in FindObjectsByType<MeshRenderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (mr.gameObject.name != "Background_Black") continue;
+            if (IsDescendantOf(mr.transform, validArena.transform)) continue;
+            mr.enabled = false;
+            Debug.Log($"[ArenaPortalManager] Suppressed stray black backdrop '{mr.gameObject.name}'.");
         }
     }
 

@@ -226,8 +226,7 @@ public static class ProBuilderLevelBuilder
             mat.color = color;
         }
 
-        // Clear any albedo texture — if sBg.png or any other sprite was previously dragged
-        // onto this material in the Inspector, clear it so walls render as flat colour only.
+        // Clear any albedo texture if a sprite was previously dragged onto this material in the Inspector.
         mat.SetTexture("_MainTex", null);
 
         // Fully matte: strip gloss, metallic, specular and env-map reflections.
@@ -674,8 +673,7 @@ public static class ProBuilderLevelBuilder
         Material matLobbyFloor = GetOrCreateMat("M_LobbyFloor", new Color(0.55f, 0.55f, 0.55f));
         Material matLobbyWall  = GetOrCreateMat("M_LobbyWall",  new Color(0.62f, 0.62f, 0.62f));
 
-        // Floor — placed at y=0.15 so it renders above the global Background_Plane (y=0.01)
-        // and Floor_Map (y=0.1) sprites that EnvironmentSprites places in the scene.
+        // Floor — placed at y=0 so it aligns with lobby layout; above any black backdrop under arenas.
         GameObject floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
         floor.name = "Lobby_Floor";
         floor.transform.SetParent(lobby.transform);

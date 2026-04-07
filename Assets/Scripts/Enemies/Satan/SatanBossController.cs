@@ -358,13 +358,16 @@ public class SatanBossController : MonoBehaviour
         footPhaseController?.Stop();
         HUDManager.Instance?.HideBossHP();
 
-        yield return new WaitForSeconds(0.8f);
+        yield return new WaitForSeconds(1.5f);
 
         SetState(BossState.Dead);
         OnBossDefeated?.Invoke();
         GameManager.Instance?.WaveManager?.NotifyBossKilled();
 
-        Destroy(gameObject, 0.5f);
+        // Remove boss immediately so nothing lingers behind the victory overlay (feet/pickups cleared inside ShowVictoryScreen).
+        Destroy(gameObject);
+
+        GameManager.Instance?.ShowVictoryScreen();
     }
 
     // ─────────────────────────────────────────────────────────────────────

@@ -8,12 +8,12 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public static class EnvironmentSprites
 {
-        // Arena inner diameter = ArenaRadius*2 = 76.  Wall inner face at radius 37.75 → inner diameter 75.5.
-    // Keep Arena 1 map INSIDE the walls (74) so it never clips the wall mesh (kills z-fighting tears).
-    public const float FloorMapDesiredWorldSize_Arena1 = 74f;
-    // Arena 2: player reported sprite is slightly too small — bump up so it fills the full interior.
+    // Both arenas share ArenaRadius = 38 (diameter 76, but octagon corner-to-corner is wider).
+    // 92 fills the full visual interior including diagonal camera views.
+    // IMPORTANT: Arena 1 and Arena 2 use identical geometry, so they must use the same floor size.
+    public const float FloorMapDesiredWorldSize_Arena1 = 92f;
     public const float FloorMapDesiredWorldSize_Arena2 = 92f;
-    // Legacy alias kept for any external callers.
+    // Legacy alias kept for any external callers (now matches both arenas at 92).
     public const float FloorMapDesiredWorldSize = FloorMapDesiredWorldSize_Arena1;
 
     /// <summary>Finds a root GameObject by name including inactive objects.</summary>
@@ -29,9 +29,11 @@ public static class EnvironmentSprites
         Debug.Log("[EnvironmentSprites] Applying floor sprites...");
 
         // Remove any stale Background_Plane objects left by previous setup runs.
-        // The background sprite (sBg.png) was causing its tiled texture to appear on wall
-        // and stair surfaces via shadow projection. The Floor_Map sprite is sufficient.
         RemoveBackgroundPlanes();
+
+        // ONE-TIME global nuke: destroy every Floor_Map in the entire scene before
+        // recreating them per-arena.  This prevents stale orphans from earlier runs.
+        NukeAllFloorMaps_Editor();
 
         Sprite mapSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/sMap.png");
         if (mapSprite == null)
@@ -81,14 +83,15 @@ public static class EnvironmentSprites
 
         // No Background_Plane for Arena 2 either — Floor_Map is sufficient.
         ApplyFloorMapForRoot(levelRoot.transform, mapSprite, FloorMapDesiredWorldSize_Arena2);
+        ArenaThemeController.EnsureBlackBackdrop(levelRoot.transform);
         EnableProBuilderWallsForRoot(levelRoot.transform);
 
-        Debug.Log("[EnvironmentSprites] ✓ Arena 2 floor applied (enlarged to fill arena, no background plane).");
+        Debug.Log("[EnvironmentSprites] ✓ Arena 2 floor applied (enlarged to fill arena, black backdrop).");
     }
     
     /// <summary>
     /// Removes any Background_Plane GameObjects from both arena roots and the lobby.
-    /// These were causing sBg.png to project its tiled texture onto wall/stair surfaces
+    /// Legacy Background_Plane objects could project tiled textures onto wall/stair surfaces
     /// via shadow casting. The Floor_Map sprite is sufficient for the ground visual.
     /// </summary>
     static void RemoveBackgroundPlanes()
@@ -134,20 +137,19 @@ public static class EnvironmentSprites
         }
 
         ApplyFloorMapForRoot(levelRoot.transform, mapSprite, FloorMapDesiredWorldSize_Arena1);
+        ArenaThemeController.EnsureBlackBackdrop(levelRoot.transform);
         Debug.Log("[EnvironmentSprites] ✓ Arena 1 floor applied (sMap.png, ProBuilder mesh hidden).");
     }
 
     /// <summary>
     /// Places / updates the Floor_Map sprite plane.
     /// <paramref name="desiredWorldSize"/> controls the sprite's rendered world diameter.
-    /// Keep this value ≤ 75 for Arena 1 so the sprite never clips the boundary walls
-    /// (wall inner face sits at radius 37.75 → diameter 75.5).
     /// </summary>
     public static void ApplyFloorMapForRoot(Transform levelRoot, Sprite mapSprite,
                                              float desiredWorldSize = FloorMapDesiredWorldSize_Arena1)
     {
-        // Destroy every existing Floor_Map in the entire subtree so stale duplicates never accumulate.
-        // (Transform.Find only checks direct children, so deep leftovers from old setup runs stack up.)
+        // Per-root cleanup: destroy any Floor_Map already under this specific root.
+        // (The global nuke in ApplyEnvironmentSprites handles cross-root orphans.)
         foreach (Transform t in levelRoot.GetComponentsInChildren<Transform>(true))
         {
             if (t != null && t.name == "Floor_Map")
@@ -158,22 +160,45 @@ public static class EnvironmentSprites
         mapPlane.transform.SetParent(levelRoot, false);
         mapPlane.transform.rotation    = Quaternion.Euler(90f, 0f, 0f);
         mapPlane.transform.localScale  = Vector3.one;
+        mapPlane.transform.position    = new Vector3(0f, 0.05f, 0f);
 
-        // Y = 0.05 keeps the sprite below the wall-base height (wall bottom at y = 0).
-        mapPlane.transform.position = new Vector3(0f, 0.05f, 0f);
-
-        SpriteRenderer sr = mapPlane.GetComponent<SpriteRenderer>();
-        if (sr == null) sr = mapPlane.AddComponent<SpriteRenderer>();
-        sr.sprite = mapSprite;
+        SpriteRenderer sr = mapPlane.AddComponent<SpriteRenderer>();
+        sr.sprite       = mapSprite;
         sr.sortingOrder = -50;
-        sr.drawMode = SpriteDrawMode.Simple;
+        sr.drawMode     = SpriteDrawMode.Simple;
 
-        float spriteWorldSize = mapSprite.bounds.size.x;
-        if (spriteWorldSize > 0.001f)
+        float boundsW = mapSprite.bounds.size.x;
+        if (boundsW > 0.001f)
         {
-            float scale = desiredWorldSize / spriteWorldSize;
+            float scale = desiredWorldSize / boundsW;
             mapPlane.transform.localScale = new Vector3(scale, scale, 1f);
+            Debug.Log($"[EnvironmentSprites] Floor_Map under '{levelRoot.name}' → " +
+                      $"sprite='{mapSprite.name}' tex={mapSprite.texture.width}x{mapSprite.texture.height} " +
+                      $"PPU={mapSprite.pixelsPerUnit} bounds.x={boundsW:F2} " +
+                      $"desiredSize={desiredWorldSize} scale={scale:F4}");
         }
+    }
+
+    /// <summary>
+    /// Editor-time: destroy EVERY Floor_Map in the entire scene hierarchy to
+    /// prevent stale duplicates from accumulating across setup runs.
+    /// </summary>
+    static void NukeAllFloorMaps_Editor()
+    {
+        int count = 0;
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t != null && t.name == "Floor_Map")
+                {
+                    Object.DestroyImmediate(t.gameObject);
+                    count++;
+                }
+            }
+        }
+        if (count > 0)
+            Debug.Log($"[EnvironmentSprites] NukeAllFloorMaps_Editor: destroyed {count} stale Floor_Map(s).");
     }
     
     static void EnableProBuilderWalls()

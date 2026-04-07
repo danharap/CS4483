@@ -1,27 +1,25 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Runtime theme switcher between Arena 1 and Arena 2.
 /// Swaps the floor sprite and zap-trap animation frames when transitioning through the portal.
-/// Resolves Floor_Map / Background_Plane per arena root (including inactive) and reapplies floor scale
-/// so sMap vs sMap2 bounds/PPU differences never stretch the floor.
+/// Floor scale is driven by desired world size so sMap vs sMap2 PPU differences never stretch the floor.
+/// Backdrop is a solid black plane (no sBg textures).
 /// </summary>
 public class ArenaThemeController : MonoBehaviour
 {
     /// <summary>Must match <c>EnvironmentSprites.FloorMapDesiredWorldSize_Arena1</c> (editor).</summary>
-    public const float FloorMapDesiredWorldSize_Arena1 = 74f;
+    public const float FloorMapDesiredWorldSize_Arena1 = 92f;
     /// <summary>Must match <c>EnvironmentSprites.FloorMapDesiredWorldSize_Arena2</c> (editor).</summary>
     public const float FloorMapDesiredWorldSize_Arena2 = 92f;
 
     [Header("Floor")]
     public Sprite arena1FloorSprite;
     public Sprite arena2FloorSprite;
-
-    [Header("Background")]
-    public Sprite arena1BgSprite;
-    public Sprite arena2BgSprite;
 
     [Header("Zap Trap Animations")]
     public Sprite[] zapTrapBlueFrames;
@@ -34,7 +32,7 @@ public class ArenaThemeController : MonoBehaviour
 
     public void ApplyArena1Theme()
     {
-        ApplyFloorAndBg("=== LEVEL (ProBuilder) ===",       arena1FloorSprite, arena1BgSprite, FloorMapDesiredWorldSize_Arena1);
+        ApplyFloorAndBackdrop("=== LEVEL (ProBuilder) ===", arena1FloorSprite, FloorMapDesiredWorldSize_Arena1);
         ApplyTrapFrames(false);
         Debug.Log("[ArenaThemeController] Arena 1 theme applied.");
     }
@@ -42,40 +40,32 @@ public class ArenaThemeController : MonoBehaviour
     public void ApplyArena2Theme()
     {
         DisableArena1FloorRenderers();
-        ApplyFloorAndBg("=== LEVEL (ProBuilder) Arena2 ===", arena2FloorSprite, arena2BgSprite, FloorMapDesiredWorldSize_Arena2);
+        ApplyFloorAndBackdrop("=== LEVEL (ProBuilder) Arena2 ===", arena2FloorSprite, FloorMapDesiredWorldSize_Arena2);
         ApplyTrapFrames(true);
         Debug.Log("[ArenaThemeController] Arena 2 theme applied.");
     }
 
     /// <summary>
-    /// Belt-and-suspenders: disable Arena 1's Floor_Map and Background_Plane sprite renderers
-    /// so they cannot bleed through Arena 2 even if they are accidentally at scene-root level.
+    /// Belt-and-suspenders: disable Arena 1 floor/backdrop renderers so they cannot bleed through Arena 2.
     /// </summary>
     void DisableArena1FloorRenderers()
     {
         Transform a1 = FindSceneRootTransform("=== LEVEL (ProBuilder) ===");
-        if (a1 == null) return; // already inactive or missing
+        if (a1 == null) return;
 
         foreach (Transform t in a1.GetComponentsInChildren<Transform>(true))
         {
-            if (t.name != "Floor_Map" && t.name != "Background_Plane") continue;
-            SpriteRenderer sr = t.GetComponent<SpriteRenderer>();
-            if (sr != null) sr.enabled = false;
-        }
-    }
-
-    /// <summary>Transform.Find only sees direct children; search the full arena subtree.</summary>
-    static Transform FindDeepChildInSceneRoot(string rootName, string childName)
-    {
-        foreach (GameObject r in SceneManager.GetActiveScene().GetRootGameObjects())
-        {
-            if (r.name != rootName) continue;
-            foreach (Transform t in r.GetComponentsInChildren<Transform>(true))
+            if (t.name == "Floor_Map" || t.name == "Background_Plane")
             {
-                if (t.name == childName) return t;
+                SpriteRenderer sr = t.GetComponent<SpriteRenderer>();
+                if (sr != null) sr.enabled = false;
+            }
+            else if (t.name == "Background_Black")
+            {
+                MeshRenderer mr = t.GetComponent<MeshRenderer>();
+                if (mr != null) mr.enabled = false;
             }
         }
-        return null;
     }
 
     static Transform FindSceneRootTransform(string rootName)
@@ -87,10 +77,14 @@ public class ArenaThemeController : MonoBehaviour
         return null;
     }
 
-    void ApplyFloorAndBg(string arenaRootName, Sprite floorSprite, Sprite bgSprite, float desiredWorldSize)
+    void ApplyFloorAndBackdrop(string arenaRootName, Sprite floorSprite, float desiredWorldSize)
     {
         Transform arenaRoot = FindSceneRootTransform(arenaRootName);
-        if (arenaRoot == null) return;
+        if (arenaRoot == null)
+        {
+            Debug.LogWarning($"[ArenaThemeController] Arena root '{arenaRootName}' not found — skipping floor.");
+            return;
+        }
 
         // Hide every ProBuilder floor mesh in the arena so only the Floor_Map sprite shows.
         foreach (Transform t in arenaRoot.GetComponentsInChildren<Transform>(true))
@@ -100,23 +94,20 @@ public class ArenaThemeController : MonoBehaviour
             if (mr != null) mr.enabled = false;
         }
 
-        bool isArena2 = arenaRootName.IndexOf("Arena2", System.StringComparison.Ordinal) >= 0;
+        bool isArena2 = arenaRootName.IndexOf("Arena2", StringComparison.Ordinal) >= 0;
         Sprite s = floorSprite;
         if (s == null)
         {
-            // Cold-load fallback: serialized sprite refs may not be saved yet if Setup was
-            // run without the final scene save.  Load directly from the asset path instead.
             string fallbackPath = isArena2 ? "Assets/Sprites/sMap2.png" : "Assets/Sprites/sMap.png";
 #if UNITY_EDITOR
             s = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(fallbackPath);
 #endif
         }
 
-        // Destroy every existing Floor_Map in the entire subtree to prevent stale duplicates.
-        var toDestroy = new System.Collections.Generic.List<GameObject>();
-        foreach (Transform t in arenaRoot.GetComponentsInChildren<Transform>(true))
-            if (t != null && t.name == "Floor_Map") toDestroy.Add(t.gameObject);
-        foreach (GameObject go in toDestroy) Destroy(go);
+        // ── GLOBAL Floor_Map cleanup ──────────────────────────────────────
+        // Search the ENTIRE scene (all roots, including inactive) to catch orphans
+        // that might have ended up at scene-root level from earlier setup runs.
+        NukeAllFloorMaps();
 
         if (s == null)
         {
@@ -134,27 +125,110 @@ public class ArenaThemeController : MonoBehaviour
         sr.sprite       = s;
         sr.sortingOrder = -50;
         sr.drawMode     = SpriteDrawMode.Simple;
-        ApplyFloorMapScale(mapPlane.transform, s, desiredWorldSize);
-        Debug.Log($"[ArenaThemeController] Floor_Map created for {arenaRootName} using '{s.name}'.");
 
-        // Background plane (legacy; usually removed — update if still present)
-        Transform bgT = FindDeepChildInSceneRoot(arenaRootName, "Background_Plane");
-        if (bgT != null && bgSprite != null)
+        float boundsW = s.bounds.size.x;
+        if (boundsW > 0.001f)
         {
-            SpriteRenderer bgSr = bgT.GetComponent<SpriteRenderer>();
-            if (bgSr != null) bgSr.sprite = bgSprite;
+            float scale = desiredWorldSize / boundsW;
+            mapPlane.transform.localScale = new Vector3(scale, scale, 1f);
+            Debug.Log($"[ArenaThemeController] Floor_Map '{arenaRootName}' → sprite='{s.name}' " +
+                      $"tex={s.texture.width}x{s.texture.height} PPU={s.pixelsPerUnit} " +
+                      $"bounds.x={boundsW:F2} desiredSize={desiredWorldSize} scale={scale:F4}");
         }
+
+        EnsureBlackBackdrop(arenaRoot);
     }
 
-    static void ApplyFloorMapScale(Transform mapPlane, Sprite sprite, float desiredWorldSize)
+    /// <summary>
+    /// Solid black plane below the arena (replaces sBg / sBg_Red). Safe to call from editor tools.
+    /// </summary>
+    public static void EnsureBlackBackdrop(Transform arenaRoot)
     {
-        if (mapPlane == null || sprite == null) return;
-        float w = sprite.bounds.size.x;
-        if (w > 0.001f)
+        if (arenaRoot == null) return;
+
+        var remove = new List<GameObject>();
+        foreach (Transform t in arenaRoot.GetComponentsInChildren<Transform>(true))
         {
-            float s = desiredWorldSize / w;
-            mapPlane.localScale = new Vector3(s, s, 1f);
+            if (t == null) continue;
+            if (t.name == "Background_Black" || t.name == "Background_Plane")
+                remove.Add(t.gameObject);
         }
+        foreach (GameObject go in remove)
+            DestroyBackdropObject(go);
+
+        GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        quad.name = "Background_Black";
+        quad.transform.SetParent(arenaRoot, false);
+        quad.transform.position   = new Vector3(0f, -0.6f, 0f);
+        quad.transform.rotation   = Quaternion.Euler(90f, 0f, 0f);
+        quad.transform.localScale = new Vector3(480f, 480f, 1f);
+
+        UnityEngine.Object.Destroy(quad.GetComponent<Collider>());
+
+        MeshRenderer mr = quad.GetComponent<MeshRenderer>();
+        mr.sharedMaterial = CreateBlackBackdropMaterial();
+        mr.shadowCastingMode = ShadowCastingMode.Off;
+        mr.receiveShadows    = false;
+    }
+
+    static void DestroyBackdropObject(GameObject go)
+    {
+        if (go == null) return;
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+            return;
+        }
+#endif
+        UnityEngine.Object.Destroy(go);
+    }
+
+    static Material CreateBlackBackdropMaterial()
+    {
+        Shader sh = Shader.Find("Universal Render Pipeline/Unlit");
+        if (sh == null) sh = Shader.Find("Universal Render Pipeline/Lit");
+        if (sh == null) sh = Shader.Find("Unlit/Color");
+        if (sh == null) sh = Shader.Find("Sprites/Default");
+        if (sh == null) sh = Shader.Find("Standard");
+
+        Material mat = new Material(sh);
+        if (mat.HasProperty("_BaseColor"))
+            mat.SetColor("_BaseColor", Color.black);
+        else if (mat.HasProperty("_Color"))
+            mat.SetColor("_Color", Color.black);
+        else
+            mat.color = Color.black;
+
+        if (mat.HasProperty("_Smoothness")) mat.SetFloat("_Smoothness", 0f);
+        if (mat.HasProperty("_Metallic"))   mat.SetFloat("_Metallic", 0f);
+        return mat;
+    }
+
+    /// <summary>
+    /// Destroy EVERY GameObject named "Floor_Map" in the entire scene — regardless of hierarchy.
+    /// Immediately disables their SpriteRenderers so they can't render even during the deferred
+    /// Destroy frame.
+    /// </summary>
+    static void NukeAllFloorMaps()
+    {
+        int count = 0;
+        foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+        {
+            foreach (Transform t in root.GetComponentsInChildren<Transform>(true))
+            {
+                if (t == null || t.name != "Floor_Map") continue;
+
+                // Immediately disable the renderer so it can't show during this frame.
+                SpriteRenderer sr = t.GetComponent<SpriteRenderer>();
+                if (sr != null) sr.enabled = false;
+
+                Destroy(t.gameObject);
+                count++;
+            }
+        }
+        if (count > 0)
+            Debug.Log($"[ArenaThemeController] NukeAllFloorMaps: destroyed {count} stale Floor_Map object(s).");
     }
 
     void ApplyTrapFrames(bool arena2)

@@ -15,7 +15,8 @@ public class GameManager : MonoBehaviour
     [SerializeField] private HUDManager hudManager;
     [SerializeField] private UpgradeUI upgradeUI;
     [SerializeField] private GameOverUI gameOverUI;
-    [SerializeField] private RespawnUI respawnUI;
+    [SerializeField] private RespawnUI  respawnUI;
+    [SerializeField] private VictoryUI  victoryUI;
     [SerializeField] private PlaytestLogger logger;
 
     [Header("Level Roots (assigned by SetupAll)")]
@@ -212,12 +213,7 @@ public class GameManager : MonoBehaviour
         // LobbyPortal trigger to work and for lobby walls to block physics again.
         LobbyPortalManager.Instance?.ResetForRespawn();
 
-        // ── Clean up all live enemies / projectiles ───────────────────────────
-        foreach (EnemyBase enemy in FindObjectsOfType<EnemyBase>())
-            Destroy(enemy.gameObject);
-        foreach (Projectile proj in FindObjectsOfType<Projectile>())
-            Destroy(proj.gameObject);
-        EnemyRegistry.Clear();
+        ClearTransientArenaEntities();
 
         // ── Reset enemy spawner to Arena 1 spawn points ───────────────────────
         EnemySpawner spawner = FindFirstObjectByType<EnemySpawner>();
@@ -248,6 +244,118 @@ public class GameManager : MonoBehaviour
 
         // ── Refresh HUD stats ─────────────────────────────────────────────────
         hudManager?.UpdateWaveNumber(1);
+    }
+
+    /// <summary>
+    /// Show the victory screen after the final boss is defeated.
+    /// Clears feet, pickups, and stray VFX first so nothing flashes after returning to the lobby.
+    /// Freezes time for drama; the Return button calls RespawnToLobby().
+    /// </summary>
+    public void ShowVictoryScreen()
+    {
+        ClearTransientArenaEntities();
+
+        if (victoryUI == null)
+        {
+            Debug.LogWarning("[GameManager] victoryUI not assigned – falling back to instant respawn.");
+            RespawnToLobby();
+            return;
+        }
+
+        State = GameState.GameOver; // prevent other UI from triggering simultaneously
+        Time.timeScale = 0f;
+
+        float timeSurvived = Time.time - RunStartTime;
+        victoryUI.Show(WavesCleared, TotalKills, timeSurvived);
+    }
+
+    /// <summary>
+    /// Destroys arena-only entities that are not covered by the normal enemy/projectile sweep:
+    /// Satan feet (separate GameObjects), orphaned foot telegraphs, pickups, boss bullets, damage numbers.
+    /// Tutorial subtree is skipped for pickups so tutorial orbs/medkits are not stripped on arena respawn.
+    /// </summary>
+    public void ClearTransientArenaEntities()
+    {
+        const string tutorialRoot = "=== LEVEL (Tutorial) ===";
+
+        static bool UnderTutorial(Transform t)
+        {
+            while (t != null)
+            {
+                if (t.name == tutorialRoot) return true;
+                t = t.parent;
+            }
+            return false;
+        }
+
+        foreach (SatanFootController foot in FindObjectsByType<SatanFootController>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (foot == null) continue;
+            foreach (Renderer r in foot.GetComponentsInChildren<Renderer>(true))
+                r.enabled = false;
+            Destroy(foot.gameObject);
+        }
+
+        foreach (LineRenderer lr in FindObjectsByType<LineRenderer>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (lr != null && lr.gameObject.name == "FootWarning")
+            {
+                lr.enabled = false;
+                Destroy(lr.gameObject);
+            }
+        }
+
+        foreach (HealthPack hp in FindObjectsByType<HealthPack>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (hp == null || UnderTutorial(hp.transform)) continue;
+            foreach (Renderer r in hp.GetComponentsInChildren<Renderer>(true))
+                r.enabled = false;
+            Destroy(hp.gameObject);
+        }
+
+        foreach (XPOrb orb in FindObjectsByType<XPOrb>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (orb == null || UnderTutorial(orb.transform)) continue;
+            foreach (Renderer r in orb.GetComponentsInChildren<Renderer>(true))
+                r.enabled = false;
+            Destroy(orb.gameObject);
+        }
+
+        foreach (DamageNumber dn in FindObjectsByType<DamageNumber>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (dn == null) continue;
+            foreach (Renderer r in dn.GetComponentsInChildren<Renderer>(true))
+                r.enabled = false;
+            Destroy(dn.gameObject);
+        }
+
+        foreach (SatanBullet sb in FindObjectsByType<SatanBullet>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (sb == null) continue;
+            foreach (Renderer r in sb.GetComponentsInChildren<Renderer>(true))
+                r.enabled = false;
+            Destroy(sb.gameObject);
+        }
+
+        foreach (EnemyBase enemy in FindObjectsByType<EnemyBase>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (enemy != null) Destroy(enemy.gameObject);
+        }
+
+        foreach (Projectile proj in FindObjectsByType<Projectile>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (proj != null) Destroy(proj.gameObject);
+        }
+
+        EnemyRegistry.Clear();
     }
 
     public void GoToMainMenu()

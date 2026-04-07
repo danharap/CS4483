@@ -35,6 +35,7 @@ public static class SetupAll
     private static UpgradeUI        upgradeUIComp;
     private static GameOverUI       gameOverUIComp;
     private static RespawnUI        respawnUIComp;
+    private static VictoryUI        victoryUIComp;
     private static SkillTreeUI      skillTreeUIComp;
     private static LobbyMerchant    lobbyMerchantComp;
     private static Transform[]      spawnPointTransforms;
@@ -50,8 +51,10 @@ public static class SetupAll
 
     private const string LevelUpButtonSpritePath = "Assets/Sprites/LevelUpButton.png";
     private static Sprite s_levelUpButtonSprite;
-    private static GameObject upgradePanel, gameOverPanel, respawnPanel;
+    private static GameObject upgradePanel, gameOverPanel, respawnPanel, victoryPanelGO;
     private static Button     respawnBtn;
+    private static Button     victoryReturnBtnStatic;
+    private static TMP_Text   victoryHeaderText, victorySubText, victoryStatsText;
     private static Button     card0Btn, card1Btn, card2Btn;
     private static TMP_Text   card0Name, card1Name, card2Name;
     private static TMP_Text   card0Desc, card1Desc, card2Desc;
@@ -402,6 +405,25 @@ public static class SetupAll
         // Start active so Awake() runs and hides it
         respawnPanel.SetActive(true);
 
+        // ── Victory panel (shown when Satan is defeated) ──────────────────
+        victoryPanelGO = MakePanel(root, "VictoryPanel", new Color(0.02f, 0.04f, 0.14f, 0.92f));
+        victoryHeaderText = MakeTMP(victoryPanelGO.transform, "Victory_Header",
+            new Vector2(0, 160), new Vector2(700, 100), "VICTORY!", 72);
+        victoryHeaderText.color     = new Color(1f, 0.85f, 0.2f);
+        victoryHeaderText.fontStyle = FontStyles.Bold;
+        victorySubText = MakeTMP(victoryPanelGO.transform, "Victory_Sub",
+            new Vector2(0, 60), new Vector2(600, 60),
+            "Satan has been vanquished.\nYou have survived the arena.", 30);
+        victorySubText.color = new Color(0.9f, 0.9f, 1f);
+        victoryStatsText = MakeTMP(victoryPanelGO.transform, "Victory_Stats",
+            new Vector2(0, -40), new Vector2(500, 80), "", 24);
+        victoryStatsText.color = new Color(0.75f, 0.75f, 0.9f);
+        victoryReturnBtnStatic = MakeButton(victoryPanelGO.transform, "Victory_ReturnButton",
+            new Vector2(0, -140), new Vector2(300, 64), "RETURN TO LOBBY",
+            new Color(0.15f, 0.5f, 0.85f));
+        victoryUIComp = victoryPanelGO.AddComponent<VictoryUI>();
+        victoryPanelGO.SetActive(true); // let Awake hide it
+
         // ── Skill Tree panel (shown by lobby merchant) ─────────────────────
         GameObject skillTreePanel = MakePanel(root, "SkillTreePanel", new Color(0.06f, 0.06f, 0.12f, 0.97f));
         skillTreePanel.transform.SetAsLastSibling();
@@ -558,6 +580,7 @@ public static class SetupAll
         Wire(gmComp, "upgradeUI",      upgradeUIComp);
         Wire(gmComp, "gameOverUI",     gameOverUIComp);
         Wire(gmComp, "respawnUI",      respawnUIComp);
+        Wire(gmComp, "victoryUI",      victoryUIComp);
         Wire(gmComp, "logger",         plComp);
         Wire(gmComp, "playerObject",   playerGO);
         Wire(gmComp, "lobbyLevelRoot",  GameObject.Find("=== LEVEL (Lobby) ==="));
@@ -703,6 +726,13 @@ public static class SetupAll
         // ── RespawnUI ─────────────────────────────────────────────────────
         Wire(respawnUIComp, "respawnPanel",  respawnPanel);
         Wire(respawnUIComp, "respawnButton", respawnBtn);
+
+        // ── VictoryUI ─────────────────────────────────────────────────────
+        Wire(victoryUIComp, "victoryPanel",   victoryPanelGO);
+        Wire(victoryUIComp, "headerText",     victoryHeaderText);
+        Wire(victoryUIComp, "subText",        victorySubText);
+        Wire(victoryUIComp, "statsText",      victoryStatsText);
+        Wire(victoryUIComp, "returnButton",   victoryReturnBtnStatic);
 
         // ── Lobby Merchant NPC ────────────────────────────────────────────
         // Place an NPC in the lobby with a prompt label and link it to SkillTreeUI.
