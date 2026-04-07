@@ -19,7 +19,11 @@ public static class ProBuilderLevelBuilder
     private static Material matFloor, matWall, matHub, matBoss, matObstacle, matStands, matStandsArena2;
 
     private const string ObstacleSpritePath = "Assets/Sprites/sBox.png";
+    private const string TutorialOccupantDeadPlayerSpritePath = "Assets/Sprites/sdeadPlayer.png";
+    private const string TutorialOccupantAlivePlayerStripPath = "Assets/Sprites/sPlayerIdle_strip4.png";
+    private const string TutorialOccupantEnemyStripPath = "Assets/Sprites/sEnemy_strip7.png";
     private static UnityEngine.Sprite s_obstacleSprite;
+    private static UnityEngine.Sprite[] s_tutorialOccupantSprites;
     const string Arena2RootName  = "=== LEVEL (ProBuilder) Arena2 ===";
     const string Arena1RootName  = "=== LEVEL (ProBuilder) ===";
     const string LobbyRootName   = "=== LEVEL (Lobby) ===";
@@ -831,6 +835,7 @@ public static class ProBuilderLevelBuilder
 
         GameObject topRow = CreateHorizontalPrisonRow(prison.transform, isNorthRow: true, wallMat, barMat, "PrisonCells_Top");
         GameObject bottomRow = CreateHorizontalPrisonRow(prison.transform, isNorthRow: false, wallMat, barMat, "PrisonCells_Bottom");
+        PlaceTutorialCellOccupants(prison.transform, topRow, bottomRow);
         LogTutorialPrisonCellLayout(topRow, bottomRow);
 
         float gateSpanZ = TutorialPrisonConstants.HallwayInnerWidthX;
@@ -1148,6 +1153,110 @@ public static class ProBuilderLevelBuilder
         AppendRow("PrisonCells_Top (north)", topRow);
         AppendRow("PrisonCells_Bottom (south)", bottomRow);
         Debug.Log(sb.ToString());
+    }
+
+    static void EnsureTutorialOccupantSprites()
+    {
+        if (s_tutorialOccupantSprites != null && s_tutorialOccupantSprites.Length > 0) return;
+
+        var list = new System.Collections.Generic.List<UnityEngine.Sprite>(3);
+
+        // Dead player body sprite.
+        UnityEngine.Sprite deadPlayer = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>(TutorialOccupantDeadPlayerSpritePath);
+        if (deadPlayer != null) list.Add(deadPlayer);
+
+        // Alive player: first frame from idle strip.
+        UnityEngine.Sprite alivePlayer = LoadFirstSpriteFromAsset(TutorialOccupantAlivePlayerStripPath);
+        if (alivePlayer != null) list.Add(alivePlayer);
+
+        // Enemy: first frame from enemy walk strip.
+        UnityEngine.Sprite enemy = LoadFirstSpriteFromAsset(TutorialOccupantEnemyStripPath);
+        if (enemy != null) list.Add(enemy);
+
+        s_tutorialOccupantSprites = list.ToArray();
+        if (s_tutorialOccupantSprites.Length == 0)
+        {
+            Debug.LogWarning(
+                "[ProBuilderLevelBuilder] Tutorial occupant sprites missing. Expected one or more of: " +
+                TutorialOccupantDeadPlayerSpritePath + ", " +
+                TutorialOccupantAlivePlayerStripPath + ", " +
+                TutorialOccupantEnemyStripPath);
+        }
+    }
+
+    static void PlaceTutorialCellOccupants(Transform prisonRoot, GameObject topRow, GameObject bottomRow)
+    {
+        EnsureTutorialOccupantSprites();
+        if (s_tutorialOccupantSprites == null || s_tutorialOccupantSprites.Length == 0) return;
+
+        GameObject occupantsRoot = new GameObject("Tutorial_CellOccupants");
+        occupantsRoot.transform.SetParent(prisonRoot, false);
+
+        PlaceTutorialRowOccupants(occupantsRoot.transform, topRow, isNorthRow: true);
+        PlaceTutorialRowOccupants(occupantsRoot.transform, bottomRow, isNorthRow: false);
+    }
+
+    static void PlaceTutorialRowOccupants(Transform occupantsRoot, GameObject row, bool isNorthRow)
+    {
+        if (row == null) return;
+
+        int cellIndex = 0;
+        foreach (Transform cell in row.transform)
+        {
+            if (cell == null || !cell.name.StartsWith("Cell_")) continue;
+            cellIndex++;
+
+            // Deterministic sparse fill so rows feel inhabited without looking repetitive.
+            bool placeHere = isNorthRow
+                ? (cellIndex % 3 == 1)
+                : (cellIndex % 4 == 2);
+            if (!placeHere) continue;
+
+            // Cell root is at the bars. Move inward toward the cell back wall and offset slightly in X.
+            float zSign = isNorthRow ? -1f : 1f;
+            float xJitter = (cellIndex % 2 == 0) ? 0.35f : -0.35f;
+            Vector3 occupantPos = cell.position + new Vector3(xJitter, 0f, zSign * 0.85f);
+            int spriteIndex = (cellIndex + (isNorthRow ? 0 : 1)) % s_tutorialOccupantSprites.Length;
+            CreateTutorialCellOccupantSprite(occupantsRoot, occupantPos, $"{cell.name}_Occupant", s_tutorialOccupantSprites[spriteIndex]);
+        }
+    }
+
+    static UnityEngine.Sprite LoadFirstSpriteFromAsset(string path)
+    {
+        Object[] assets = AssetDatabase.LoadAllAssetsAtPath(path);
+        if (assets == null || assets.Length == 0) return null;
+        foreach (Object o in assets)
+        {
+            UnityEngine.Sprite s = o as UnityEngine.Sprite;
+            if (s != null) return s;
+        }
+        return null;
+    }
+
+    static void CreateTutorialCellOccupantSprite(Transform parent, Vector3 worldPos, string name, UnityEngine.Sprite sprite)
+    {
+        if (sprite == null) return;
+
+        GameObject go = new GameObject(name);
+        go.transform.SetParent(parent);
+        go.transform.position = worldPos;
+
+        const float desiredHeight = 2.4f;
+        float ppu = Mathf.Max(1f, sprite.pixelsPerUnit);
+        float spriteHeight = Mathf.Max(0.01f, sprite.rect.height / ppu);
+        float scale = desiredHeight / spriteHeight;
+
+        GameObject visual = new GameObject("Visual");
+        visual.transform.SetParent(go.transform, false);
+        visual.transform.localPosition = new Vector3(0f, desiredHeight * 0.5f, 0f);
+        visual.transform.localScale = new Vector3(scale, scale, 1f);
+
+        SpriteRenderer sr = visual.AddComponent<SpriteRenderer>();
+        sr.sprite = sprite;
+        sr.sortingOrder = 4;
+        sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        visual.AddComponent<Billboard>();
     }
 
     static void CreateWallWorld(Transform parent, string name, Vector3 worldPosition, Vector3 scale, Material mat)
