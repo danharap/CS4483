@@ -11,7 +11,7 @@ if (-not (Test-Path (Join-Path $buildDir "ThePit.exe"))) {
     $buildRoot = Join-Path $projectRoot "Build"
     if (Test-Path (Join-Path $buildRoot "ThePit.exe")) { $buildDir = $buildRoot }
 }
-$reportPdf   = "C:\Users\danie\Downloads\DELIVERABLE 2 Report.pdf"
+$reportPdf   = "C:\Users\danie\Downloads\Deliverable 2 - Copy (2).pdf"
 $stagingDir  = "C:\Users\danie\CS4483\Group21_ThePit_Submission"
 $outputZip   = "C:\Users\danie\Desktop\Group21_ThePit_Submission.zip"
 
