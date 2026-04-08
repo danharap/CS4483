@@ -34,10 +34,8 @@ using UnityEngine;
         private int  activeEnemies;
         private bool wavesRunning;
 
-#if UNITY_EDITOR
-        /// <summary>When true, current wave/break is ended early (F3 debug).</summary>
+        /// <summary>When true, current wave/break is ended early (F3 debug hotkey).</summary>
         private bool debugSkipWaveRequested;
-#endif
 
     // ── Events ────────────────────────────────────────────────────────────
     public event Action<int> OnWaveStart;    // waveIndex (0-based)
@@ -115,13 +113,11 @@ using UnityEngine;
             float breakLeft = breakDuration;
             while (breakLeft > 0f)
             {
-#if UNITY_EDITOR
                 if (debugSkipWaveRequested)
                 {
                     debugSkipWaveRequested = false;
                     breakLeft = 0f;
                 }
-#endif
                 breakLeft -= Time.deltaTime;
                 WaveTimer = breakLeft;
                 yield return null;
@@ -152,13 +148,11 @@ using UnityEngine;
 
         while (elapsed < waveDuration)
         {
-#if UNITY_EDITOR
             if (debugSkipWaveRequested)
             {
                 debugSkipWaveRequested = false;
                 elapsed = waveDuration;
             }
-#endif
             if (GameManager.Instance?.State == GameManager.GameState.Playing)
             {
                 elapsed    += Time.deltaTime;
@@ -196,10 +190,10 @@ using UnityEngine;
         // Wait until boss is killed (NotifyBossKilled sets flag)
         while (!bossKilledThisWave)
         {
-#if UNITY_EDITOR
             if (debugSkipWaveRequested)
             {
                 debugSkipWaveRequested = false;
+                // Instantly kill any regular boss enemies still alive.
                 foreach (BossEnemy b in FindObjectsByType<BossEnemy>(FindObjectsInactive.Exclude, FindObjectsSortMode.None))
                 {
                     if (b != null) b.TakeDamage(1e9f);
@@ -207,7 +201,6 @@ using UnityEngine;
                 if (!bossKilledThisWave)
                     bossKilledThisWave = true;
             }
-#endif
             WaveTimer = 0f;
             yield return null;
         }
@@ -243,13 +236,11 @@ using UnityEngine;
         WaveIndex = index;
     }
 
-#if UNITY_EDITOR
-    /// <summary>Editor play mode: skip rest of break, normal wave timer, or boss wait. Bound to F3 in <see cref="DebugSpawnHotkeys"/>.</summary>
+    /// <summary>Skip the current wave timer, break, or boss wait. Bound to F3 in <see cref="DebugSpawnHotkeys"/>.</summary>
     public void DebugRequestSkipWaveOrBreak()
     {
         debugSkipWaveRequested = true;
     }
-#endif
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
