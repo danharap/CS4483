@@ -42,6 +42,7 @@ public class TutorialManager : MonoBehaviour
         Intro,
         MoveToGate1,
         AwaitFirstGatePass,
+        DashTutorial,
         Combat,
         AwaitSecondGatePass,
         CollectOrbs,
@@ -210,9 +211,8 @@ public class TutorialManager : MonoBehaviour
         if (combatSpawnQueued) return;
 
         combatSpawnQueued = true;
-        phase = TutorialPhase.Combat;
-        SetText("Left click and aim your mouse to shoot");
-        StartCoroutine(SpawnCombatEnemyAfterDelay(3f));
+        phase = TutorialPhase.DashTutorial;
+        StartCoroutine(PlayDashTutorial());
     }
 
     public void OnPassedSecondGate()
@@ -256,6 +256,43 @@ public class TutorialManager : MonoBehaviour
         if (!tutorialRoomStarted) return;
         if (phase == TutorialPhase.SkillTreeExplanation) return;
         StartCoroutine(ShowMessageRoutine(message, duration));
+    }
+
+    // ── Dash Tutorial ─────────────────────────────────────────────────────
+
+    private IEnumerator PlayDashTutorial()
+    {
+        ShowText(true);
+        ApplyDialogueSpeaker(devil: false);
+        SetText("Before you fight — learn to move like your life depends on it.");
+        yield return new WaitForSecondsRealtime(2.2f);
+        SetText("Press Left Shift to dash. Use it to dodge attacks and close gaps quickly.");
+        yield return new WaitForSecondsRealtime(1.8f);
+        SetText("Try it now. Press Left Shift.");
+
+        // Wait for the player to dash. Time out after 25 s so they can't get stuck.
+        PlayerController pc = GameManager.Instance?.PlayerController
+                              ?? FindFirstObjectByType<PlayerController>();
+        float waited = 0f;
+        bool dashSeen = false;
+        while (waited < 25f && !dashSeen)
+        {
+            if (pc != null && pc.IsDashing)
+                dashSeen = true;
+            waited += Time.deltaTime;
+            yield return null;
+        }
+
+        if (dashSeen)
+        {
+            SetText("Good. Keep moving — a stationary fighter is a dead fighter.");
+            yield return new WaitForSecondsRealtime(2.0f);
+        }
+
+        // Hand off to the combat phase — spawn the enemy with a short delay.
+        phase = TutorialPhase.Combat;
+        SetText("Left click and aim your mouse to shoot.");
+        StartCoroutine(SpawnCombatEnemyAfterDelay(2.5f));
     }
 
     // ── Medkit Tutorial ───────────────────────────────────────────────────
