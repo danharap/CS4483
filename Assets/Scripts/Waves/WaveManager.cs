@@ -10,12 +10,16 @@ using UnityEngine;
 {
     // ── Tunables ──────────────────────────────────────────────────────────
     [Header("Wave Settings")]
-    [SerializeField] private float waveDuration    = 60f;
-    [SerializeField] private float breakDuration   = 3f;
-    [SerializeField] private float baseSpawnInterval = 2f;   // seconds between spawns
-    [SerializeField] private float spawnIntervalMin   = 0.4f; // fastest possible
-    [SerializeField] private int   enemyCountCap   = 30;     // max simultaneous enemies
-    [SerializeField] private int   bossEveryNWaves = 5;
+    [SerializeField] private float waveDuration      = 75f;   // slightly longer window so more enemies spawn
+    [SerializeField] private float breakDuration     = 3f;
+    [SerializeField] private float baseSpawnInterval = 2f;    // seconds between spawns at wave 1
+    [SerializeField] private float spawnIntervalMin  = 0.3f;  // absolute fastest (was 0.4)
+    [SerializeField] private int   baseEnemyCountCap = 30;    // wave-1 cap; grows each wave
+    [SerializeField] private int   enemyCapIncrement = 3;     // extra simultaneous enemies per wave
+    [SerializeField] private int   bossEveryNWaves   = 5;
+
+    // Computed each wave from the fields above.
+    private int enemyCountCap = 30;
 
     [Header("References")]
     [SerializeField] private EnemySpawner spawner;
@@ -134,12 +138,17 @@ using UnityEngine;
     private IEnumerator NormalWave()
     {
         IsBossWave = false;
+        // Recalculate the cap for this wave: grows by enemyCapIncrement each wave.
+        enemyCountCap = baseEnemyCountCap + WaveIndex * enemyCapIncrement;
+
         OnWaveStart?.Invoke(WaveIndex);
         GameManager.Instance?.HUD?.ShowTransition($"Wave {WaveIndex + 1}!");
 
         float elapsed = 0f;
         float spawnTimer = 0f;
         float spawnInterval = CalculateSpawnInterval();
+        // From wave 6 onward (Arena 2) spawn 2 enemies per tick; from wave 9 spawn 3.
+        int spawnsPerTick = WaveIndex >= 8 ? 3 : (WaveIndex >= 5 ? 2 : 1);
 
         while (elapsed < waveDuration)
         {
@@ -152,14 +161,18 @@ using UnityEngine;
 #endif
             if (GameManager.Instance?.State == GameManager.GameState.Playing)
             {
-                elapsed   += Time.deltaTime;
+                elapsed    += Time.deltaTime;
                 spawnTimer += Time.deltaTime;
-                WaveTimer  = waveDuration - elapsed;
+                WaveTimer   = waveDuration - elapsed;
 
                 if (spawnTimer >= spawnInterval && activeEnemies < enemyCountCap)
                 {
                     spawnTimer = 0f;
-                    spawner?.SpawnForWave(WaveIndex);
+                    for (int i = 0; i < spawnsPerTick; i++)
+                    {
+                        if (activeEnemies >= enemyCountCap) break;
+                        spawner?.SpawnForWave(WaveIndex);
+                    }
                 }
             }
             yield return null;
@@ -242,8 +255,8 @@ using UnityEngine;
 
     private float CalculateSpawnInterval()
     {
-        // Each wave the interval shrinks by 10% (clamped to minimum)
-        return Mathf.Max(spawnIntervalMin, baseSpawnInterval * Mathf.Pow(0.9f, WaveIndex));
+        // Each wave the interval shrinks by 15% (clamped to minimum)
+        return Mathf.Max(spawnIntervalMin, baseSpawnInterval * Mathf.Pow(0.85f, WaveIndex));
     }
 
     private bool CanRunCombatWaves()

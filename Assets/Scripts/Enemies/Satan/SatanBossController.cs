@@ -248,6 +248,17 @@ public class SatanBossController : MonoBehaviour
         StartCoroutine(ThroneAwakenSequence());
     }
 
+    /// <summary>
+    /// Skip the throne intro entirely and drop Satan straight into combat.
+    /// Used as a last-resort fallback by EnemySpawner when the intro controller is absent.
+    /// </summary>
+    public void ForceEnterCombat()
+    {
+        if (CurrentState == BossState.CombatPhase) return; // already fighting
+        transform.position = jumpLandingPosition;
+        EnterCombat();
+    }
+
     private IEnumerator ThroneAwakenSequence()
     {
         // Hide the static "seated" sprite baked into the throne geometry the instant Satan stirs.

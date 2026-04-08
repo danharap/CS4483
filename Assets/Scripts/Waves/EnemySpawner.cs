@@ -24,7 +24,7 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private Vector3 satanDebugSpawnPosition = new Vector3(0f, 0f, 14f);
 
     [Header("Enemy HP Scaling per Wave")]
-    [SerializeField] private float hpScalePerWave = 0.12f;   // +12% HP per wave
+    [SerializeField] private float hpScalePerWave = 0.20f;   // +20% HP per wave (doubles by wave ~5)
 
     [Header("Fast Enemy Unlock Wave")]
     [SerializeField] private int fastEnemyUnlockWave = 2;    // 0-based index
@@ -84,14 +84,48 @@ public class EnemySpawner : MonoBehaviour
         if (!CanSpawnInCurrentLevelState())
             return;
 
-        // If Satan is already in the scene (placed on the throne by SatanArenaIntroController),
-        // do NOT spawn a duplicate — the intro controller handles his entrance.
-        if (FindFirstObjectByType<SatanBossController>() != null)
+        // ── Arena 2: Satan boss ───────────────────────────────────────────────
+        // When Arena 2 is active this is always the Satan wave. We never spawn the
+        // regular mini-boss here regardless of Satan's current scene state.
+        GameObject arena2 = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+        if (arena2 != null && arena2.activeInHierarchy)
         {
-            Debug.Log("[EnemySpawner] Satan already exists in scene (throne-watch mode) — skipping SpawnBoss().");
+            if (FindFirstObjectByType<SatanBossController>() != null)
+            {
+                // Happy path — Satan is already on the throne, intro controller will
+                // call BeginAwakenFromThrone() via its OnWaveStart subscription.
+                Debug.Log("[EnemySpawner] Arena 2 boss wave: Satan is on throne — skipping duplicate spawn.");
+                return;
+            }
+
+            // Satan is missing (intro controller may have failed to spawn him at scene load).
+            // Emergency: ask the intro controller to spawn + awaken him now.
+            SatanArenaIntroController intro =
+                FindFirstObjectByType<SatanArenaIntroController>(FindObjectsInactive.Include);
+            if (intro != null)
+            {
+                Debug.LogWarning("[EnemySpawner] Arena 2 boss wave: Satan not found — triggering emergency spawn via intro controller.");
+                intro.EmergencySpawnAndAwaken();
+                return;
+            }
+
+            // Last resort: we have a satan debug prefab wired directly on EnemySpawner.
+            if (satanPrefab != null)
+            {
+                Debug.LogWarning("[EnemySpawner] Arena 2 boss wave: No intro controller found — spawning Satan directly.");
+                GameObject go = Instantiate(satanPrefab, satanDebugSpawnPosition, Quaternion.identity);
+                go.name = "Satan_Boss";
+                go.GetComponent<SatanBossController>()?.ForceEnterCombat();
+                return;
+            }
+
+            // If we reach here we have no Satan prefab at all — fall through to log an error
+            // rather than spawning the wrong boss.
+            Debug.LogError("[EnemySpawner] Arena 2 boss wave: satanPrefab is null! Satan cannot spawn.");
             return;
         }
 
+        // ── Arena 1: regular mini-boss ────────────────────────────────────────
         if (bossPrefab == null) return;
         Transform sp = PickSpawnPoint();
         if (sp == null) return;

@@ -346,22 +346,35 @@ public class NPCDialogue : MonoBehaviour
         portRt.offsetMin = Vector2.zero;
         portRt.offsetMax = Vector2.zero;
 
-        // Load portrait texture (editor only; builds fall back to tinted placeholder)
+        // Load portrait texture.
+        // Editor: use AssetDatabase for the fastest iteration experience.
+        // Build: load from Resources (textures must exist under Assets/Resources/Portraits/).
+        Texture2D resolvedPortraitTex = null;
+
 #if UNITY_EDITOR
-        string texPath = mode == DialogueMode.Guide
-            ? "Assets/Sprites/Guide NPC/2.png"
-            : "Assets/Sprites/NPC/Merchant_Idle.png";
-        Texture2D portraitTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
-        if (portraitTex != null)
-            portraitRaw.texture = portraitTex;
-        else
-#endif
         {
-            if (speakerPortrait != null)
-                portraitRaw.texture = speakerPortrait.texture;
-            else
-                portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
+            string texPath = mode == DialogueMode.Guide
+                ? "Assets/Sprites/Guide NPC/2.png"
+                : "Assets/Sprites/NPC/Merchant_Idle.png";
+            resolvedPortraitTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(texPath);
         }
+#endif
+
+        if (resolvedPortraitTex == null)
+        {
+            // Resources.Load works in both editor and builds; path is relative to any Resources/ folder.
+            string resPath = mode == DialogueMode.Guide
+                ? "Portraits/GuideNPC_Portrait"
+                : "Portraits/Merchant_Idle";
+            resolvedPortraitTex = Resources.Load<Texture2D>(resPath);
+        }
+
+        if (resolvedPortraitTex != null)
+            portraitRaw.texture = resolvedPortraitTex;
+        else if (speakerPortrait != null)
+            portraitRaw.texture = speakerPortrait.texture;
+        else
+            portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
 
         // ── Text area ─────────────────────────────────────────────────────
         float textAreaX     = edgePad + frameSz + edgePad;
