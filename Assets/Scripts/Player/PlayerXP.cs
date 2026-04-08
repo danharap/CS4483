@@ -62,12 +62,10 @@ public class PlayerXP : MonoBehaviour
         OnXPChanged?.Invoke(CurrentXP, XPThreshold, RunLevel);
     }
 
-#if UNITY_EDITOR
-    /// <summary>Editor play mode: grant XP to trigger the next level-up (upgrade panel). Bound to F2 in <see cref="DebugSpawnHotkeys"/>.</summary>
+    /// <summary>Grant XP to trigger the next level-up (upgrade panel). F2 in <see cref="DebugSpawnHotkeys"/>.</summary>
     public void DebugForceLevelUp()
     {
         float need = Mathf.Max(0f, XPThreshold - CurrentXP);
         AddXP(need + 0.01f);
     }
-#endif
 }

@@ -174,15 +174,13 @@ public class AccountProgression : MonoBehaviour
         return true;
     }
 
-    // ── Editor / Debug helpers ────────────────────────────────────────────
+    // ── Debug helpers (also compiled into standalone — used by DebugSpawnHotkeys F4/F5) ──
 
-#if UNITY_EDITOR
     /// <summary>Grant a large chunk of meta XP to test level-ups quickly.</summary>
     public void DebugGrantXP(int amount = 300) => AddMetaXP(amount);
 
     /// <summary>
     /// Instantly grant N account levels (and N skill points) without accumulating XP.
-    /// Useful for quickly testing skill tree unlocks.
     /// </summary>
     public void DebugGrantLevels(int count = 1)
     {
@@ -209,7 +207,6 @@ public class AccountProgression : MonoBehaviour
         FireProgressionChanged();
         Debug.Log("[AccountProgression] DEBUG RESET complete.");
     }
-#endif
 
     private void FireProgressionChanged() =>
         OnProgressionChanged?.Invoke(MetaXP, XPToNextLevel(), AccountLevel, SkillPoints);
