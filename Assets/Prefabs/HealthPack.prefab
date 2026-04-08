@@ -44,8 +44,8 @@ Light:
   m_Type: 2
   m_Shape: 0
   m_Color: {r: 0.4, g: 1, b: 0.4, a: 1}
-  m_Intensity: 4
-  m_Range: 6
+  m_Intensity: 1.4
+  m_Range: 9
   m_SpotAngle: 30
   m_InnerSpotAngle: 21.80208
   m_CookieSize: 10
@@ -78,7 +78,7 @@ Light:
   m_Cookie: {fileID: 0}
   m_DrawHalo: 0
   m_Flare: {fileID: 0}
-  m_RenderMode: 0
+  m_RenderMode: 2
   m_CullingMask:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -106,7 +106,7 @@ GameObject:
   - component: {fileID: 3317096542493605711}
   - component: {fileID: 840527824804904729}
   - component: {fileID: 2214958894659428990}
-  - component: {fileID: 2601489921288698820}
+  - component: {fileID: 7803893428527723129}
   m_Layer: 0
   m_Name: HealthPack
   m_TagString: Untagged
@@ -180,10 +180,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   glowLight: {fileID: 0}
-  baseIntensity: 4
-  pulseAmount: 2
-  pulseSpeed: 2
---- !u!114 &2601489921288698820
+  baseIntensity: 1.4
+  pulseAmount: 0.7
+  pulseSpeed: 1.6
+  lightRange: 9
+--- !u!114 &7803893428527723129
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -202,8 +203,8 @@ MonoBehaviour:
   bobAmount: 0.2
   enableGlow: 1
   glowColor: {r: 0.2, g: 1, b: 0.3, a: 1}
-  glowIntensity: 2.5
-  glowRange: 3.5
+  glowIntensity: 1.2
+  glowRange: 8
 --- !u!1 &5046284048931587188
 GameObject:
   m_ObjectHideFlags: 0
