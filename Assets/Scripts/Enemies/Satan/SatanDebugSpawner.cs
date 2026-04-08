@@ -16,7 +16,6 @@ public class SatanDebugSpawner : MonoBehaviour
     [Tooltip("Where to place Satan. Top of the arena is around (0, 0, 14).")]
     [SerializeField] private Vector3 spawnPosition = new Vector3(0f, 0f, 14f);
 
-#if UNITY_EDITOR
     /// <summary>
     /// Fallback when <see cref="EnemySpawner.SpawnSatanDebug"/> is unavailable.
     /// Finds any SatanDebugSpawner in the scene (does not rely on Awake order).
@@ -42,5 +41,4 @@ public class SatanDebugSpawner : MonoBehaviour
         satan.name = "Satan_Boss";
         Debug.Log($"[SatanDebugSpawner] Satan spawned at {spawner.spawnPosition}.");
     }
-#endif
 }

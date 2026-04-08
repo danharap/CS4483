@@ -287,8 +287,7 @@ public class EnemySpawner : MonoBehaviour
                (arena2 != null && arena2.activeInHierarchy);
     }
 
-#if UNITY_EDITOR
-    // ── Debug helpers for manual spawning while testing ────────────────────
+    // ── Debug helpers (compiled into standalone — DebugSpawnHotkeys) ─────
 
     public void SpawnChaserDebug()
     {
@@ -382,7 +381,6 @@ public class EnemySpawner : MonoBehaviour
 
         Debug.Log($"[EnemySpawner] F10: Satan spawned at throne {spawnPos}, jumping to arena {landingPos}.");
     }
-#endif
 
     // ── Editor Gizmos ─────────────────────────────────────────────────────
 
