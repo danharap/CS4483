@@ -58,6 +58,8 @@ public class TutorialManager : MonoBehaviour
     [Header("Medkit Tutorial")]
     [Tooltip("HealthPack prefab to spawn for the medkit tutorial step. Wired by TutorialRoomManager.")]
     [SerializeField] public GameObject healthPackPrefab;
+    [Tooltip("Damage dealt before the tutorial medkit spawns. Medkit heal amount is matched so the player returns to full HP.")]
+    [SerializeField] private float tutorialMedkitLessonDamage = 20f;
 
     private bool tutorialRoomStarted;
     private bool moveInputSeen;
@@ -305,15 +307,17 @@ public class TutorialManager : MonoBehaviour
         // 1. Let the upgrade screen fully close before doing anything visible.
         yield return new WaitForSecondsRealtime(0.5f);
 
-        // 2. Drain the player's health — but never leave less than 10 HP.
+        // 2. Deal a fixed amount of damage so the medkit (same heal amount) brings them back to full.
+        // Avoids leaving the tutorial at partial HP for their first arena run.
         PlayerHealth ph = GameManager.Instance?.PlayerController?.GetComponent<PlayerHealth>()
                           ?? FindFirstObjectByType<PlayerHealth>();
-        float damage = 0f;
         if (ph != null)
         {
-            damage = Mathf.Min(ph.CurrentHP - 10f, ph.maxHP * 0.55f);
-            if (damage > 0f)
-                ph.TakeDamage(damage);
+            float dmg = tutorialMedkitLessonDamage;
+            // Never lethal if HP was already lowered by something else.
+            dmg = Mathf.Min(dmg, Mathf.Max(0f, ph.CurrentHP - 1f));
+            if (dmg > 0f)
+                ph.TakeDamage(dmg);
         }
 
         SetText("You fought. You survived. But in the arena, that will not always be enough.");
@@ -330,9 +334,13 @@ public class TutorialManager : MonoBehaviour
         if (healthPackPrefab != null)
         {
             spawnedPack = Instantiate(healthPackPrefab, spawnPos, Quaternion.identity);
-            // Tutorial medkits should not time out while the player is reading dialogue.
             HealthPack hp = spawnedPack.GetComponent<HealthPack>();
-            if (hp != null) hp.lifetime = 120f;
+            if (hp != null)
+            {
+                hp.lifetime = 120f;
+                // Match damage taken so pickup returns player to full HP (same as prefab default 20).
+                hp.healAmount = tutorialMedkitLessonDamage;
+            }
         }
 
         // 4. Prompt player to pick it up.
@@ -342,6 +350,10 @@ public class TutorialManager : MonoBehaviour
 
         // 5. Wait for the medkit to be collected (HealthPack destroys itself on pickup).
         yield return StartCoroutine(WaitForMedkitPickup(spawnedPack));
+
+        // Top off HP so the first real run never starts below max (medkit should already restore full).
+        if (ph != null)
+            ph.HealHP(ph.maxHP);
 
         // 6. Explain the mechanic.
         SetText("Good.");
