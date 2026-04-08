@@ -671,6 +671,14 @@ public static class SetupAll
             GameObject tutorialEnemySpawn = GameObject.Find("Tutorial_EnemySpawn");
             if (tutorialEnemySpawn != null)
                 soTut.FindProperty("tutorialEnemySpawnPoint").objectReferenceValue = tutorialEnemySpawn.transform;
+
+            // Wire the HealthPack prefab so the medkit tutorial step can instantiate it.
+            GameObject tutHealthPack = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/HealthPack.prefab");
+            if (tutHealthPack != null)
+                soTut.FindProperty("tutorialHealthPackPrefab").objectReferenceValue = tutHealthPack;
+            else
+                Debug.LogWarning("[SetupAll] HealthPack.prefab not found — medkit tutorial step will be skipped.");
+
             soTut.ApplyModifiedPropertiesWithoutUndo();
         }
 

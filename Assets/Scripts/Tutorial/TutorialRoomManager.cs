@@ -20,6 +20,7 @@ public class TutorialRoomManager : MonoBehaviour
     [SerializeField] private GameObject tutorialEnemyPrefab;
     [SerializeField] private Transform tutorialEnemySpawnPoint;
     [SerializeField] private GameObject tutorialXpOrbPrefab;
+    [SerializeField] private GameObject tutorialHealthPackPrefab;
 
     [Header("Spawns")]
     [Tooltip("Fallback if Tutorial_PlayerSpawn is missing from the scene.")]
@@ -72,7 +73,13 @@ public class TutorialRoomManager : MonoBehaviour
         TeleportPlayer(ResolveTutorialPlayerSpawn());
         // Use explicit Unity null check (not ?.) to catch destroyed-but-not-C#-null instances
         if (TutorialManager.Instance != null)
+        {
+            // Pass the health pack prefab so the medkit tutorial step can spawn it.
+            if (tutorialHealthPackPrefab != null)
+                TutorialManager.Instance.healthPackPrefab = tutorialHealthPackPrefab;
+
             TutorialManager.Instance.BeginTutorialRoom(tutorialEnemyPrefab, tutorialEnemySpawnPoint, tutorialXpOrbPrefab);
+        }
         else
             Debug.LogWarning("[TutorialRoomManager] TutorialManager.Instance is null — tutorial intro will not play.");
     }
@@ -180,6 +187,10 @@ public class TutorialRoomManager : MonoBehaviour
         enemySpawn.transform.SetParent(prison.transform);
         enemySpawn.transform.position = new Vector3(-62f, 1f, cz);
         tutorialEnemySpawnPoint = enemySpawn.transform;
+
+        GameObject medkitSpawn = new GameObject("Tutorial_MedkitSpawn");
+        medkitSpawn.transform.SetParent(prison.transform);
+        medkitSpawn.transform.position = new Vector3(-16f, 0.5f, cz);
 
         GameObject spawnMarker = new GameObject("Tutorial_PlayerSpawn");
         spawnMarker.transform.SetParent(prison.transform);
