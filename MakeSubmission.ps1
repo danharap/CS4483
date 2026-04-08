@@ -1,11 +1,16 @@
 # Group21 / ThePit — zip Unity project + Windows build + report PDF for submission.
-# Run AFTER building in Unity: CS4483 -> Build Windows x64 (outputs Build\ThePit\ThePit.exe).
+# Run AFTER building in Unity: CS4483 -> Build Windows x64.
+# Default output folder: <project>\Build\ThePit\ThePit.exe — also accepts ThePit.exe directly under Build\.
 # Edit $reportPdf if your PDF is not in Downloads.
 
 $ErrorActionPreference = "Stop"
 
 $projectRoot = "C:\Users\danie\CS4483\CS4483"
 $buildDir    = Join-Path $projectRoot "Build\ThePit"
+if (-not (Test-Path (Join-Path $buildDir "ThePit.exe"))) {
+    $buildRoot = Join-Path $projectRoot "Build"
+    if (Test-Path (Join-Path $buildRoot "ThePit.exe")) { $buildDir = $buildRoot }
+}
 $reportPdf   = "C:\Users\danie\Downloads\DELIVERABLE 2 Report.pdf"
 $stagingDir  = "C:\Users\danie\CS4483\Group21_ThePit_Submission"
 $outputZip   = "C:\Users\danie\Desktop\Group21_ThePit_Submission.zip"
