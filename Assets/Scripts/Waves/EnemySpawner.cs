@@ -26,6 +26,17 @@ public class EnemySpawner : MonoBehaviour
     [Header("Enemy HP Scaling per Wave")]
     [SerializeField] private float hpScalePerWave = 0.20f;   // +20% HP per wave (doubles by wave ~5)
 
+    [Header("Boss HP")]
+    [Tooltip("Extra multiplier on top of the same per-wave curve as normal enemies. Keeps boss waves threatening in late arenas.")]
+    [SerializeField] private float miniBossHpBulkMultiplier = 6f;
+    [Tooltip("Applied to Satan phase 1 + phase 2 max HP pools.")]
+    [SerializeField] private float satanBossHpBulkMultiplier = 5f;
+
+    /// <summary>Same value used for <see cref="ScaleEnemyHP"/> — exposed for boss scripts.</summary>
+    public float HpScalePerWave => hpScalePerWave;
+    public float MiniBossHpBulkMultiplier => miniBossHpBulkMultiplier;
+    public float SatanBossHpBulkMultiplier => satanBossHpBulkMultiplier;
+
     [Header("Fast Enemy Unlock Wave")]
     [SerializeField] private int fastEnemyUnlockWave = 2;    // 0-based index
 
@@ -130,8 +141,25 @@ public class EnemySpawner : MonoBehaviour
         Transform sp = PickSpawnPoint();
         if (sp == null) return;
 
-        Instantiate(bossPrefab, ApplyJitter(sp.position), Quaternion.identity);
+        GameObject bossGo = Instantiate(bossPrefab, ApplyJitter(sp.position), Quaternion.identity);
+        ApplyMiniBossWaveScaling(bossGo);
         GameManager.Instance?.WaveManager?.NotifyEnemySpawned();
+    }
+
+    /// <summary>
+    /// Bosses use the same per-wave multiplier as trash mobs, then an extra bulk factor so they
+    /// are not melted instantly compared to a crowded wave 10 spawn.
+    /// </summary>
+    private void ApplyMiniBossWaveScaling(GameObject bossGo)
+    {
+        BossEnemy be = bossGo.GetComponent<BossEnemy>();
+        if (be == null) return;
+
+        int w = GameManager.Instance?.WaveManager != null ? GameManager.Instance.WaveManager.WaveIndex : 0;
+        float waveMult = 1f + hpScalePerWave * w;
+        float m = waveMult * miniBossHpBulkMultiplier;
+        be.ScaleMaxHP(m);
+        HUDManager.Instance?.ShowBossHP("BOSS", be.CurrentHP, be.maxHP);
     }
 
     /// <summary>
