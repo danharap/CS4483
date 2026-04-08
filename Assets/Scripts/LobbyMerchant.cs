@@ -287,22 +287,19 @@ public class LobbyMerchant : MonoBehaviour
         portRt.offsetMin = Vector2.zero;
         portRt.offsetMax = Vector2.zero;
 
+        Texture2D resolvedMerchantTex = null;
 #if UNITY_EDITOR
-        Texture2D portraitTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprites/NPC/Merchant_Idle.png");
-        if (portraitTex != null)
-            portraitRaw.texture = portraitTex;
-        else
+        resolvedMerchantTex = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/Sprites/NPC/Merchant_Idle.png");
 #endif
-        {
-            if (idleSprite != null)
-                portraitRaw.texture = idleSprite.texture;
-            else
-            {
-                Texture2D fallback = Resources.Load<Texture2D>("Portraits/Merchant_Idle");
-                if (fallback != null) portraitRaw.texture = fallback;
-                else portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-            }
-        }
+        if (resolvedMerchantTex == null)
+            resolvedMerchantTex = Resources.Load<Texture2D>("Portraits/Merchant_Idle");
+        if (resolvedMerchantTex == null && idleSprite != null)
+            resolvedMerchantTex = idleSprite.texture;
+
+        if (resolvedMerchantTex != null)
+            portraitRaw.texture = resolvedMerchantTex;
+        else
+            portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
 
         float textAreaX     = edgePad + frameSz + edgePad;
         float textAreaWidth = panelW - textAreaX - edgePad;

@@ -880,6 +880,11 @@ public static class ProBuilderLevelBuilder
         enemySpawn.transform.SetParent(prison.transform);
         enemySpawn.transform.position = new Vector3(-62f, 1f, cz);
 
+        // Medkit spawn: between the orb area and gate 3, so the player finds it after the upgrade pick.
+        GameObject medkitSpawn = new GameObject("Tutorial_MedkitSpawn");
+        medkitSpawn.transform.SetParent(prison.transform);
+        medkitSpawn.transform.position = new Vector3(-16f, 0.5f, cz);
+
         GameObject firstCheckpoint = new GameObject("Tutorial_FirstCheckpoint");
         firstCheckpoint.transform.SetParent(prison.transform);
         firstCheckpoint.transform.position = new Vector3(-76f, 1f, cz);

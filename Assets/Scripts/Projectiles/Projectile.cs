@@ -59,12 +59,14 @@ public class Projectile : MonoBehaviour
     private void CheckOverlapHit()
     {
         Collider[] hits = Physics.OverlapSphere(transform.position, hitCheckRadius);
+
+        // Pass 1 — enemies / Satan only. Must run before environment so floor/walls in the
+        // same overlap sphere cannot destroy the projectile before a second pierce target is processed.
         foreach (Collider c in hits)
         {
             if (c.isTrigger && c.CompareTag("Player")) continue;
 
-            // Regular enemies (EnemyBase subclasses)
-            EnemyBase enemy = c.GetComponent<EnemyBase>();
+            EnemyBase enemy = c.GetComponent<EnemyBase>() ?? c.GetComponentInParent<EnemyBase>();
             if (enemy != null && enemy.IsAlive && !hitEnemies.Contains(enemy))
             {
                 hitEnemies.Add(enemy);
@@ -74,8 +76,7 @@ public class Projectile : MonoBehaviour
                 continue;
             }
 
-            // Satan boss (not an EnemyBase subclass — handled separately)
-            SatanBossController satan = c.GetComponent<SatanBossController>();
+            SatanBossController satan = c.GetComponent<SatanBossController>() ?? c.GetComponentInParent<SatanBossController>();
             if (satan != null && satan.IsAlive && !hitSatans.Contains(satan))
             {
                 hitSatans.Add(satan);
@@ -84,14 +85,30 @@ public class Projectile : MonoBehaviour
                 pierceLeft--;
                 continue;
             }
-
-            // Block on solid (non-trigger) obstacles
-            if (!c.isTrigger && !c.CompareTag("Player"))
-            {
-                Destroy(gameObject);
-                return;
-            }
         }
+
+        // Pass 2 — solid obstacles (ignore colliders that belong to an enemy / boss)
+        foreach (Collider c in hits)
+        {
+            if (c.isTrigger || c.CompareTag("Player")) continue;
+            if (c.GetComponentInParent<EnemyBase>() != null) continue;
+            if (c.GetComponentInParent<SatanBossController>() != null) continue;
+            // Arena / lobby floor slabs overlap the projectile's XZ path — do not treat as a wall stop,
+            // or pierce (and sometimes basic shots) die on the floor before reaching the next target.
+            if (IsArenaFloorLikeCollider(c)) continue;
+
+            Destroy(gameObject);
+            return;
+        }
+    }
+
+    /// <summary>True for large thin horizontal colliders (ProBuilder "Floor", lobby ground, etc.).</summary>
+    private static bool IsArenaFloorLikeCollider(Collider c)
+    {
+        if (c == null) return false;
+        if (c.name.IndexOf("Floor", System.StringComparison.OrdinalIgnoreCase) >= 0) return true;
+        Vector3 e = c.bounds.extents;
+        return e.y < 1.25f && e.x > 4f && e.z > 4f;
     }
 
     /// <summary>Called from SatanBossController.OnTriggerEnter as secondary hit detection.</summary>
@@ -124,7 +141,7 @@ public class Projectile : MonoBehaviour
     void OnTriggerEnter(Collider other)
     {
         // Regular enemies
-        EnemyBase enemy = other.GetComponent<EnemyBase>();
+        EnemyBase enemy = other.GetComponent<EnemyBase>() ?? other.GetComponentInParent<EnemyBase>();
         if (enemy != null)
         {
             bool didHitNewEnemy = enemy.IsAlive && !hitEnemies.Contains(enemy);
@@ -139,7 +156,7 @@ public class Projectile : MonoBehaviour
         }
 
         // Satan boss
-        SatanBossController satan = other.GetComponent<SatanBossController>();
+        SatanBossController satan = other.GetComponent<SatanBossController>() ?? other.GetComponentInParent<SatanBossController>();
         if (satan != null)
         {
             TryHitSatan(satan);
@@ -147,6 +164,11 @@ public class Projectile : MonoBehaviour
         }
 
         if (!other.isTrigger && !other.CompareTag("Player"))
+        {
+            if (other.GetComponentInParent<EnemyBase>() != null) return;
+            if (other.GetComponentInParent<SatanBossController>() != null) return;
+            if (IsArenaFloorLikeCollider(other)) return;
             Destroy(gameObject);
+        }
     }
 }

@@ -79,6 +79,8 @@ public class ArenaPortalManager : MonoBehaviour
     private GameObject departurePortal;
     private GameObject arrivalPortal;
     private bool       transitionLocked;
+    // Once the player has crossed into Arena 2 the departure portal must never reappear.
+    private bool       portalUsed;
 
     private const string Arena1Name = "=== LEVEL (ProBuilder) ===";
     private const string Arena2Name = "=== LEVEL (ProBuilder) Arena2 ===";
@@ -124,7 +126,8 @@ public class ArenaPortalManager : MonoBehaviour
 
     private void OnWaveCleared(int waveIndex)
     {
-        if (waveIndex == PortalAfterWaveIndex)
+        // Only spawn portal once — never again after the player has used it.
+        if (!portalUsed && waveIndex == PortalAfterWaveIndex)
             StartCoroutine(DelayedPortalSpawn());
     }
 
@@ -165,6 +168,7 @@ public class ArenaPortalManager : MonoBehaviour
     public void ResetForRespawn()
     {
         transitionLocked = false;
+        portalUsed = false;
 
         // Clean up any in-flight portal objects
         if (departurePortal != null)
@@ -272,13 +276,13 @@ public class ArenaPortalManager : MonoBehaviour
         // Switch wave spawner to Arena 2 spawn points
         if (spawner != null) spawner.UseArena2Spawns();
 
-        // Advance wave counter
-        WaveManager wm = GameManager.Instance?.WaveManager;
-        if (wm != null)
-        {
-            wm.SetWaveIndex(4);
-            GameManager.Instance?.HUD?.UpdateWaveNumber(5);
-        }
+        // Mark portal as used — prevents it from ever respawning this run.
+        portalUsed = true;
+
+        // Update HUD to show current wave; do NOT call SetWaveIndex — the WaveLoop is already
+        // counting correctly and resetting it causes subsequent OnWaveCleared calls to fire
+        // with waveIndex 4 again, re-triggering the portal and breaking the Satan wave trigger.
+        GameManager.Instance?.HUD?.UpdateWaveNumber((GameManager.Instance?.WaveManager?.WaveIndex ?? 4) + 1);
 
         // ── Fade back in ──────────────────────────────────────────────────
         if (fade != null)

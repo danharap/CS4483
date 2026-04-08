@@ -42,10 +42,12 @@ public class TutorialManager : MonoBehaviour
         Intro,
         MoveToGate1,
         AwaitFirstGatePass,
+        DashTutorial,
         Combat,
         AwaitSecondGatePass,
         CollectOrbs,
         PickUpgrade,
+        MedkitTutorial,
         SkillTreeExplanation,
         NpcSection,
         Complete
@@ -53,12 +55,19 @@ public class TutorialManager : MonoBehaviour
 
     private TutorialPhase phase = TutorialPhase.Inactive;
 
+    [Header("Medkit Tutorial")]
+    [Tooltip("HealthPack prefab to spawn for the medkit tutorial step. Wired by TutorialRoomManager.")]
+    [SerializeField] public GameObject healthPackPrefab;
+    [Tooltip("Damage dealt before the tutorial medkit spawns. Medkit heal amount is matched so the player returns to full HP.")]
+    [SerializeField] private float tutorialMedkitLessonDamage = 20f;
+
     private bool tutorialRoomStarted;
     private bool moveInputSeen;
     private int tutorialOrbsCollected;
 
     private GameObject tutorialEnemyPrefab;
     private Transform tutorialEnemySpawnPoint;
+    private Transform tutorialMedkitSpawnPoint;
     private GameObject tutorialXpOrbPrefab;
     private bool combatSpawnQueued;
 
@@ -177,9 +186,9 @@ public class TutorialManager : MonoBehaviour
 
         if (trigger == TutorialTriggerType.SelectUpgrade && phase == TutorialPhase.PickUpgrade)
         {
-            OpenGate(gate3);
-            phase = TutorialPhase.SkillTreeExplanation;
-            StartCoroutine(PlaySkillTreeDialogue());
+            // Gate 3 stays CLOSED until the medkit is picked up.
+            phase = TutorialPhase.MedkitTutorial;
+            StartCoroutine(PlayMedkitTutorial());
         }
     }
 
@@ -204,9 +213,8 @@ public class TutorialManager : MonoBehaviour
         if (combatSpawnQueued) return;
 
         combatSpawnQueued = true;
-        phase = TutorialPhase.Combat;
-        SetText("Left click and aim your mouse to shoot");
-        StartCoroutine(SpawnCombatEnemyAfterDelay(3f));
+        phase = TutorialPhase.DashTutorial;
+        StartCoroutine(PlayDashTutorial());
     }
 
     public void OnPassedSecondGate()
@@ -250,6 +258,135 @@ public class TutorialManager : MonoBehaviour
         if (!tutorialRoomStarted) return;
         if (phase == TutorialPhase.SkillTreeExplanation) return;
         StartCoroutine(ShowMessageRoutine(message, duration));
+    }
+
+    // ── Dash Tutorial ─────────────────────────────────────────────────────
+
+    private IEnumerator PlayDashTutorial()
+    {
+        ShowText(true);
+        ApplyDialogueSpeaker(devil: false);
+        SetText("Before you fight — learn to move like your life depends on it.");
+        yield return new WaitForSecondsRealtime(2.2f);
+        SetText("Press Left Shift to dash. Use it to dodge attacks and close gaps quickly.");
+        yield return new WaitForSecondsRealtime(1.8f);
+        SetText("Try it now. Press Left Shift.");
+
+        // Wait for the player to dash. Time out after 25 s so they can't get stuck.
+        PlayerController pc = GameManager.Instance?.PlayerController
+                              ?? FindFirstObjectByType<PlayerController>();
+        float waited = 0f;
+        bool dashSeen = false;
+        while (waited < 25f && !dashSeen)
+        {
+            if (pc != null && pc.IsDashing)
+                dashSeen = true;
+            waited += Time.deltaTime;
+            yield return null;
+        }
+
+        if (dashSeen)
+        {
+            SetText("Good. Keep moving — a stationary fighter is a dead fighter.");
+            yield return new WaitForSecondsRealtime(2.0f);
+        }
+
+        // Hand off to the combat phase — spawn the enemy with a short delay.
+        phase = TutorialPhase.Combat;
+        SetText("Left click and aim your mouse to shoot.");
+        StartCoroutine(SpawnCombatEnemyAfterDelay(2.5f));
+    }
+
+    // ── Medkit Tutorial ───────────────────────────────────────────────────
+
+    private IEnumerator PlayMedkitTutorial()
+    {
+        ShowText(true);
+        ApplyDialogueSpeaker(devil: false);
+
+        // 1. Let the upgrade screen fully close before doing anything visible.
+        yield return new WaitForSecondsRealtime(0.5f);
+
+        // 2. Deal a fixed amount of damage so the medkit (same heal amount) brings them back to full.
+        // Avoids leaving the tutorial at partial HP for their first arena run.
+        PlayerHealth ph = GameManager.Instance?.PlayerController?.GetComponent<PlayerHealth>()
+                          ?? FindFirstObjectByType<PlayerHealth>();
+        if (ph != null)
+        {
+            float dmg = tutorialMedkitLessonDamage;
+            // Never lethal if HP was already lowered by something else.
+            dmg = Mathf.Min(dmg, Mathf.Max(0f, ph.CurrentHP - 1f));
+            if (dmg > 0f)
+                ph.TakeDamage(dmg);
+        }
+
+        SetText("You fought. You survived. But in the arena, that will not always be enough.");
+        yield return new WaitForSecondsRealtime(2.5f);
+        SetText("Look. Your body is already failing you.");
+        yield return new WaitForSecondsRealtime(2.2f);
+
+        // 3. Spawn the medkit.
+        GameObject spawnedPack = null;
+        Vector3 spawnPos = tutorialMedkitSpawnPoint != null
+            ? tutorialMedkitSpawnPoint.position
+            : new Vector3(-16f, 0.5f, FindCz());
+
+        if (healthPackPrefab != null)
+        {
+            spawnedPack = Instantiate(healthPackPrefab, spawnPos, Quaternion.identity);
+            HealthPack hp = spawnedPack.GetComponent<HealthPack>();
+            if (hp != null)
+            {
+                hp.lifetime = 120f;
+                // Match damage taken so pickup returns player to full HP (same as prefab default 20).
+                hp.healAmount = tutorialMedkitLessonDamage;
+            }
+        }
+
+        // 4. Prompt player to pick it up.
+        SetText("A medkit has dropped ahead. Walk over it — it will restore your health.");
+        yield return new WaitForSecondsRealtime(2.0f);
+        SetText("Pick it up.");
+
+        // 5. Wait for the medkit to be collected (HealthPack destroys itself on pickup).
+        yield return StartCoroutine(WaitForMedkitPickup(spawnedPack));
+
+        // Top off HP so the first real run never starts below max (medkit should already restore full).
+        if (ph != null)
+            ph.HealHP(ph.maxHP);
+
+        // 6. Explain the mechanic.
+        SetText("Good.");
+        yield return new WaitForSecondsRealtime(1.5f);
+        SetText("Enemies inside the arena have a small chance to drop medkits when they fall.");
+        yield return new WaitForSecondsRealtime(2.8f);
+        SetText("Do not count on them. But when they appear — use them.");
+        yield return new WaitForSecondsRealtime(2.5f);
+
+        // 7. Open gate 3 and hand off to the skill-tree section.
+        OpenGate(gate3);
+        phase = TutorialPhase.SkillTreeExplanation;
+        StartCoroutine(PlaySkillTreeDialogue());
+    }
+
+    /// <summary>
+    /// Polls until the medkit GameObject is destroyed (i.e. the player picked it up).
+    /// Falls back gracefully if the prefab was null or already gone.
+    /// </summary>
+    private IEnumerator WaitForMedkitPickup(GameObject medkitGo)
+    {
+        if (medkitGo == null) yield break;
+
+        while (medkitGo != null)
+            yield return null;
+    }
+
+    /// <summary>Returns the tutorial corridor center Z (matches TutorialPrisonLayout).</summary>
+    private float FindCz()
+    {
+        // TutorialPrisonLayout.CorridorCenterZ is the authoritative value.
+        // Fallback to -40 (default) if the type is unavailable at runtime.
+        return TutorialPrisonLayout.CorridorCenterZ;
     }
 
     private IEnumerator PlaySkillTreeDialogue()
@@ -356,6 +493,18 @@ public class TutorialManager : MonoBehaviour
             Transform t = FindChildByName("Tutorial_EnemySpawn");
             if (t != null) tutorialEnemySpawnPoint = t;
         }
+
+        if (tutorialMedkitSpawnPoint == null)
+        {
+            Transform t = FindChildByName("Tutorial_MedkitSpawn");
+            if (t != null) tutorialMedkitSpawnPoint = t;
+        }
+
+        // Editor-time prefab fallback so the medkit tutorial works without running SetupAll.
+#if UNITY_EDITOR
+        if (healthPackPrefab == null)
+            healthPackPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/HealthPack.prefab");
+#endif
     }
 
     private TutorialGate FindGate(string name)

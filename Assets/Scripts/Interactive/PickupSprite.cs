@@ -17,8 +17,8 @@ public class PickupSprite : MonoBehaviour
     [Header("Glow (Optional)")]
     public bool enableGlow = false;
     public Color glowColor = new Color(0.2f, 1f, 0.3f);
-    [Range(0f, 10f)] public float glowIntensity = 2.5f;
-    [Range(0.1f, 10f)] public float glowRange = 3.5f;
+    [Range(0f, 10f)] public float glowIntensity = 1.2f;
+    [Range(0.1f, 10f)] public float glowRange = 8f;
     
     private GameObject spriteObj;
     private SpriteRenderer spriteRenderer;
@@ -57,11 +57,14 @@ public class PickupSprite : MonoBehaviour
         {
             glowLight = GetComponent<Light>();
             if (glowLight == null) glowLight = gameObject.AddComponent<Light>();
-            glowLight.type = LightType.Point;
-            glowLight.color = glowColor;
-            glowLight.intensity = glowIntensity;
-            glowLight.range = glowRange;
-            glowLight.shadows = LightShadows.None;
+            glowLight.type       = LightType.Point;
+            glowLight.color      = glowColor;
+            glowLight.intensity  = glowIntensity;
+            glowLight.range      = glowRange;
+            glowLight.shadows    = LightShadows.None;
+            // ForcePixel ensures the light renders as a proper pixel light even when the
+            // arena already has many lights active (avoids being demoted / invisible).
+            glowLight.renderMode = LightRenderMode.ForcePixel;
         }
     }
     

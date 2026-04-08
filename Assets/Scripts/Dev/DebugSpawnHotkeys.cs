@@ -1,21 +1,20 @@
 using UnityEngine;
 
 /// <summary>
-/// Hotkeys to spawn enemies for testing (Editor Play mode):
+/// Debug hotkeys (work in Editor AND standalone builds):
 ///   1 = Chaser, 2 = Fast, 3 = Heavy
 ///   F2 = force run level-up (XP card)
-///   F3 = skip current wave/break
+///   F3 = skip current wave / break (press again to skip the next phase)
 ///   F4 = grant 1 account level + 1 skill point (Shift+F4 = 3 levels)
 ///   F5 = RESET all account progression (wipes skills, XP, levels)
 ///   F6 = spawn Fast enemy, F7 = spawn Heavy, F8 = BigBat, F9 = Boss, F10 = Satan
-///   F11 = skip tutorial / jump straight to lobby (dev shortcut)
+///   F11 = skip tutorial / jump straight to lobby
 /// Requires spawner reference wired (run CS4483 → SETUP EVERYTHING to wire it).
 /// </summary>
 public class DebugSpawnHotkeys : MonoBehaviour
 {
     public EnemySpawner spawner;
 
-#if UNITY_EDITOR
     private void Update()
     {
         // F10 must work even if EnemySpawner is missing (TrySpawnSatan has fallbacks).
@@ -150,6 +149,5 @@ public class DebugSpawnHotkeys : MonoBehaviour
 
         Debug.Log("[DEV F11] Tutorial skipped — player teleported to lobby.");
     }
-#endif
 }
 

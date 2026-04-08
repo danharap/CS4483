@@ -166,6 +166,36 @@ public class SatanArenaIntroController : MonoBehaviour
     #endregion
 
     // ─────────────────────────────────────────────────────────────────────
+    #region Emergency / Debug API
+
+    /// <summary>
+    /// Called by EnemySpawner when Satan is unexpectedly absent at the boss wave.
+    /// Spawns him if needed and immediately begins his awakening sequence.
+    /// </summary>
+    public void EmergencySpawnAndAwaken()
+    {
+        if (satanInstance == null)
+        {
+            Debug.LogWarning("[SatanArenaIntro] EmergencySpawnAndAwaken: satanInstance is null — spawning now.");
+            SpawnSatanOnThrone();
+        }
+
+        if (satanInstance == null)
+        {
+            Debug.LogError("[SatanArenaIntro] EmergencySpawnAndAwaken: spawn still failed (satanPrefab likely null).");
+            return;
+        }
+
+        if (!introTriggered)
+        {
+            introTriggered = true;
+            StartCoroutine(TriggerIntroAfterDelay());
+        }
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────
     #region Editor Gizmos
 
 #if UNITY_EDITOR

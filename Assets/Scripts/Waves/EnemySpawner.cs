@@ -24,7 +24,18 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private Vector3 satanDebugSpawnPosition = new Vector3(0f, 0f, 14f);
 
     [Header("Enemy HP Scaling per Wave")]
-    [SerializeField] private float hpScalePerWave = 0.12f;   // +12% HP per wave
+    [SerializeField] private float hpScalePerWave = 0.20f;   // +20% HP per wave (doubles by wave ~5)
+
+    [Header("Boss HP")]
+    [Tooltip("Extra multiplier on top of the same per-wave curve as normal enemies. Keeps boss waves threatening in late arenas.")]
+    [SerializeField] private float miniBossHpBulkMultiplier = 6f;
+    [Tooltip("Applied to Satan phase 1 + phase 2 max HP pools.")]
+    [SerializeField] private float satanBossHpBulkMultiplier = 5f;
+
+    /// <summary>Same value used for <see cref="ScaleEnemyHP"/> — exposed for boss scripts.</summary>
+    public float HpScalePerWave => hpScalePerWave;
+    public float MiniBossHpBulkMultiplier => miniBossHpBulkMultiplier;
+    public float SatanBossHpBulkMultiplier => satanBossHpBulkMultiplier;
 
     [Header("Fast Enemy Unlock Wave")]
     [SerializeField] private int fastEnemyUnlockWave = 2;    // 0-based index
@@ -84,20 +95,71 @@ public class EnemySpawner : MonoBehaviour
         if (!CanSpawnInCurrentLevelState())
             return;
 
-        // If Satan is already in the scene (placed on the throne by SatanArenaIntroController),
-        // do NOT spawn a duplicate — the intro controller handles his entrance.
-        if (FindFirstObjectByType<SatanBossController>() != null)
+        // ── Arena 2: Satan boss ───────────────────────────────────────────────
+        // When Arena 2 is active this is always the Satan wave. We never spawn the
+        // regular mini-boss here regardless of Satan's current scene state.
+        GameObject arena2 = GameObject.Find("=== LEVEL (ProBuilder) Arena2 ===");
+        if (arena2 != null && arena2.activeInHierarchy)
         {
-            Debug.Log("[EnemySpawner] Satan already exists in scene (throne-watch mode) — skipping SpawnBoss().");
+            if (FindFirstObjectByType<SatanBossController>() != null)
+            {
+                // Happy path — Satan is already on the throne, intro controller will
+                // call BeginAwakenFromThrone() via its OnWaveStart subscription.
+                Debug.Log("[EnemySpawner] Arena 2 boss wave: Satan is on throne — skipping duplicate spawn.");
+                return;
+            }
+
+            // Satan is missing (intro controller may have failed to spawn him at scene load).
+            // Emergency: ask the intro controller to spawn + awaken him now.
+            SatanArenaIntroController intro =
+                FindFirstObjectByType<SatanArenaIntroController>(FindObjectsInactive.Include);
+            if (intro != null)
+            {
+                Debug.LogWarning("[EnemySpawner] Arena 2 boss wave: Satan not found — triggering emergency spawn via intro controller.");
+                intro.EmergencySpawnAndAwaken();
+                return;
+            }
+
+            // Last resort: we have a satan debug prefab wired directly on EnemySpawner.
+            if (satanPrefab != null)
+            {
+                Debug.LogWarning("[EnemySpawner] Arena 2 boss wave: No intro controller found — spawning Satan directly.");
+                GameObject go = Instantiate(satanPrefab, satanDebugSpawnPosition, Quaternion.identity);
+                go.name = "Satan_Boss";
+                go.GetComponent<SatanBossController>()?.ForceEnterCombat();
+                return;
+            }
+
+            // If we reach here we have no Satan prefab at all — fall through to log an error
+            // rather than spawning the wrong boss.
+            Debug.LogError("[EnemySpawner] Arena 2 boss wave: satanPrefab is null! Satan cannot spawn.");
             return;
         }
 
+        // ── Arena 1: regular mini-boss ────────────────────────────────────────
         if (bossPrefab == null) return;
         Transform sp = PickSpawnPoint();
         if (sp == null) return;
 
-        Instantiate(bossPrefab, ApplyJitter(sp.position), Quaternion.identity);
+        GameObject bossGo = Instantiate(bossPrefab, ApplyJitter(sp.position), Quaternion.identity);
+        ApplyMiniBossWaveScaling(bossGo);
         GameManager.Instance?.WaveManager?.NotifyEnemySpawned();
+    }
+
+    /// <summary>
+    /// Bosses use the same per-wave multiplier as trash mobs, then an extra bulk factor so they
+    /// are not melted instantly compared to a crowded wave 10 spawn.
+    /// </summary>
+    private void ApplyMiniBossWaveScaling(GameObject bossGo)
+    {
+        BossEnemy be = bossGo.GetComponent<BossEnemy>();
+        if (be == null) return;
+
+        int w = GameManager.Instance?.WaveManager != null ? GameManager.Instance.WaveManager.WaveIndex : 0;
+        float waveMult = 1f + hpScalePerWave * w;
+        float m = waveMult * miniBossHpBulkMultiplier;
+        be.ScaleMaxHP(m);
+        HUDManager.Instance?.ShowBossHP("BOSS", be.CurrentHP, be.maxHP);
     }
 
     /// <summary>

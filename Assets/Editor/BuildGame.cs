@@ -1,11 +1,13 @@
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEngine;
 using System.IO;
 
 /// <summary>
-/// CS4483 → Build Windows (x64)
-/// Builds a standalone Windows 64-bit player to  CS4483/Build/ThePit/ThePit.exe
-/// Includes MainMenu and MainScene; all debug hotkeys are stripped automatically by the UNITY_EDITOR guard in those scripts.
+/// CS4483 → Build Windows x64
+/// Output: &lt;project root&gt;/Build/ThePit/ThePit.exe (+ ThePit_Data, UnityPlayer.dll, etc.)
+/// Scenes: MainMenu, MainScene (in that order).
+/// Run from Unity with the project open: CS4483 menu, then Build Windows x64.
 /// </summary>
 public static class BuildGame
 {

@@ -107,6 +107,7 @@ public class SatanBossController : MonoBehaviour
     private SatanAnimationController anim;
     private SatanAttacks             attacks;
     private bool                     phase1Ended; // guards against double-trigger
+    private bool                     waveHpScalingApplied;
 
     public event System.Action OnBossDefeated;
 
@@ -190,13 +191,32 @@ public class SatanBossController : MonoBehaviour
 
     private void EnterCombat()
     {
-        // If we were in throne-watch mode the HP bar was intentionally hidden; show it now.
-        if (throneWatchMode)
-            HUDManager.Instance?.ShowBossHP("SATAN", maxHP, maxHP);
+        ApplySatanWaveHpScaling();
+        HUDManager.Instance?.ShowBossHP("SATAN", maxHP, maxHP);
 
         SetState(BossState.CombatPhase);
         attacks.enabled = true;
         StartCoroutine(attacks.CombatLoop(this));
+    }
+
+    /// <summary>
+    /// Match trash mob wave scaling + bulk multiplier so Satan is not trivial compared to wave 10 spawns.
+    /// Runs once on first combat entry.
+    /// </summary>
+    private void ApplySatanWaveHpScaling()
+    {
+        if (waveHpScalingApplied) return;
+        waveHpScalingApplied = true;
+
+        EnemySpawner spawner = Object.FindFirstObjectByType<EnemySpawner>();
+        float hpScale = spawner != null ? spawner.HpScalePerWave : 0.20f;
+        float bulk = spawner != null ? spawner.SatanBossHpBulkMultiplier : 5f;
+        int w = GameManager.Instance?.WaveManager != null ? GameManager.Instance.WaveManager.WaveIndex : 0;
+        float m = (1f + hpScale * w) * bulk;
+
+        maxHP *= m;
+        CurrentHP = maxHP;
+        phase2MaxHP *= m;
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -246,6 +266,17 @@ public class SatanBossController : MonoBehaviour
     {
         if (CurrentState != BossState.ThroneWatch) return;
         StartCoroutine(ThroneAwakenSequence());
+    }
+
+    /// <summary>
+    /// Skip the throne intro entirely and drop Satan straight into combat.
+    /// Used as a last-resort fallback by EnemySpawner when the intro controller is absent.
+    /// </summary>
+    public void ForceEnterCombat()
+    {
+        if (CurrentState == BossState.CombatPhase) return; // already fighting
+        transform.position = jumpLandingPosition;
+        EnterCombat();
     }
 
     private IEnumerator ThroneAwakenSequence()

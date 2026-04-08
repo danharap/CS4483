@@ -106,7 +106,7 @@ GameObject:
   - component: {fileID: 3317096542493605711}
   - component: {fileID: 840527824804904729}
   - component: {fileID: 2214958894659428990}
-  - component: {fileID: 2601489921288698820}
+  - component: {fileID: 2782786846558776223}
   m_Layer: 0
   m_Name: HealthPack
   m_TagString: Untagged
@@ -180,10 +180,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   glowLight: {fileID: 0}
-  baseIntensity: 4
-  pulseAmount: 2
-  pulseSpeed: 2
---- !u!114 &2601489921288698820
+  baseIntensity: 1.4
+  pulseAmount: 0.7
+  pulseSpeed: 1.6
+  lightRange: 9
+--- !u!114 &2782786846558776223
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
