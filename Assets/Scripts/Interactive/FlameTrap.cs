@@ -91,7 +91,7 @@ public class FlameTrap : MonoBehaviour
 
         TrapSpriteAnimator anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
         anim.frameRate     = 15f;
-        anim.sortingOrder  = 2;
+        anim.sortingOrder  = 25;
         anim.playOnAwake   = true;
         anim.enableGlow    = true;
         anim.glowColor     = new Color(1f, 0.45f, 0.05f);
@@ -101,6 +101,8 @@ public class FlameTrap : MonoBehaviour
         Sprite[] frames = LoadFramesFromResources("Traps/FlameTrap");
         if (frames.Length > 0)
             anim.SetFrames(frames);
+        else
+            Debug.LogWarning($"[FlameTrap] No sprites at Resources/Traps/FlameTrap — run menu: CS4483 → Fix Resources trap textures (Sprite import). Object: {name}", this);
 
         return anim;
     }
