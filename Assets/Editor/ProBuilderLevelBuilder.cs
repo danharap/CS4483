@@ -1433,7 +1433,7 @@ public static class ProBuilderLevelBuilder
             new Vector3(-10f, 0.3f, -10f)
         };
 
-        Sprite[] spikeFrames = LoadTrapFrames("Assets/Sprites/Spike Trap");
+        UnityEngine.Sprite[] spikeFrames = LoadTrapFrames("Assets/Sprites/Spike Trap");
 
         for (int i = 0; i < positions.Length; i++)
         {
@@ -1489,7 +1489,7 @@ public static class ProBuilderLevelBuilder
             new Vector3(-16f, 0.3f, -16f),   // SW
         };
 
-        Sprite[] flameFrames = LoadTrapFrames("Assets/Sprites/Flame Trap");
+        UnityEngine.Sprite[] flameFrames = LoadTrapFrames("Assets/Sprites/Flame Trap");
 
         for (int i = 0; i < positions.Length; i++)
         {
@@ -1530,12 +1530,12 @@ public static class ProBuilderLevelBuilder
     /// Loads sprite frames from a folder of numbered PNGs (0.png, 1.png, ...).
     /// Ensures each texture is imported as a Sprite before loading.
     /// </summary>
-    static Sprite[] LoadTrapFrames(string dir)
+    static UnityEngine.Sprite[] LoadTrapFrames(string dir)
     {
         if (!System.IO.Directory.Exists(dir))
         {
             Debug.LogWarning($"[LevelBuilder] Trap sprite folder not found: {dir}");
-            return System.Array.Empty<Sprite>();
+            return System.Array.Empty<UnityEngine.Sprite>();
         }
 
         // Ensure every PNG in the folder is imported as a Sprite.
@@ -1558,10 +1558,10 @@ public static class ProBuilderLevelBuilder
             }
         }
 
-        var list = new System.Collections.Generic.List<Sprite>();
+        var list = new System.Collections.Generic.List<UnityEngine.Sprite>();
         for (int i = 0; i < 32; i++)
         {
-            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/{i}.png");
+            UnityEngine.Sprite s = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>($"{dir}/{i}.png");
             if (s != null) list.Add(s);
         }
 
