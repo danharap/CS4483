@@ -37,6 +37,13 @@ public class SatanTauntController : MonoBehaviour
     [Tooltip("How long the taunt text stays fully visible.")]
     [SerializeField] private float  displayTime  = 3.2f;
 
+    [Header("Portrait")]
+    [Tooltip("Auto-loaded from Assets/Sprites/FinalBossProfile.png — wire manually if auto-load fails.")]
+    [SerializeField] private Texture2D portrait;
+    [Tooltip("UV rect crop — x/y is bottom-left in UV space, width/height is coverage. " +
+             "Default crops to the face area of FinalBossProfile.png.")]
+    [SerializeField] private Rect portraitUV = new Rect(0.08f, 0.52f, 0.84f, 0.48f);
+
     // ── Taunt lines (editable in Inspector) ──────────────────────────────
 
     [Header("Wave 1 — Opening")]
@@ -79,6 +86,7 @@ public class SatanTauntController : MonoBehaviour
     private GameObject panelGo;
     private TMP_Text   tauntText;
     private Image      panelImage;
+    private RawImage   portraitRaw;
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -235,7 +243,12 @@ public class SatanTauntController : MonoBehaviour
             Color c = panelImage.color; c.a = 0.82f * a;
             panelImage.color = c;
         }
-        if (tauntText != null) tauntText.alpha = a;
+        if (tauntText   != null) tauntText.alpha = a;
+        if (portraitRaw != null)
+        {
+            Color c = portraitRaw.color; c.a = a;
+            portraitRaw.color = c;
+        }
     }
 
     // ── UI builder ────────────────────────────────────────────────────────
@@ -247,52 +260,119 @@ public class SatanTauntController : MonoBehaviour
         Canvas canvas = FindHUDCanvas();
         if (canvas == null) return;
 
-        // Dark panel — positioned just below the top-centre wave banner
+        // Resolve portrait texture — editor path first, Resources fallback for builds.
+        if (portrait == null)
+        {
+#if UNITY_EDITOR
+            portrait = UnityEditor.AssetDatabase.LoadAssetAtPath<Texture2D>(
+                "Assets/Sprites/FinalBossProfile.png");
+#endif
+        }
+        if (portrait == null)
+            portrait = Resources.Load<Texture2D>("Portraits/FinalBossProfile");
+        if (portrait == null)
+            portrait = Resources.Load<Texture2D>("Portraits/Satan_Portrait");
+
+        // ── Outer panel (dark, near top-centre under wave banner) ────────
         panelGo = new GameObject("SatanTauntPanel");
         panelGo.transform.SetParent(canvas.transform, false);
 
-        panelImage = panelGo.AddComponent<Image>();
-        panelImage.color = new Color(0.04f, 0.02f, 0.06f, 0f);
+        panelImage             = panelGo.AddComponent<Image>();
+        panelImage.color       = new Color(0.04f, 0.02f, 0.06f, 0f);
         panelImage.raycastTarget = false;
 
         RectTransform pRt = panelGo.GetComponent<RectTransform>();
-        pRt.anchorMin        = new Vector2(0.12f, 0.68f);
-        pRt.anchorMax        = new Vector2(0.88f, 0.85f);
-        pRt.offsetMin        = Vector2.zero;
-        pRt.offsetMax        = Vector2.zero;
+        pRt.anchorMin = new Vector2(0.10f, 0.67f);
+        pRt.anchorMax = new Vector2(0.90f, 0.86f);
+        pRt.offsetMin = Vector2.zero;
+        pRt.offsetMax = Vector2.zero;
 
-        // Red accent line at bottom of panel
-        GameObject accent = new GameObject("Accent");
-        accent.transform.SetParent(panelGo.transform, false);
-        Image accentImg = accent.AddComponent<Image>();
-        accentImg.color = new Color(0.75f, 0.10f, 0.08f, 1f);
-        RectTransform aRt = accent.GetComponent<RectTransform>();
-        aRt.anchorMin = new Vector2(0.02f, 0f);
-        aRt.anchorMax = new Vector2(0.98f, 0f);
-        aRt.pivot     = new Vector2(0.5f, 0f);
-        aRt.anchoredPosition = new Vector2(0f, 0f);
-        aRt.sizeDelta = new Vector2(0f, 3f);
+        // Gold top border
+        BuildAccentLine(panelGo.transform, anchorY: 1f,
+            color: new Color(0.80f, 0.62f, 0.15f, 1f));
+        // Red bottom border
+        BuildAccentLine(panelGo.transform, anchorY: 0f,
+            color: new Color(0.72f, 0.10f, 0.08f, 1f));
 
-        // Text
+        // ── Portrait frame on the left ────────────────────────────────────
+        const float portraitFrac = 0.14f; // fraction of panel width
+
+        GameObject frameGo = new GameObject("PortraitFrame");
+        frameGo.transform.SetParent(panelGo.transform, false);
+        Image frameBg    = frameGo.AddComponent<Image>();
+        frameBg.color    = new Color(0.80f, 0.62f, 0.15f, 1f); // gold border
+        frameBg.raycastTarget = false;
+        RectTransform fRt = frameGo.GetComponent<RectTransform>();
+        fRt.anchorMin = new Vector2(0f, 0f);
+        fRt.anchorMax = new Vector2(portraitFrac, 1f);
+        fRt.offsetMin = new Vector2(6f, 5f);
+        fRt.offsetMax = new Vector2(-2f, -5f);
+
+        // Dark inner mat inside the gold border
+        GameObject innerGo = new GameObject("PortraitInner");
+        innerGo.transform.SetParent(frameGo.transform, false);
+        Image innerBg   = innerGo.AddComponent<Image>();
+        innerBg.color   = new Color(0.10f, 0.08f, 0.14f, 1f);
+        innerBg.raycastTarget = false;
+        RectTransform iRt = innerGo.GetComponent<RectTransform>();
+        iRt.anchorMin = Vector2.zero;
+        iRt.anchorMax = Vector2.one;
+        iRt.offsetMin = new Vector2(3f, 3f);
+        iRt.offsetMax = new Vector2(-3f, -3f);
+
+        // Portrait RawImage with UV crop to the face
+        GameObject portGo = new GameObject("Portrait");
+        portGo.transform.SetParent(innerGo.transform, false);
+        portraitRaw            = portGo.AddComponent<RawImage>();
+        portraitRaw.raycastTarget = false;
+        portraitRaw.uvRect     = portraitUV;
+        if (portrait != null)
+            portraitRaw.texture = portrait;
+        else
+            portraitRaw.color   = new Color(0.3f, 0.1f, 0.1f, 1f);
+
+        RectTransform portRt = portraitRaw.GetComponent<RectTransform>();
+        portRt.anchorMin = Vector2.zero;
+        portRt.anchorMax = Vector2.one;
+        portRt.offsetMin = Vector2.zero;
+        portRt.offsetMax = Vector2.zero;
+
+        // ── Text area to the right of the portrait ────────────────────────
+        const float textPad = 8f;
+
         GameObject textGo = new GameObject("SatanTauntText");
         textGo.transform.SetParent(panelGo.transform, false);
 
-        tauntText = textGo.AddComponent<TextMeshProUGUI>();
-        tauntText.fontSize        = 20f;
-        tauntText.color           = new Color(0.95f, 0.80f, 0.30f);
-        tauntText.alignment       = TextAlignmentOptions.Center;
+        tauntText                    = textGo.AddComponent<TextMeshProUGUI>();
+        tauntText.fontSize           = 19f;
+        tauntText.color              = new Color(0.95f, 0.80f, 0.30f);
+        tauntText.alignment          = TextAlignmentOptions.MidpointLeft;
         tauntText.enableWordWrapping = true;
-        tauntText.raycastTarget   = false;
-        tauntText.alpha           = 0f;
+        tauntText.raycastTarget      = false;
+        tauntText.alpha              = 0f;
 
         RectTransform tRt = tauntText.GetComponent<RectTransform>();
-        tRt.anchorMin = Vector2.zero;
+        tRt.anchorMin = new Vector2(portraitFrac, 0f);
         tRt.anchorMax = Vector2.one;
-        tRt.offsetMin = new Vector2(12f, 6f);
-        tRt.offsetMax = new Vector2(-12f, -6f);
+        tRt.offsetMin = new Vector2(textPad, 6f);
+        tRt.offsetMax = new Vector2(-textPad, -6f);
 
-        // Start hidden.
         SetUIAlpha(0f);
+    }
+
+    private static void BuildAccentLine(Transform parent, float anchorY, Color color)
+    {
+        GameObject go  = new GameObject("Accent");
+        go.transform.SetParent(parent, false);
+        Image img      = go.AddComponent<Image>();
+        img.color      = color;
+        img.raycastTarget = false;
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin         = new Vector2(0.01f, anchorY);
+        rt.anchorMax         = new Vector2(0.99f, anchorY);
+        rt.pivot             = new Vector2(0.5f, anchorY);
+        rt.anchoredPosition  = Vector2.zero;
+        rt.sizeDelta         = new Vector2(0f, 2f);
     }
 
     private static Canvas FindHUDCanvas()
