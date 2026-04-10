@@ -1,140 +1,120 @@
-using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Base class for all telegraphed arena traps (spike, flame, etc.).
-///
-/// Cycle:
-///   [Idle] → warn → [Active] → [Cooldown] → [Idle] → …
-///
-/// Subclasses override:
-///   OnWarnStart / OnWarnEnd  — show / hide the warning indicator
-///   OnActivate / OnDeactivate — deal damage, animate, etc.
+/// Arena trap: when the player steps on it (trigger enter), deals damage and stuns for a short duration.
+/// Requires a Collider with Is Trigger = true. Player must be tagged "Player".
+/// Auto-initializes its TrapSpriteAnimator from Resources if one isn't wired in the Inspector.
 /// </summary>
-public abstract class ArenaTrap : MonoBehaviour
+[RequireComponent(typeof(Collider))]
+public class ArenaTrap : MonoBehaviour
 {
-    [Header("Trap Timing")]
-    [Tooltip("Seconds from warn start to trap activation.")]
-    [SerializeField] protected float warnDuration   = 0.85f;
-    [Tooltip("Seconds the trap stays active and damaging.")]
-    [SerializeField] protected float activeDuration = 0.75f;
-    [Tooltip("Seconds before the trap cycles again after retracting.")]
-    [SerializeField] protected float cooldownDuration = 3.5f;
-    [Tooltip("Seconds between trap cycles before the first warn (initial random offset).")]
-    [SerializeField] protected float initialDelay   = 0f;
+    [Header("Trap Effect")]
+    [SerializeField] private float damage = 10f;
+    [SerializeField] private float stunDuration = 1.5f;
+    [Tooltip("Seconds before this trap can trigger again (avoids repeated triggers while standing).")]
+    [SerializeField] private float cooldownAfterTrigger = 2f;
 
-    [Header("Warning Indicator")]
-    [SerializeField] protected Color warnColor      = new Color(1f, 0.2f, 0.1f, 0.55f);
-    [SerializeField] protected float warnRadius     = 1.2f;
-    [SerializeField] protected bool  pulseWarn      = true;
+    [Header("Optional")]
+    [SerializeField] private string playerTag = "Player";
 
-    // Runtime
-    protected bool  isActive;
-    private   bool  cycleRunning;
-    private   LineRenderer warnRing;
+    [Header("Spike Trap Animation (Optional)")]
+    [SerializeField] private TrapSpriteAnimator spriteAnimator;
 
-    protected virtual void Start()
+    private float cooldownTimer;
+
+    void Awake()
     {
-        StartCoroutine(TrapCycle());
+        // If the scene has traps that were placed without running SpriteSetup, self-initialize.
+        if (spriteAnimator == null)
+            spriteAnimator = EnsureAnimator("Traps/SpikeTrap", playOnAwake: true,
+                                            frameRate: 18f, glowColor: new Color(0.3f, 0.9f, 1f),
+                                            glowIntensity: 1.4f, glowRange: 2.2f);
     }
+
+    void OnTriggerEnter(Collider other)
+    {
+        if (!other.CompareTag(playerTag)) return;
+        if (cooldownTimer > 0f) return;
+
+        PlayerHealth health = other.GetComponent<PlayerHealth>();
+        PlayerController controller = other.GetComponent<PlayerController>();
+
+        if (health != null)
+            health.TakeDamage(damage);
+        if (controller != null)
+            controller.StunFor(stunDuration);
+
+        cooldownTimer = cooldownAfterTrigger;
+
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(true);
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (!other.CompareTag(playerTag)) return;
+
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(false);
+    }
+
+    void Update()
+    {
+        if (cooldownTimer > 0f)
+            cooldownTimer -= Time.deltaTime;
+    }
+
+    // ── Shared helper ──────────────────────────────────────────────────────
 
     /// <summary>
-    /// Called by <see cref="DemoTrapFastCycle"/> before Start() to make the trap
-    /// cycle quickly so the player can observe it during the tutorial trap section.
+    /// Finds or creates a TrapSpriteAnimator on the TrapVisual child (or this GameObject),
+    /// loads sprite frames from a Resources subfolder, and returns it.
     /// </summary>
-    private void SetDemoCycleTimings()
+    protected TrapSpriteAnimator EnsureAnimator(string resourceFolder, bool playOnAwake,
+                                                float frameRate, Color glowColor,
+                                                float glowIntensity, float glowRange)
     {
-        initialDelay    = Random.Range(0.3f, 0.8f);
-        cooldownDuration = 1.4f;
-    }
+        // Prefer an existing TrapSpriteAnimator in children.
+        TrapSpriteAnimator existing = GetComponentInChildren<TrapSpriteAnimator>(true);
+        if (existing != null)
+            return existing;
 
-    // ── Cycle ─────────────────────────────────────────────────────────────
-
-    private IEnumerator TrapCycle()
-    {
-        if (initialDelay > 0f)
-            yield return new WaitForSeconds(initialDelay);
-
-        while (true)
+        // Find or create the TrapVisual child.
+        Transform visual = transform.Find("TrapVisual");
+        if (visual == null)
         {
-            // Warn phase
-            EnsureWarnRing();
-            OnWarnStart();
-            float t = 0f;
-            while (t < warnDuration)
-            {
-                t += Time.deltaTime;
-                float pulse = pulseWarn ? 0.5f + 0.5f * Mathf.Sin(t * Mathf.PI * 4f) : 1f;
-                SetWarnRingAlpha(warnColor.a * pulse);
-                yield return null;
-            }
-            HideWarnRing();
-            OnWarnEnd();
-
-            // Active phase
-            isActive = true;
-            OnActivate();
-            yield return new WaitForSeconds(activeDuration);
-            isActive = false;
-            OnDeactivate();
-
-            // Cooldown
-            yield return new WaitForSeconds(cooldownDuration);
+            GameObject go = new GameObject("TrapVisual");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = Vector3.zero;
+            visual = go.transform;
         }
+
+        TrapSpriteAnimator anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
+        anim.frameRate     = frameRate;
+        anim.sortingOrder  = 2;
+        anim.playOnAwake   = playOnAwake;
+        anim.enableGlow    = true;
+        anim.glowColor     = glowColor;
+        anim.glowIntensity = glowIntensity;
+        anim.glowRange     = glowRange;
+
+        Sprite[] frames = LoadFramesFromResources(resourceFolder);
+        if (frames.Length > 0)
+            anim.SetFrames(frames);
+
+        return anim;
     }
 
-    // ── Warn ring (LineRenderer circle on the ground) ─────────────────────
-
-    private void EnsureWarnRing()
+    private static Sprite[] LoadFramesFromResources(string folder)
     {
-        if (warnRing != null) { warnRing.enabled = true; return; }
-        GameObject go = new GameObject("WarnRing");
-        go.transform.SetParent(transform, false);
-        go.transform.localPosition = Vector3.zero;
-        warnRing = go.AddComponent<LineRenderer>();
-        warnRing.useWorldSpace   = true;
-        warnRing.loop            = true;
-        warnRing.positionCount   = 40;
-        warnRing.startWidth      = 0.06f;
-        warnRing.endWidth        = 0.06f;
-        Material m = new Material(Shader.Find("Sprites/Default"));
-        warnRing.material        = m;
-        warnRing.sortingOrder    = 20;
-        UpdateWarnRingPositions();
-    }
-
-    private void UpdateWarnRingPositions()
-    {
-        if (warnRing == null) return;
-        Vector3 c = transform.position;
-        int n = warnRing.positionCount;
-        for (int i = 0; i < n; i++)
+        var list = new List<Sprite>();
+        for (int i = 0; i < 32; i++)
         {
-            float a = (i / (float)n) * Mathf.PI * 2f;
-            warnRing.SetPosition(i, new Vector3(
-                c.x + Mathf.Cos(a) * warnRadius,
-                0.06f,
-                c.z + Mathf.Sin(a) * warnRadius));
+            Sprite s = Resources.Load<Sprite>($"{folder}/{i}");
+            if (s == null) break;
+            list.Add(s);
         }
+        return list.ToArray();
     }
-
-    private void SetWarnRingAlpha(float alpha)
-    {
-        if (warnRing == null) return;
-        Color c = warnColor; c.a = alpha;
-        warnRing.startColor = c;
-        warnRing.endColor   = c;
-    }
-
-    private void HideWarnRing()
-    {
-        if (warnRing != null) warnRing.enabled = false;
-    }
-
-    // ── Overridable hooks ─────────────────────────────────────────────────
-
-    protected virtual void OnWarnStart()  { }
-    protected virtual void OnWarnEnd()    { }
-    protected virtual void OnActivate()   { }
-    protected virtual void OnDeactivate() { }
 }

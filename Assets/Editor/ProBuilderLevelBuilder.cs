@@ -1433,6 +1433,8 @@ public static class ProBuilderLevelBuilder
             new Vector3(-10f, 0.3f, -10f)
         };
 
+        Sprite[] spikeFrames = LoadTrapFrames("Assets/Sprites/Spike Trap");
+
         for (int i = 0; i < positions.Length; i++)
         {
             GameObject trap = new GameObject($"Trap_{i + 1}");
@@ -1446,10 +1448,25 @@ public static class ProBuilderLevelBuilder
 
             ArenaTrap arenaTrap = trap.AddComponent<ArenaTrap>();
 
-            // Visual child – sprite-based spike trap animation will be added by SpriteSetup.
             GameObject visual = new GameObject("TrapVisual");
             visual.transform.SetParent(trap.transform, false);
             visual.transform.localPosition = Vector3.zero;
+
+            // Wire sprite animator inline so traps are visible without a separate SpriteSetup step.
+            TrapSpriteAnimator anim = visual.AddComponent<TrapSpriteAnimator>();
+            anim.frameRate    = 18f;
+            anim.sortingOrder = 2;
+            anim.playOnAwake  = true;   // always show the idle frame cycle
+            anim.enableGlow   = true;
+            anim.glowColor    = new Color(0.3f, 0.9f, 1f);
+            anim.glowIntensity = 1.4f;
+            anim.glowRange    = 2.2f;
+            if (spikeFrames.Length > 0)
+                anim.SetFrames(spikeFrames);
+
+            SerializedObject soTrap = new SerializedObject(arenaTrap);
+            soTrap.FindProperty("spriteAnimator").objectReferenceValue = anim;
+            soTrap.ApplyModifiedPropertiesWithoutUndo();
         }
     }
 
@@ -1460,9 +1477,6 @@ public static class ProBuilderLevelBuilder
         GameObject root = new GameObject("Traps");
         root.transform.SetParent(levelRoot);
 
-        // Eight flame traps arranged in two concentric rings around the arena floor.
-        // Positions are inside Arena 2's octagon (radius ~37) but far enough from the
-        // centre to leave a clear combat lane for the player.
         Vector3[] positions = new[]
         {
             new Vector3(  0f, 0.3f,  22f),   // N
@@ -1475,6 +1489,8 @@ public static class ProBuilderLevelBuilder
             new Vector3(-16f, 0.3f, -16f),   // SW
         };
 
+        Sprite[] flameFrames = LoadTrapFrames("Assets/Sprites/Flame Trap");
+
         for (int i = 0; i < positions.Length; i++)
         {
             GameObject trap = new GameObject($"FlameTrap_{i + 1}");
@@ -1486,13 +1502,75 @@ public static class ProBuilderLevelBuilder
             trigger.size   = new Vector3(2.5f, 0.5f, 2.5f);
             trigger.center = Vector3.zero;
 
-            trap.AddComponent<FlameTrap>();
+            FlameTrap ft = trap.AddComponent<FlameTrap>();
 
-            // Visual child – flame animation frames wired by SpriteSetup.
             GameObject visual = new GameObject("TrapVisual");
             visual.transform.SetParent(trap.transform, false);
             visual.transform.localPosition = Vector3.zero;
+
+            // Wire sprite animator inline so flame traps are always visible.
+            TrapSpriteAnimator anim = visual.AddComponent<TrapSpriteAnimator>();
+            anim.frameRate    = 15f;
+            anim.sortingOrder = 2;
+            anim.playOnAwake  = true;   // flame is always burning
+            anim.enableGlow   = true;
+            anim.glowColor    = new Color(1f, 0.45f, 0.05f);
+            anim.glowIntensity = 2.0f;
+            anim.glowRange    = 3.0f;
+            if (flameFrames.Length > 0)
+                anim.SetFrames(flameFrames);
+
+            SerializedObject soFt = new SerializedObject(ft);
+            soFt.FindProperty("spriteAnimator").objectReferenceValue = anim;
+            soFt.ApplyModifiedPropertiesWithoutUndo();
         }
+    }
+
+    /// <summary>
+    /// Loads sprite frames from a folder of numbered PNGs (0.png, 1.png, ...).
+    /// Ensures each texture is imported as a Sprite before loading.
+    /// </summary>
+    static Sprite[] LoadTrapFrames(string dir)
+    {
+        if (!System.IO.Directory.Exists(dir))
+        {
+            Debug.LogWarning($"[LevelBuilder] Trap sprite folder not found: {dir}");
+            return System.Array.Empty<Sprite>();
+        }
+
+        // Ensure every PNG in the folder is imported as a Sprite.
+        foreach (string fsPath in System.IO.Directory.GetFiles(dir, "*.png"))
+        {
+            string unityPath = fsPath.Replace("\\", "/");
+            TextureImporter imp = AssetImporter.GetAtPath(unityPath) as TextureImporter;
+            if (imp != null && imp.textureType != TextureImporterType.Sprite)
+            {
+                imp.textureType         = TextureImporterType.Sprite;
+                imp.spriteImportMode    = SpriteImportMode.Single;
+                imp.filterMode          = FilterMode.Point;
+                imp.spritePixelsPerUnit = 20f;
+                imp.mipmapEnabled       = false;
+                imp.textureCompression  = TextureImporterCompression.Uncompressed;
+                imp.crunchedCompression = false;
+                imp.npotScale           = TextureImporterNPOTScale.None;
+                imp.alphaIsTransparency = true;
+                imp.SaveAndReimport();
+            }
+        }
+
+        var list = new System.Collections.Generic.List<Sprite>();
+        for (int i = 0; i < 32; i++)
+        {
+            Sprite s = AssetDatabase.LoadAssetAtPath<Sprite>($"{dir}/{i}.png");
+            if (s != null) list.Add(s);
+        }
+
+        if (list.Count == 0)
+            Debug.LogWarning($"[LevelBuilder] No frames found in '{dir}'.");
+        else
+            Debug.Log($"[LevelBuilder] Loaded {list.Count} trap frame(s) from '{dir}'.");
+
+        return list.ToArray();
     }
 
     // ── Spawn Points ──────────────────────────────────────────────────────
