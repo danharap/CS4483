@@ -118,11 +118,11 @@ public class PlayerWeapon : MonoBehaviour
 
         if (projectileCount == 1)
         {
-            SpawnProjectile(dir, hasOpeningStrike);
+            SpawnProjectile(dir, hasOpeningStrike, isExtraShot: false);
         }
         else
         {
-            // Spread multiple projectiles in a fan; Opening Strike applies to the first only
+            // Spread multiple projectiles in a fan; Opening Strike and full damage apply to the first only.
             float spreadAngle = 20f;
             float step = (projectileCount > 1) ? spreadAngle / (projectileCount - 1) : 0f;
             float startAngle = -spreadAngle * 0.5f;
@@ -132,12 +132,20 @@ public class PlayerWeapon : MonoBehaviour
                 Vector3 spread = Quaternion.Euler(0f, angle, 0f) * dir;
                 spread.y = 0f;
                 spread.Normalize();
-                SpawnProjectile(spread, hasOpeningStrike && i == 0);
+                bool isFirst = (i == 0);
+                SpawnProjectile(spread, applyOpeningStrike: hasOpeningStrike && isFirst, isExtraShot: !isFirst);
             }
         }
     }
 
-    private void SpawnProjectile(Vector3 dir, bool applyOpeningStrike = false)
+    /// <summary>
+    /// Damage per projectile when multishot is active is reduced slightly to keep
+    /// multishot powerful but not overwhelmingly so.
+    /// ~32% reduction per extra bullet (first bullet always full damage).
+    /// </summary>
+    private const float MultishotDamageScale = 0.68f;
+
+    private void SpawnProjectile(Vector3 dir, bool applyOpeningStrike = false, bool isExtraShot = false)
     {
         if (projectilePrefab == null) return;
         Vector3 spawnPos = firePoint != null ? firePoint.position : transform.position + dir * 0.6f;
@@ -146,6 +154,8 @@ public class PlayerWeapon : MonoBehaviour
         if (p != null)
         {
             float finalDamage = damage;
+            // Extra shots deal reduced damage (first bullet is always full damage).
+            if (isExtraShot) finalDamage *= MultishotDamageScale;
             if (applyOpeningStrike)
             {
                 var tracker = GetComponent<OpeningStrikeTracker>();

@@ -24,7 +24,7 @@ public class EnemySpawner : MonoBehaviour
     [SerializeField] private Vector3 satanDebugSpawnPosition = new Vector3(0f, 0f, 14f);
 
     [Header("Enemy HP Scaling per Wave")]
-    [SerializeField] private float hpScalePerWave = 0.20f;   // +20% HP per wave (doubles by wave ~5)
+    [SerializeField] private float hpScalePerWave = 0.28f;   // +28% HP per wave — steeper curve for late waves
 
     [Header("Boss HP")]
     [Tooltip("Extra multiplier on top of the same per-wave curve as normal enemies. Keeps boss waves threatening in late arenas.")]

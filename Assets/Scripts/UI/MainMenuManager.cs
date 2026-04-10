@@ -17,6 +17,7 @@ public class MainMenuManager : MonoBehaviour
     [Header("UI References")]
     [SerializeField] private Button    newGameButton;
     [SerializeField] private Button    loadGameButton;
+    [SerializeField] private Button    settingsButton;
     [SerializeField] private TMP_Text  titleText;
     [SerializeField] private TMP_Text  subtitleText;
     [SerializeField] private TMP_Text  bestRunText;
@@ -53,6 +54,7 @@ public class MainMenuManager : MonoBehaviour
         // Self-heal: find buttons by their GameObject name if serialized refs were lost
         if (newGameButton  == null) newGameButton  = FindButtonByName("NewGameButton");
         if (loadGameButton == null) loadGameButton = FindButtonByName("LoadGameButton");
+        if (settingsButton == null) settingsButton = FindButtonByName("SettingsButton");
         if (playButton     == null) playButton     = FindButtonByName("PlayButton");
 
         // Self-heal: find text elements by name
@@ -67,6 +69,7 @@ public class MainMenuManager : MonoBehaviour
     {
         newGameButton?.onClick.AddListener(OnNewGame);
         loadGameButton?.onClick.AddListener(OnLoadGame);
+        settingsButton?.onClick.AddListener(OnSettings);
         playButton?.onClick.AddListener(OnNewGame);
 
         bool hasSave = PlayerPrefs.GetInt("Meta_AccountLevel", 0) >= 1;
@@ -126,6 +129,19 @@ public class MainMenuManager : MonoBehaviour
     {
         ShouldRunTutorial = false;
         SceneManager.LoadScene(gameSceneName);
+    }
+
+    void OnSettings()
+    {
+        SettingsManager sm = Object.FindFirstObjectByType<SettingsManager>(FindObjectsInactive.Include);
+        if (sm != null) sm.Show();
+        else
+        {
+            // Create SettingsManager on the fly if it wasn't placed in the scene.
+            GameObject go = new GameObject("SettingsManager");
+            sm = go.AddComponent<SettingsManager>();
+            sm.Show();
+        }
     }
 
     void RotateLore()

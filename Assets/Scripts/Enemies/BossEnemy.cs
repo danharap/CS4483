@@ -110,9 +110,10 @@ public class BossEnemy : EnemyBase
         vis?.SetBodyAttackFrame(0); // charge/telegraph
         cam?.SetZoom(slamZoomOut);
 
-        // Lock the landing target at start of charge so player can dodge.
+        // Lock the landing target at start of charge — keep Y on ground plane
+        // so the warning ring and the final landing position are exactly aligned.
         slamTarget = player.position;
-        slamTarget.y = transform.position.y;
+        slamTarget.y = 0f;
 
         EnsureTelegraph();
         ShowCircle(telegraph, slamTarget, slamRadius, 1f);
@@ -127,7 +128,7 @@ public class BossEnemy : EnemyBase
             yield return null;
         }
 
-        // Jump / arc to target
+        // Jump / arc to target — end Y matches start Y (ground plane stays consistent).
         Vector3 start = transform.position;
         Vector3 end = new Vector3(slamTarget.x, start.y, slamTarget.z);
         float dist = Vector3.Distance(new Vector3(start.x, 0f, start.z), new Vector3(end.x, 0f, end.z));
@@ -168,17 +169,18 @@ public class BossEnemy : EnemyBase
             yield return null;
         }
 
-        // Impact
+        // Impact — snap to landing point and reset visual height.
         transform.position = end;
         if (visualRoot != null) visualRoot.localPosition = Vector3.zero;
         vis?.SetBodyAttackFrame(2);
 
-        // Impact FX: expanding ring
+        // Impact FX: expanding ring centered on the exact landing point.
+        Vector3 impactCenter = new Vector3(end.x, 0.05f, end.z);
         EnsureImpactFx();
-        StartCoroutine(ImpactFxRoutine(slamTarget, slamRadius));
+        StartCoroutine(ImpactFxRoutine(impactCenter, slamRadius));
 
-        // Deal AOE damage
-        float pdImpact = Vector3.Distance(new Vector3(player.position.x, 0f, player.position.z), new Vector3(slamTarget.x, 0f, slamTarget.z));
+        // Damage check uses XZ only so vertical floors don't affect the radius.
+        float pdImpact = Vector3.Distance(new Vector3(player.position.x, 0f, player.position.z), new Vector3(end.x, 0f, end.z));
         if (pdImpact <= slamRadius)
         {
             player.GetComponent<PlayerHealth>()?.TakeDamage(slamDamage);
@@ -251,11 +253,12 @@ public class BossEnemy : EnemyBase
         lr.startColor = c0;
         lr.endColor = c0;
 
-        float y = 0.05f;
+        // Always draw ring flat on the ground plane (Y = center.y + tiny offset).
+        float groundY = center.y + 0.05f;
         for (int i = 0; i < lr.positionCount; i++)
         {
             float a = (i / (float)lr.positionCount) * Mathf.PI * 2f;
-            lr.SetPosition(i, new Vector3(center.x + Mathf.Cos(a) * radius, y, center.z + Mathf.Sin(a) * radius));
+            lr.SetPosition(i, new Vector3(center.x + Mathf.Cos(a) * radius, groundY, center.z + Mathf.Sin(a) * radius));
         }
     }
 

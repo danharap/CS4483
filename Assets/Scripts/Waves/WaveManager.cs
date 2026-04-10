@@ -15,7 +15,7 @@ using UnityEngine;
     [SerializeField] private float baseSpawnInterval = 2f;    // seconds between spawns at wave 1
     [SerializeField] private float spawnIntervalMin  = 0.3f;  // absolute fastest (was 0.4)
     [SerializeField] private int   baseEnemyCountCap = 30;    // wave-1 cap; grows each wave
-    [SerializeField] private int   enemyCapIncrement = 3;     // extra simultaneous enemies per wave
+    [SerializeField] private int   enemyCapIncrement = 4;     // extra simultaneous enemies per wave (was 3)
     [SerializeField] private int   bossEveryNWaves   = 5;
 
     // Computed each wave from the fields above.
@@ -247,7 +247,8 @@ using UnityEngine;
     private float CalculateSpawnInterval()
     {
         // Each wave the interval shrinks by 15% (clamped to minimum)
-        return Mathf.Max(spawnIntervalMin, baseSpawnInterval * Mathf.Pow(0.85f, WaveIndex));
+        // 18% per-wave decay (was 15%) for a noticeably faster ramp.
+        return Mathf.Max(spawnIntervalMin, baseSpawnInterval * Mathf.Pow(0.82f, WaveIndex));
     }
 
     private bool CanRunCombatWaves()

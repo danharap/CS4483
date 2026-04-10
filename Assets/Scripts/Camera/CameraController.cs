@@ -81,4 +81,63 @@ public class CameraController : MonoBehaviour
     {
         zoomTarget = defaultZoom;
     }
+
+    // ── Cinematic pan API ─────────────────────────────────────────────────
+
+    private Coroutine panCoroutine;
+
+    /// <summary>
+    /// Smoothly pan the camera to look at <paramref name="worldTarget"/>,
+    /// hold for <paramref name="holdTime"/> seconds, then return to the player.
+    /// </summary>
+    public void PanToAndReturn(Vector3 worldTarget, float travelTime = 1.2f, float holdTime = 2.5f)
+    {
+        if (panCoroutine != null) StopCoroutine(panCoroutine);
+        panCoroutine = StartCoroutine(PanRoutine(worldTarget, travelTime, holdTime));
+    }
+
+    private System.Collections.IEnumerator PanRoutine(Vector3 worldTarget, float travelTime, float holdTime)
+    {
+        // Override the follow target temporarily.
+        Transform savedTarget = target;
+        target = null;                    // stop normal follow
+
+        Vector3 startPos  = transform.position;
+        Vector3 desiredTo = worldTarget + offset * zoomCurrent;
+
+        // Pan to
+        float t = 0f;
+        while (t < travelTime)
+        {
+            t += Time.deltaTime;
+            float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / travelTime));
+            transform.position = Vector3.Lerp(startPos, desiredTo, u);
+            yield return null;
+        }
+        transform.position = desiredTo;
+
+        // Hold
+        yield return new WaitForSeconds(holdTime);
+
+        // Return to player
+        Vector3 returnStart = transform.position;
+        target = savedTarget;
+
+        t = 0f;
+        while (t < travelTime)
+        {
+            t += Time.deltaTime;
+            float u = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / travelTime));
+            if (target != null)
+            {
+                Vector3 playerTarget = target.position;
+                if (!followTargetY) playerTarget.y = 0f;
+                Vector3 desired = playerTarget + offset * zoomCurrent;
+                transform.position = Vector3.Lerp(returnStart, desired, u);
+            }
+            yield return null;
+        }
+
+        panCoroutine = null;
+    }
 }
