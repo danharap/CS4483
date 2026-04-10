@@ -49,6 +49,7 @@ public class TutorialManager : MonoBehaviour
         PickUpgrade,
         MedkitTutorial,
         SkillTreeExplanation,
+        TrapExplanation,
         NpcSection,
         Complete
     }
@@ -414,6 +415,47 @@ public class TutorialManager : MonoBehaviour
         }
 
         ApplyDialogueSpeaker(devil: false);
+        phase = TutorialPhase.TrapExplanation;
+        StartCoroutine(PlayTrapExplanation());
+    }
+
+    // ── Trap Explanation ──────────────────────────────────────────────────
+
+    private IEnumerator PlayTrapExplanation()
+    {
+        ShowText(true);
+        ApplyDialogueSpeaker(devil: false);
+
+        // ── Spike traps ───────────────────────────────────────────────────
+        SetText("One more thing before you go.");
+        yield return new WaitForSecondsRealtime(2.0f);
+
+        SetText("The arena floor is not your friend.");
+        yield return new WaitForSecondsRealtime(2.0f);
+
+        SetText("Spike traps are buried beneath the ground. You will not see them until it is almost too late.");
+        yield return new WaitForSecondsRealtime(2.8f);
+
+        SetText("A red ring will appear on the floor — that is your warning. You have less than a second to move.");
+        yield return new WaitForSecondsRealtime(2.8f);
+
+        SetText("If you are still standing there when the spikes rise, you will take damage. Do not test them.");
+        yield return new WaitForSecondsRealtime(2.8f);
+
+        // ── Flame traps ───────────────────────────────────────────────────
+        SetText("In the deeper arena you will also face flame traps.");
+        yield return new WaitForSecondsRealtime(2.2f);
+
+        SetText("Same principle — a warning ring on the ground before they ignite. The fire lingers.");
+        yield return new WaitForSecondsRealtime(2.5f);
+
+        SetText("Standing inside active flames burns you repeatedly. A single touch is not the danger — staying is.");
+        yield return new WaitForSecondsRealtime(2.8f);
+
+        SetText("Watch the ground. Keep moving. The traps are as much your enemy as anything that bleeds.");
+        yield return new WaitForSecondsRealtime(2.8f);
+
+        // ── Hand off ──────────────────────────────────────────────────────
         phase = TutorialPhase.NpcSection;
         SetText("Head through the portal to return to the lobby.");
     }
