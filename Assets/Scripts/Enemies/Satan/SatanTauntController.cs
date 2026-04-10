@@ -346,7 +346,7 @@ public class SatanTauntController : MonoBehaviour
         tauntText                    = textGo.AddComponent<TextMeshProUGUI>();
         tauntText.fontSize           = 19f;
         tauntText.color              = new Color(0.95f, 0.80f, 0.30f);
-        tauntText.alignment          = TextAlignmentOptions.MidpointLeft;
+        tauntText.alignment          = TextAlignmentOptions.MidlineLeft;
         tauntText.enableWordWrapping = true;
         tauntText.raycastTarget      = false;
         tauntText.alpha              = 0f;

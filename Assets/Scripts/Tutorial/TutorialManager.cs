@@ -489,12 +489,10 @@ public class TutorialManager : MonoBehaviour
 
         T trap = go.AddComponent<T>();
 
-        // Shorten the initial delay so the warn ring appears quickly.
-        // We access via ArenaTrap's protected field through reflection-free approach:
-        // ArenaTrap.initialDelay is set in Start(), so override it via serialized
-        // defaults isn't possible at Add-time — instead set the component values
-        // before Start() runs via a MonoBehaviour that resets them on Awake.
-        go.AddComponent<DemoTrapFastCycle>();
+        // Shorten initial delay and cooldown so the warn ring appears quickly.
+        // AddComponent defers Start() to the next frame, so SendMessage here
+        // fires before Start() and the updated values are used by TrapCycle().
+        trap.SendMessage("SetDemoCycleTimings", SendMessageOptions.DontRequireReceiver);
 
         return go;
     }
