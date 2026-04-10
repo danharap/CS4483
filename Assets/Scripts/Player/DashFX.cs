@@ -3,19 +3,18 @@ using UnityEngine;
 
 /// <summary>
 /// Spawns a procedural dust burst at the player's feet at the start of each dash.
+/// Uses small SpriteRenderer quads that fade and shrink — no Particle System package required.
 /// Attach to the same GameObject as PlayerController.
-///
-/// No art assets required — particles are created at runtime with a grey/white colour.
 /// </summary>
 [RequireComponent(typeof(PlayerController))]
 public class DashFX : MonoBehaviour
 {
-    [Header("Dust Particles")]
-    [SerializeField] private int   particleCount  = 18;
-    [SerializeField] private float speed          = 5.5f;
-    [SerializeField] private float lifetime       = 0.38f;
-    [SerializeField] private float startSize      = 0.28f;
-    [SerializeField] private Color dustColor      = new Color(0.85f, 0.82f, 0.75f, 0.75f);
+    [Header("Dust Puffs")]
+    [SerializeField] private int   puffCount     = 10;
+    [SerializeField] private float puffSpeed     = 4.5f;
+    [SerializeField] private float puffLifetime  = 0.32f;
+    [SerializeField] private float puffStartSize = 0.30f;
+    [SerializeField] private Color puffColor     = new Color(0.88f, 0.84f, 0.76f, 0.70f);
 
     [Header("Screen Shake (optional)")]
     [SerializeField] private bool  enableShake    = true;
@@ -23,47 +22,52 @@ public class DashFX : MonoBehaviour
     [SerializeField] private float shakeDuration  = 0.12f;
 
     private PlayerController pc;
-    private ParticleSystem   ps;
+    private bool             wasDashing;
+    private Material         puffMaterial;
     private Coroutine        shakeCoroutine;
 
     void Awake()
     {
         pc = GetComponent<PlayerController>();
+        puffMaterial = new Material(Shader.Find("Sprites/Default"));
     }
 
     void Start()
     {
-        pc.OnDashEnd += OnDashEnd; // fires at end of dash frame — we intercept start via Update
-        BuildParticleSystem();
+        pc.OnDashEnd += OnDashEnd;
     }
 
     void OnDestroy()
     {
         if (pc != null) pc.OnDashEnd -= OnDashEnd;
+        if (puffMaterial != null) Destroy(puffMaterial);
     }
-
-    // Track dash start ourselves (OnDashEnd fires at finish; we want start).
-    private bool wasDashing;
 
     void Update()
     {
         bool dashing = pc.IsDashing;
         if (dashing && !wasDashing)
-            EmitDust();
+            EmitPuffs();
         wasDashing = dashing;
     }
 
-    private void OnDashEnd() { /* reserved for future trail effects */ }
+    private void OnDashEnd() { /* reserved */ }
 
-    private void EmitDust()
+    // ── Puff burst ────────────────────────────────────────────────────────
+
+    private void EmitPuffs()
     {
-        if (ps == null) return;
+        Vector3 origin = transform.position + Vector3.down * 0.05f;
 
-        ps.transform.position = transform.position + Vector3.down * 0.1f;
+        for (int i = 0; i < puffCount; i++)
+        {
+            // Random direction on the XZ plane, slight upward bias.
+            Vector2 flat = Random.insideUnitCircle.normalized;
+            Vector3 dir  = new Vector3(flat.x, Random.Range(0f, 0.4f), flat.y).normalized;
+            float   spd  = puffSpeed * Random.Range(0.5f, 1.0f);
 
-        var burst = new ParticleSystem.Burst(0f, particleCount);
-        ps.emission.SetBurst(0, burst);
-        ps.Play();
+            StartCoroutine(AnimatePuff(origin, dir, spd));
+        }
 
         if (enableShake)
         {
@@ -72,71 +76,76 @@ public class DashFX : MonoBehaviour
         }
     }
 
-    private void BuildParticleSystem()
+    private IEnumerator AnimatePuff(Vector3 startPos, Vector3 dir, float speed)
     {
-        GameObject psGo = new GameObject("DashDust");
-        psGo.transform.SetParent(transform, false);
-        ps = psGo.AddComponent<ParticleSystem>();
+        // Create a tiny quad with a SpriteRenderer.
+        GameObject go = new GameObject("DashPuff");
+        go.transform.position = startPos;
 
-        var main = ps.main;
-        main.loop             = false;
-        main.playOnAwake      = false;
-        main.startLifetime    = lifetime;
-        main.startSpeed       = new ParticleSystem.MinMaxCurve(speed * 0.6f, speed);
-        main.startSize        = startSize;
-        main.startColor       = new ParticleSystem.MinMaxGradient(
-            new Color(dustColor.r, dustColor.g, dustColor.b, 0.35f),
-            dustColor);
-        main.gravityModifier  = 0.4f;
-        main.simulationSpace  = ParticleSystemSimulationSpace.World;
-        main.maxParticles     = 64;
+        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite       = BuildDotSprite();
+        sr.material     = puffMaterial;
+        sr.color        = puffColor;
+        sr.sortingOrder = 20;
 
-        var emission = ps.emission;
-        emission.enabled = true;
-        emission.SetBurst(0, new ParticleSystem.Burst(0f, particleCount));
+        float elapsed = 0f;
+        float size    = puffStartSize;
+        Color c       = puffColor;
 
-        var shape = ps.shape;
-        shape.enabled     = true;
-        shape.shapeType   = ParticleSystemShapeType.Circle;
-        shape.radius      = 0.35f;
-        shape.arc         = 360f;
+        while (elapsed < puffLifetime)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / puffLifetime;
 
-        var colorOverLifetime = ps.colorOverLifetime;
-        colorOverLifetime.enabled = true;
-        Gradient g = new Gradient();
-        g.SetKeys(
-            new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
-        colorOverLifetime.color = new ParticleSystem.MinMaxGradient(g);
+            // Move outward, decelerating.
+            go.transform.position += dir * speed * (1f - t) * Time.deltaTime;
 
-        var sizeOverLifetime = ps.sizeOverLifetime;
-        sizeOverLifetime.enabled = true;
-        AnimationCurve sc = new AnimationCurve();
-        sc.AddKey(0f, 1f);
-        sc.AddKey(1f, 0f);
-        sizeOverLifetime.size = new ParticleSystem.MinMaxCurve(1f, sc);
+            // Shrink and fade.
+            float s = Mathf.Lerp(size, 0f, t);
+            go.transform.localScale = new Vector3(s, s, s);
+            c.a = Mathf.Lerp(puffColor.a, 0f, t);
+            sr.color = c;
 
-        var renderer = ps.GetComponent<ParticleSystemRenderer>();
-        renderer.material = new Material(Shader.Find("Sprites/Default"));
-        renderer.sortingOrder = 15;
+            yield return null;
+        }
+
+        Destroy(go);
     }
+
+    // ── Shared dot sprite (1×1 white pixel) ──────────────────────────────
+
+    private static Sprite _dotSprite;
+    private static Sprite BuildDotSprite()
+    {
+        if (_dotSprite != null) return _dotSprite;
+        Texture2D tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
+        Color[] pixels = new Color[16];
+        for (int i = 0; i < 16; i++) pixels[i] = Color.white;
+        tex.SetPixels(pixels);
+        tex.Apply();
+        _dotSprite = Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 4f);
+        return _dotSprite;
+    }
+
+    // ── Screen shake ──────────────────────────────────────────────────────
 
     private IEnumerator ShakeCamera()
     {
         Camera cam = Camera.main;
         if (cam == null) yield break;
 
-        Vector3 originPos = cam.transform.localPosition;
-        float elapsed = 0f;
+        Vector3 origin  = cam.transform.localPosition;
+        float   elapsed = 0f;
 
         while (elapsed < shakeDuration)
         {
             elapsed += Time.deltaTime;
             float dampen = 1f - (elapsed / shakeDuration);
-            cam.transform.localPosition = originPos +
-                (Vector3)UnityEngine.Random.insideUnitCircle * shakeMagnitude * dampen;
+            cam.transform.localPosition = origin +
+                (Vector3)Random.insideUnitCircle * shakeMagnitude * dampen;
             yield return null;
         }
-        cam.transform.localPosition = originPos;
+
+        cam.transform.localPosition = origin;
     }
 }

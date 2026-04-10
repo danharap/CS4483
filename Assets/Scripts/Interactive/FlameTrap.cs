@@ -4,6 +4,7 @@ using UnityEngine;
 /// <summary>
 /// Flame trap (Arena 2). Warn ring → burst flame → DOT while player inside → retract → cooldown.
 /// Inherits telegraphed cycle from ArenaTrap.
+/// Visual feedback uses TrapSpriteAnimator; no Particle System package required.
 /// </summary>
 public class FlameTrap : ArenaTrap
 {
@@ -16,8 +17,6 @@ public class FlameTrap : ArenaTrap
 
     [Header("Flame Visuals")]
     [SerializeField] private TrapSpriteAnimator spriteAnimator;
-    [Tooltip("Optional particle system child for flame effect.")]
-    [SerializeField] private ParticleSystem flameParticles;
 
     private Coroutine damageLoop;
 
@@ -31,15 +30,13 @@ public class FlameTrap : ArenaTrap
 
     protected override void OnWarnStart()
     {
-        // Flame sprite dims during warning; only the ground ring warns the player.
+        // Sprite stays off during the warning — only the ground ring signals the player.
         if (spriteAnimator != null) spriteAnimator.SetActive(false);
-        if (flameParticles != null) flameParticles.Stop();
     }
 
     protected override void OnActivate()
     {
         if (spriteAnimator != null) spriteAnimator.SetActive(true);
-        if (flameParticles != null) flameParticles.Play();
         if (damageLoop != null) StopCoroutine(damageLoop);
         damageLoop = StartCoroutine(DamageTick());
     }
@@ -47,7 +44,6 @@ public class FlameTrap : ArenaTrap
     protected override void OnDeactivate()
     {
         if (spriteAnimator != null) spriteAnimator.SetActive(false);
-        if (flameParticles != null) flameParticles.Stop();
         if (damageLoop != null) { StopCoroutine(damageLoop); damageLoop = null; }
     }
 
