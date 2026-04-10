@@ -4,11 +4,19 @@ using UnityEngine;
 /// <summary>
 /// Spawns a procedural dust burst at the player's feet at the start of each dash.
 /// Uses small SpriteRenderer quads that fade and shrink — no Particle System package required.
-/// Attach to the same GameObject as PlayerController.
+/// Auto-attaches to the Player at runtime; also wired by SetupAll in the editor.
 /// </summary>
 [RequireComponent(typeof(PlayerController))]
 public class DashFX : MonoBehaviour
 {
+    // Automatically adds this component to the player when the game starts if it is missing.
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void AutoAttach()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null && player.GetComponent<DashFX>() == null)
+            player.AddComponent<DashFX>();
+    }
     [Header("Dust Puffs")]
     [SerializeField] private int   puffCount     = 10;
     [SerializeField] private float puffSpeed     = 4.5f;

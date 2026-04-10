@@ -7,12 +7,19 @@ using UnityEngine.UI;
 ///   • Full-screen radial vignette that flashes red on hit.
 ///   • Player sprite briefly flashes white then returns to normal.
 ///
-/// Attach to the Player GameObject. Requires a PlayerHealth component.
+/// Auto-attaches to the Player at runtime; also wired by SetupAll in the editor.
 /// If no Canvas / damageOverlay is wired it creates its own vignette Image at runtime.
 /// </summary>
 [RequireComponent(typeof(PlayerHealth))]
 public class PlayerHitFeedback : MonoBehaviour
 {
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+    private static void AutoAttach()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null && player.GetComponent<PlayerHitFeedback>() == null)
+            player.AddComponent<PlayerHitFeedback>();
+    }
     [Header("Vignette")]
     [Tooltip("Assigned automatically if left null.")]
     [SerializeField] private Image vignetteImage;

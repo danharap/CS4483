@@ -277,6 +277,12 @@ public static class SetupAll
         playerGO.AddComponent<PlayerWeapon>();
         playerGO.AddComponent<PlayerXP>();
 
+        // Feedback components — safe to add multiple times (each guards against duplicates).
+        if (playerGO.GetComponent<DashFX>() == null)
+            playerGO.AddComponent<DashFX>();
+        if (playerGO.GetComponent<PlayerHitFeedback>() == null)
+            playerGO.AddComponent<PlayerHitFeedback>();
+
         Material mat = new Material(Shader.Find("Standard")) { color = new Color(0.2f, 0.4f, 0.9f) };
         playerGO.GetComponent<Renderer>().material = mat;
 
