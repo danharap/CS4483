@@ -38,6 +38,16 @@ public abstract class ArenaTrap : MonoBehaviour
         StartCoroutine(TrapCycle());
     }
 
+    /// <summary>
+    /// Called by <see cref="DemoTrapFastCycle"/> before Start() to make the trap
+    /// cycle quickly so the player can observe it during the tutorial trap section.
+    /// </summary>
+    private void SetDemoCycleTimings()
+    {
+        initialDelay    = Random.Range(0.3f, 0.8f);
+        cooldownDuration = 1.4f;
+    }
+
     // ── Cycle ─────────────────────────────────────────────────────────────
 
     private IEnumerator TrapCycle()

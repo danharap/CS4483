@@ -364,10 +364,10 @@ public class TutorialManager : MonoBehaviour
         SetText("Do not count on them. But when they appear — use them.");
         yield return new WaitForSecondsRealtime(2.5f);
 
-        // 7. Open gate 3 and hand off to the skill-tree section.
+        // 7. Open gate 3 and hand off to the trap demo section (then devil, then portal).
         OpenGate(gate3);
-        phase = TutorialPhase.SkillTreeExplanation;
-        StartCoroutine(PlaySkillTreeDialogue());
+        phase = TutorialPhase.TrapExplanation;
+        StartCoroutine(PlayTrapExplanation());
     }
 
     /// <summary>
@@ -415,8 +415,8 @@ public class TutorialManager : MonoBehaviour
         }
 
         ApplyDialogueSpeaker(devil: false);
-        phase = TutorialPhase.TrapExplanation;
-        StartCoroutine(PlayTrapExplanation());
+        phase = TutorialPhase.NpcSection;
+        SetText("Head through the portal to return to the lobby.");
     }
 
     // ── Trap Explanation ──────────────────────────────────────────────────
@@ -426,38 +426,77 @@ public class TutorialManager : MonoBehaviour
         ShowText(true);
         ApplyDialogueSpeaker(devil: false);
 
-        // ── Spike traps ───────────────────────────────────────────────────
-        SetText("One more thing before you go.");
-        yield return new WaitForSecondsRealtime(2.0f);
+        // Spawn demo traps in the corridor just past gate 3 (x=-10).
+        // SpikeTrap on the left, FlameTrap on the right — side by side so the
+        // player can see both warning rings at a safe distance.
+        float cz            = FindCz();
+        Vector3 spikePos    = new Vector3(-5.5f, 0.05f, cz - 1.2f);
+        Vector3 flamePos    = new Vector3(-3.0f, 0.05f, cz + 1.2f);
 
-        SetText("The arena floor is not your friend.");
-        yield return new WaitForSecondsRealtime(2.0f);
+        GameObject spikeGo  = SpawnDemoTrap<SpikeTrap>(spikePos);
+        GameObject flameGo  = SpawnDemoTrap<FlameTrap>(flamePos);
 
-        SetText("Spike traps are buried beneath the ground. You will not see them until it is almost too late.");
-        yield return new WaitForSecondsRealtime(2.8f);
-
-        SetText("A red ring will appear on the floor — that is your warning. You have less than a second to move.");
-        yield return new WaitForSecondsRealtime(2.8f);
-
-        SetText("If you are still standing there when the spikes rise, you will take damage. Do not test them.");
-        yield return new WaitForSecondsRealtime(2.8f);
-
-        // ── Flame traps ───────────────────────────────────────────────────
-        SetText("In the deeper arena you will also face flame traps.");
+        // ── Spike trap section ────────────────────────────────────────────
+        SetText("Before you go — look at the floor ahead.");
         yield return new WaitForSecondsRealtime(2.2f);
 
-        SetText("Same principle — a warning ring on the ground before they ignite. The fire lingers.");
-        yield return new WaitForSecondsRealtime(2.5f);
+        SetText("That pulsing red ring on the ground is a spike trap warning.\nStep out of the circle before it closes.");
+        yield return new WaitForSecondsRealtime(3.0f);
 
-        SetText("Standing inside active flames burns you repeatedly. A single touch is not the danger — staying is.");
+        SetText("When the ring disappears, spikes erupt. If you are still inside, you take damage.");
+        yield return new WaitForSecondsRealtime(3.0f);
+
+        SetText("Watch it cycle. The timing is always the same — short warning, brief spike, then it resets.");
+        yield return new WaitForSecondsRealtime(4.5f);
+
+        // ── Flame trap section ────────────────────────────────────────────
+        SetText("The orange ring beside it is a flame trap. Same idea — different danger.");
         yield return new WaitForSecondsRealtime(2.8f);
 
-        SetText("Watch the ground. Keep moving. The traps are as much your enemy as anything that bleeds.");
+        SetText("Flames stay active longer than spikes. Standing inside burns you repeatedly.");
         yield return new WaitForSecondsRealtime(2.8f);
 
-        // ── Hand off ──────────────────────────────────────────────────────
-        phase = TutorialPhase.NpcSection;
-        SetText("Head through the portal to return to the lobby.");
+        SetText("One second in the fire will not kill you. Five seconds will.\nSee the ring — move.");
+        yield return new WaitForSecondsRealtime(3.0f);
+
+        SetText("The arena is full of them. Watch the ground, not just the enemies.");
+        yield return new WaitForSecondsRealtime(2.8f);
+
+        // Clean up demo traps before the devil speaks.
+        if (spikeGo != null) Object.Destroy(spikeGo);
+        if (flameGo != null) Object.Destroy(flameGo);
+
+        // ── Hand off to devil's skill-tree speech ─────────────────────────
+        phase = TutorialPhase.SkillTreeExplanation;
+        StartCoroutine(PlaySkillTreeDialogue());
+    }
+
+    /// <summary>
+    /// Spawns a demo trap GameObject, configures its cycle to be snappier so the
+    /// player sees the warning ring and activation within a few seconds.
+    /// </summary>
+    private static GameObject SpawnDemoTrap<T>(Vector3 position) where T : ArenaTrap
+    {
+        GameObject go = new GameObject($"DemoTrap_{typeof(T).Name}");
+        go.transform.position = position;
+
+        // Sphere trigger collider — needed by ArenaTrap damage checks but set
+        // to a tiny radius so the demo trap cannot hurt the player unless they
+        // walk directly into it.
+        SphereCollider col = go.AddComponent<SphereCollider>();
+        col.isTrigger = true;
+        col.radius    = 0.5f;
+
+        T trap = go.AddComponent<T>();
+
+        // Shorten the initial delay so the warn ring appears quickly.
+        // We access via ArenaTrap's protected field through reflection-free approach:
+        // ArenaTrap.initialDelay is set in Start(), so override it via serialized
+        // defaults isn't possible at Add-time — instead set the component values
+        // before Start() runs via a MonoBehaviour that resets them on Awake.
+        go.AddComponent<DemoTrapFastCycle>();
+
+        return go;
     }
 
     private IEnumerator PlayIntroThenStart()
