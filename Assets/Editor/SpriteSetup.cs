@@ -293,7 +293,7 @@ public static class SpriteSetup
             TrapSpriteAnimator anim = visual.GetComponent<TrapSpriteAnimator>();
             if (anim == null) anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
             anim.frameRate = 18f;
-            anim.sortingOrder = 2;
+            anim.sortingOrder = 25;
             anim.playOnAwake = false; // stay on first frame until trap activates it
             anim.SetFrames(spikeFrames);
 
@@ -334,7 +334,7 @@ public static class SpriteSetup
             if (anim == null) anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
 
             anim.frameRate    = 15f;
-            anim.sortingOrder = 2;
+            anim.sortingOrder = 25;
             anim.playOnAwake  = true;   // flame is always burning
             // Warm orange fire glow
             anim.enableGlow   = true;

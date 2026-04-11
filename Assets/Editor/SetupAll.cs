@@ -94,6 +94,8 @@ public static class SetupAll
 
         Step1_ClearExistingSetup();
         Step2_CreatePrefabs();
+        // Resources/Traps PNGs must be Sprites for runtime Resources.Load (FlameTrap / ArenaTrap self-init).
+        ResourcesTrapSpriteImporter.ReimportAllTrapTexturesInResources();
         Step3_BuildLobby();
         Step3_BuildTutorial();
         Step3_BuildLevel();

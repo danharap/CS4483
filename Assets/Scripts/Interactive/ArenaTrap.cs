@@ -2,9 +2,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Arena trap: when the player steps on it (trigger enter), deals damage and stuns for a short duration.
-/// Requires a Collider with Is Trigger = true. Player must be tagged "Player".
-/// Auto-initializes its TrapSpriteAnimator from Resources if one isn't wired in the Inspector.
+/// Spike trap: stepping on it deals damage and stuns briefly. Sprite stays visible on
+/// frame 0 until the player enters the trigger, then animates while they stand on it.
+/// If TrapSpriteAnimator is not wired in the scene, frames are loaded from
+/// Resources/Traps/SpikeTrap (must be imported as Sprite — run CS4483 menu fix once).
 /// </summary>
 [RequireComponent(typeof(Collider))]
 public class ArenaTrap : MonoBehaviour
@@ -25,11 +26,8 @@ public class ArenaTrap : MonoBehaviour
 
     void Awake()
     {
-        // If the scene has traps that were placed without running SpriteSetup, self-initialize.
         if (spriteAnimator == null)
-            spriteAnimator = EnsureAnimator("Traps/SpikeTrap", playOnAwake: true,
-                                            frameRate: 18f, glowColor: new Color(0.3f, 0.9f, 1f),
-                                            glowIntensity: 1.4f, glowRange: 2.2f);
+            spriteAnimator = EnsureSpikeAnimator();
     }
 
     void OnTriggerEnter(Collider other)
@@ -65,48 +63,40 @@ public class ArenaTrap : MonoBehaviour
             cooldownTimer -= Time.deltaTime;
     }
 
-    // ── Shared helper ──────────────────────────────────────────────────────
-
-    /// <summary>
-    /// Finds or creates a TrapSpriteAnimator on the TrapVisual child (or this GameObject),
-    /// loads sprite frames from a Resources subfolder, and returns it.
-    /// </summary>
-    protected TrapSpriteAnimator EnsureAnimator(string resourceFolder, bool playOnAwake,
-                                                float frameRate, Color glowColor,
-                                                float glowIntensity, float glowRange)
+    TrapSpriteAnimator EnsureSpikeAnimator()
     {
-        // Prefer an existing TrapSpriteAnimator in children.
         TrapSpriteAnimator existing = GetComponentInChildren<TrapSpriteAnimator>(true);
         if (existing != null)
             return existing;
 
-        // Find or create the TrapVisual child.
         Transform visual = transform.Find("TrapVisual");
         if (visual == null)
         {
-            GameObject go = new GameObject("TrapVisual");
+            var go = new GameObject("TrapVisual");
             go.transform.SetParent(transform, false);
             go.transform.localPosition = Vector3.zero;
             visual = go.transform;
         }
 
-        TrapSpriteAnimator anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
-        anim.frameRate     = frameRate;
-        anim.sortingOrder  = 2;
-        anim.playOnAwake   = playOnAwake;
+        var anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
+        anim.frameRate     = 18f;
+        anim.sortingOrder  = 25;
+        anim.playOnAwake   = false;
         anim.enableGlow    = true;
-        anim.glowColor     = glowColor;
-        anim.glowIntensity = glowIntensity;
-        anim.glowRange     = glowRange;
+        anim.glowColor     = new Color(0.3f, 0.9f, 1f);
+        anim.glowIntensity = 1.4f;
+        anim.glowRange     = 2.2f;
 
-        Sprite[] frames = LoadFramesFromResources(resourceFolder);
+        Sprite[] frames = LoadFramesFromResources("Traps/SpikeTrap");
         if (frames.Length > 0)
             anim.SetFrames(frames);
+        else
+            Debug.LogWarning($"[ArenaTrap] No sprites at Resources/Traps/SpikeTrap — run menu: CS4483 → Fix Resources trap textures (Sprite import). Object: {name}", this);
 
         return anim;
     }
 
-    private static Sprite[] LoadFramesFromResources(string folder)
+    static Sprite[] LoadFramesFromResources(string folder)
     {
         var list = new List<Sprite>();
         for (int i = 0; i < 32; i++)

@@ -1455,8 +1455,8 @@ public static class ProBuilderLevelBuilder
             // Wire sprite animator inline so traps are visible without a separate SpriteSetup step.
             TrapSpriteAnimator anim = visual.AddComponent<TrapSpriteAnimator>();
             anim.frameRate    = 18f;
-            anim.sortingOrder = 2;
-            anim.playOnAwake  = true;   // always show the idle frame cycle
+            anim.sortingOrder = 25;     // above floor / decals
+            anim.playOnAwake  = false;  // idle frame 0 until player steps on trap
             anim.enableGlow   = true;
             anim.glowColor    = new Color(0.3f, 0.9f, 1f);
             anim.glowIntensity = 1.4f;
@@ -1511,7 +1511,7 @@ public static class ProBuilderLevelBuilder
             // Wire sprite animator inline so flame traps are always visible.
             TrapSpriteAnimator anim = visual.AddComponent<TrapSpriteAnimator>();
             anim.frameRate    = 15f;
-            anim.sortingOrder = 2;
+            anim.sortingOrder = 25;     // above floor / decals
             anim.playOnAwake  = true;   // flame is always burning
             anim.enableGlow   = true;
             anim.glowColor    = new Color(1f, 0.45f, 0.05f);
