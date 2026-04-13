@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using UnityEngine.ProBuilder;
-using UnityEngine.ProBuilder.Shapes;
 using Unity.AI.Navigation;
 using UnityEngine.Rendering;
 
@@ -737,6 +736,9 @@ public static class ProBuilderLevelBuilder
         rb.useGravity = false;
         portal.AddComponent<LobbyPortal>();
 
+        UnityEngine.Sprite stonePortalSprite = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>("Assets/Resources/portals/stone_portal_gate.png");
+        LobbyPortalVisual.ApplyIfNeeded(portal, stonePortalSprite);
+
         // Tutorial guide NPC in the lobby (talking-only; no portal / no tutorial transport).
         GameObject tutorialNpc = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         tutorialNpc.name = "GuideNPC";
@@ -864,7 +866,7 @@ public static class ProBuilderLevelBuilder
         GameObject exitPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
         exitPortal.name = "TutorialToArena_Portal";
         exitPortal.transform.SetParent(prison.transform);
-        exitPortal.transform.position = new Vector3(20f, 1.5f, cz);
+        exitPortal.transform.position = new Vector3(TutorialPrisonLayout.TutorialExitPortalCenterX, 1.5f, TutorialPrisonLayout.TutorialExitPortalCenterZ);
         exitPortal.transform.localScale = new Vector3(2f, 3f, 0.3f);
         var exitR = exitPortal.GetComponent<Renderer>();
         if (exitR != null) exitR.sharedMaterial = GetOrCreateMat("M_Boss", new Color(0.40f, 0.02f, 0.02f));
@@ -874,6 +876,8 @@ public static class ProBuilderLevelBuilder
         exitRb.isKinematic = true;
         exitRb.useGravity = false;
         exitPortal.AddComponent<TutorialExitPortal>();
+        UnityEngine.Sprite stoneTutorialPortal = AssetDatabase.LoadAssetAtPath<UnityEngine.Sprite>("Assets/Resources/portals/stone_portal_gate.png");
+        LobbyPortalVisual.ApplyIfNeeded(exitPortal, stoneTutorialPortal);
         CreateWorldLabel(exitPortal.transform, "ExitLabel", "Exit to Lobby", new Vector3(0f, 2.2f, 0f), Color.white);
 
         GameObject enemySpawn = new GameObject("Tutorial_EnemySpawn");

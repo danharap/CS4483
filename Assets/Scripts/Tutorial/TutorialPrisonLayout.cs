@@ -11,6 +11,14 @@ public static class TutorialPrisonLayout
     /// <summary>East half-extent of the corridor floor. Shortened so the post-upgrade hallway is compact.</summary>
     public const float EastHalfX = 25f;
     public const float FloorHalfZ = 7f;
+
+    /// <summary>
+    /// Tutorial exit portal target world placement (from approved scene framing/screenshot).
+    /// This is the root position to use for both authored and runtime-spawned tutorial portals.
+    /// </summary>
+    public const float TutorialExitPortalCenterX = 22.11f;
+    public const float TutorialExitPortalCenterZ = -33.24f;
+
     /// <summary>Player start: inside walkway, west of first gate, on corridor centerline Z.</summary>
     public static readonly Vector3 PlayerSpawnPosition = new Vector3(-74f, 1.1f, -40f);
 }

@@ -231,7 +231,7 @@ public class TutorialRoomManager : MonoBehaviour
         GameObject exitPortal = GameObject.CreatePrimitive(PrimitiveType.Cube);
         exitPortal.name = "TutorialToArena_Portal";
         exitPortal.transform.SetParent(prison.transform);
-        exitPortal.transform.position = new Vector3(20f, 1.5f, cz);
+        exitPortal.transform.position = new Vector3(TutorialPrisonLayout.TutorialExitPortalCenterX, 1.5f, TutorialPrisonLayout.TutorialExitPortalCenterZ);
         exitPortal.transform.localScale = new Vector3(2f, 3f, 0.3f);
         BoxCollider exitCol = exitPortal.GetComponent<BoxCollider>();
         exitCol.isTrigger = true;
@@ -239,6 +239,9 @@ public class TutorialRoomManager : MonoBehaviour
         exitRb.isKinematic = true;
         exitRb.useGravity = false;
         exitPortal.AddComponent<TutorialExitPortal>();
+
+        Sprite stonePortal = Resources.Load<Sprite>("portals/stone_portal_gate");
+        LobbyPortalVisual.ApplyIfNeeded(exitPortal, stonePortal);
     }
 
     private static GameObject FindSceneRoot(string name)

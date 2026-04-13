@@ -45,9 +45,6 @@ public class ArenaPortalManager : MonoBehaviour
     [SerializeField] private Vector3 portalScale   = new Vector3(3.5f, 3.5f, 0.3f);
     [SerializeField] private Color   portalColor   = new Color(0.35f, 0.05f, 0.6f, 1f);
     [SerializeField] private Color   portalGlow    = new Color(0.6f,  0.0f, 1.0f, 1f);
-    [SerializeField] private float   portalPulseSpeed     = 1.8f;
-    [SerializeField] private float   portalPulseAmplitude = 0.06f;
-
     // ── Transition ────────────────────────────────────────────────────────
 
     [Header("Transition")]
@@ -85,6 +82,8 @@ public class ArenaPortalManager : MonoBehaviour
     private const string Arena1Name = "=== LEVEL (ProBuilder) ===";
     private const string Arena2Name = "=== LEVEL (ProBuilder) Arena2 ===";
     private const int    PortalAfterWaveIndex = 4; // 0-based: after wave 5
+
+    private const string NetherPortalSpriteResource = "portals/vecteezy_pixel-art-stone-portal-with-glowing-light_72637298";
 
     // ─────────────────────────────────────────────────────────────────────
     #region Unity Lifecycle
@@ -144,8 +143,7 @@ public class ArenaPortalManager : MonoBehaviour
             AudioSource.PlayClipAtPoint(portalOpenSound, portalSpawnPosition, 0.9f);
 
         departurePortal = BuildPortalObject("Portal_Departure", portalSpawnPosition);
-        yield return StartCoroutine(ScaleIn(departurePortal, portalScale, portalScaleInDuration));
-        StartCoroutine(PulsePortal(departurePortal));
+        yield return StartCoroutine(ScaleIn(departurePortal, UniformPortalScale(), portalScaleInDuration));
     }
 
     #endregion
@@ -257,7 +255,12 @@ public class ArenaPortalManager : MonoBehaviour
         // Move player to arrival spot
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
+        {
             player.transform.position = arena2PlayerSpawn;
+            PlayerHealth ph = player.GetComponent<PlayerHealth>();
+            if (ph != null)
+                ph.ForceIFrames(fadeInDuration + arrivalLockDuration);
+        }
 
         // Remove departure portal — disable physics first so no residual collider/obstacle lingers
         if (departurePortal != null)
@@ -269,8 +272,7 @@ public class ArenaPortalManager : MonoBehaviour
 
         // Arrival portal appears in Arena 2
         arrivalPortal = BuildPortalObject("Portal_Arrival", arena2PortalSpawn);
-        arrivalPortal.transform.localScale = portalScale; // no scale-in anim needed
-        StartCoroutine(PulsePortal(arrivalPortal));
+        arrivalPortal.transform.localScale = UniformPortalScale(); // no scale-in anim needed
         StartCoroutine(DespawnArrivalPortal(arrivalPortalLifetime));
 
         // Switch wave spawner to Arena 2 spawn points
@@ -328,6 +330,12 @@ public class ArenaPortalManager : MonoBehaviour
     // ─────────────────────────────────────────────────────────────────────
     #region Portal Visual Helpers
 
+    Vector3 UniformPortalScale()
+    {
+        float u = Mathf.Max(portalScale.x, portalScale.y);
+        return new Vector3(u, u, u);
+    }
+
     static Material CreatePortalDiscMaterial(Color baseColor, Color emissionColor)
     {
         Shader sh = Shader.Find("Universal Render Pipeline/Lit");
@@ -349,35 +357,65 @@ public class ArenaPortalManager : MonoBehaviour
         return mat;
     }
 
-    /// <summary>Single flat disc + simple URP-friendly material (no stacked meshes — avoids z-fighting / white seam).</summary>
+    /// <summary>Billboarded sprite + dark backing; trigger child unchanged for <see cref="Portal"/>.</summary>
     private GameObject BuildPortalObject(string goName, Vector3 position)
     {
-        // Use a cylinder rotated flat (90° on X) as the portal disc
-        GameObject portal = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-        portal.name = goName;
-        portal.transform.position = position;
-        portal.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
-        portal.transform.localScale = Vector3.zero; // starts invisible (scale-in plays separately)
+        GameObject portal = new GameObject(goName);
+        portal.transform.rotation = Quaternion.identity;
+        portal.transform.localScale = Vector3.zero; // scale-in / pulse on root
 
-        // Remove collider — Portal.cs handles trigger detection on a separate child
-        Destroy(portal.GetComponent<Collider>());
+        Sprite nether = Resources.Load<Sprite>(NetherPortalSpriteResource);
+        if (nether != null)
+        {
+            const float targetH = 3.1f;
+            float fit = targetH / Mathf.Max(0.001f, nether.bounds.size.y);
+            float worldH = nether.bounds.size.y * fit;
+            float centerY = worldH * 0.5f;
+            portal.transform.position = new Vector3(position.x, centerY, position.z);
 
-        Renderer rend = portal.GetComponent<Renderer>();
-        if (rend != null)
-            rend.material = CreatePortalDiscMaterial(portalColor, portalGlow * 1.2f);
+            GameObject frameGo = new GameObject("Portal_Frame");
+            frameGo.transform.SetParent(portal.transform, false);
+            frameGo.transform.localPosition = Vector3.zero;
+            frameGo.AddComponent<Billboard>();
 
-        // Trigger collider on a separate child so Portal.cs can detect the player.
-        // No Rigidbody here — the player's own Rigidbody is enough to fire OnTriggerEnter
-        // on a static trigger collider.  Adding a kinematic Rigidbody to the portal would
-        // register it as a NavMesh local-avoidance obstacle, causing enemies to steer around
-        // the invisible portal area even after it disappears.
+            frameGo.transform.localScale = new Vector3(fit, fit, 1f);
+
+            SpriteRenderer sr = frameGo.AddComponent<SpriteRenderer>();
+            sr.sprite = nether;
+            sr.sortingOrder = 80;
+
+            GameObject blackGo = new GameObject("Portal_Black");
+            blackGo.transform.SetParent(frameGo.transform, false);
+            blackGo.transform.localPosition = new Vector3(0f, 0.05f, 0.02f);
+            blackGo.transform.localScale = new Vector3(0.42f, 0.52f, 1f);
+            SpriteRenderer bsr = blackGo.AddComponent<SpriteRenderer>();
+            bsr.sprite = LobbyPortalVisual.BlackBackingSprite;
+            bsr.color = Color.black;
+            bsr.sortingOrder = 79;
+        }
+        else
+        {
+            Debug.LogWarning("[ArenaPortalManager] Nether portal sprite missing at Resources/" + NetherPortalSpriteResource + " — using cylinder fallback.");
+            portal.transform.position = position;
+            GameObject disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            disc.name = "Portal_FallbackDisc";
+            disc.transform.SetParent(portal.transform, false);
+            disc.transform.localPosition = Vector3.zero;
+            disc.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            disc.transform.localScale = Vector3.one;
+            Destroy(disc.GetComponent<Collider>());
+            Renderer rend = disc.GetComponent<Renderer>();
+            if (rend != null)
+                rend.material = CreatePortalDiscMaterial(portalColor, portalGlow * 1.2f);
+        }
+
         GameObject triggerChild = new GameObject("Trigger");
         triggerChild.transform.SetParent(portal.transform, false);
         CapsuleCollider trigger = triggerChild.AddComponent<CapsuleCollider>();
         trigger.isTrigger = true;
         trigger.radius    = 1.8f;
         trigger.height    = 2f;
-        trigger.direction = 1; // Y-axis
+        trigger.direction = 1;
 
         triggerChild.AddComponent<Portal>();
 
@@ -395,16 +433,6 @@ public class ArenaPortalManager : MonoBehaviour
             yield return null;
         }
         go.transform.localScale = targetScale;
-    }
-
-    private IEnumerator PulsePortal(GameObject go)
-    {
-        while (go != null)
-        {
-            float pulse = 1f + Mathf.Sin(Time.time * portalPulseSpeed) * portalPulseAmplitude;
-            if (go != null) go.transform.localScale = portalScale * pulse;
-            yield return null;
-        }
     }
 
     #endregion

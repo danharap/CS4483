@@ -294,7 +294,7 @@ public class TutorialManager : MonoBehaviour
 
         // Hand off to the combat phase — spawn the enemy with a short delay.
         phase = TutorialPhase.Combat;
-        SetText("Left click and aim your mouse to shoot.");
+        SetText("Left click and hold to shoot, and aim with your mouse.");
         StartCoroutine(SpawnCombatEnemyAfterDelay(2.5f));
     }
 
