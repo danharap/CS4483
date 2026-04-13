@@ -85,10 +85,10 @@ public class UpgradeManager : MonoBehaviour
         switch (upgrade.ID)
         {
             case "dmg":
-                if (weapon) weapon.damage *= 1.20f;
+                if (weapon) weapon.damage *= 1.10f;
                 break;
             case "atkspd":
-                if (weapon) weapon.fireRate *= 1.15f;
+                if (weapon) weapon.fireRate *= 1.10f;
                 break;
             case "movespd":
                 if (ctrl) ctrl.moveSpeed *= 1.10f;
@@ -106,7 +106,7 @@ public class UpgradeManager : MonoBehaviour
                 if (weapon) weapon.projectileCount += 1;
                 break;
             case "dash":
-                if (ctrl) ctrl.dashCooldown *= 0.75f;
+                if (ctrl) ctrl.dashCooldown *= 0.85f;
                 break;
         }
 

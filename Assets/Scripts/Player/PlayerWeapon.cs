@@ -141,7 +141,7 @@ public class PlayerWeapon : MonoBehaviour
     /// <summary>
     /// Damage per projectile when multishot is active is reduced slightly to keep
     /// multishot powerful but not overwhelmingly so.
-    /// ~32% reduction per extra bullet (first bullet always full damage).
+    /// ~32% reduction applies to every projectile while multishot is active.
     /// </summary>
     private const float MultishotDamageScale = 0.68f;
 
@@ -154,8 +154,7 @@ public class PlayerWeapon : MonoBehaviour
         if (p != null)
         {
             float finalDamage = damage;
-            // Extra shots deal reduced damage (first bullet is always full damage).
-            if (isExtraShot) finalDamage *= MultishotDamageScale;
+            if (projectileCount > 1) finalDamage *= MultishotDamageScale;
             if (applyOpeningStrike)
             {
                 var tracker = GetComponent<OpeningStrikeTracker>();

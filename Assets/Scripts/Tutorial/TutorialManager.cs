@@ -475,7 +475,7 @@ public class TutorialManager : MonoBehaviour
     /// Spawns a demo trap GameObject, configures its cycle to be snappier so the
     /// player sees the warning ring and activation within a few seconds.
     /// </summary>
-    private static GameObject SpawnDemoTrap<T>(Vector3 position) where T : ArenaTrap
+    private static GameObject SpawnDemoTrap<T>(Vector3 position) where T : MonoBehaviour
     {
         GameObject go = new GameObject($"DemoTrap_{typeof(T).Name}");
         go.transform.position = position;

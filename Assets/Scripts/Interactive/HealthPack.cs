@@ -26,7 +26,10 @@ public class HealthPack : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             PlayerHealth ph = other.GetComponent<PlayerHealth>();
-            if (ph != null && ph.CurrentHP < ph.maxHP)
+            if (ph == null) return;
+
+            float missingHealth = ph.maxHP - ph.CurrentHP;
+            if (missingHealth > 0f)
             {
                 ph.HealHP(healAmount);
                 Debug.Log($"[HealthPack] Player healed {healAmount} HP!");

@@ -176,6 +176,7 @@ MonoBehaviour:
   maxHP: 180
   moveSpeed: 2
   contactDamage: 10
+  contactRange: 1.2
   contactCooldown: 1
   xpDrop: 18
   hitFlashDuration: 0.12

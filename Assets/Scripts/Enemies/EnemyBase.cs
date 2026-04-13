@@ -14,6 +14,7 @@ public abstract class EnemyBase : MonoBehaviour
     [SerializeField] public  float maxHP          = 60f;
     [SerializeField] public  float moveSpeed      = 3.5f;
     [SerializeField] private float contactDamage  = 10f;
+    [SerializeField] private float contactRange   = 1.2f;
     [SerializeField] private float contactCooldown = 1f;   // seconds between damage ticks
     [SerializeField] public  float xpDrop         = 10f;
 
@@ -37,12 +38,16 @@ public abstract class EnemyBase : MonoBehaviour
     public bool  IsAlive   { get; private set; } = true;
 
     protected Transform player;
+    protected PlayerHealth playerHealth;
     private NavMeshAgent agent;
     private Rigidbody rb;
+    private Collider selfCollider;
+    private Collider playerCollider;
     private Renderer[] renderers;
     private Color[] originalColors;
     private float contactTimer;
     private bool useNavMesh;
+    private float dashKnockbackLockTimer;
 
     protected virtual void Awake()
     {
@@ -56,6 +61,7 @@ public abstract class EnemyBase : MonoBehaviour
         rb.constraints = RigidbodyConstraints.FreezeRotation | RigidbodyConstraints.FreezePositionY;
         rb.drag = 0f;
         rb.angularDrag = 0.05f;
+        selfCollider = GetComponent<Collider>();
 
         agent = GetComponent<NavMeshAgent>();
         if (agent != null)
@@ -83,8 +89,7 @@ public abstract class EnemyBase : MonoBehaviour
 
     protected virtual void Start()
     {
-        GameObject p = GameObject.FindGameObjectWithTag("Player");
-        if (p != null) player = p.transform;
+        TryAcquirePlayer();
 
         // Snap agent to NavMesh one frame after spawn.
         // The bake is synchronous and finishes before enemies are ever instantiated,
@@ -112,9 +117,25 @@ public abstract class EnemyBase : MonoBehaviour
 
     protected virtual void Update()
     {
-        if (!IsAlive || player == null) return;
+        if (!IsAlive) return;
+        if (dashKnockbackLockTimer > 0f)
+        {
+            dashKnockbackLockTimer -= Time.deltaTime;
+            return;
+        }
+        if (player == null) TryAcquirePlayer();
+        if (player == null) return;
         MoveTowardPlayer();
         HandleContactDamage();
+    }
+
+    private void TryAcquirePlayer()
+    {
+        GameObject p = GameObject.FindGameObjectWithTag("Player");
+        if (p == null) return;
+        player = p.transform;
+        playerHealth = p.GetComponent<PlayerHealth>();
+        playerCollider = p.GetComponent<Collider>();
     }
 
     // ── Movement ──────────────────────────────────────────────────────────
@@ -123,17 +144,21 @@ public abstract class EnemyBase : MonoBehaviour
     {
         if (agent != null && agent.isOnNavMesh)
         {
+            if (rb != null) rb.velocity = Vector3.zero;
             agent.speed = moveSpeed;
             agent.SetDestination(player.position);
         }
         else
         {
-            // Try to re-snap to NavMesh every 60 frames (~1 s) in case the agent slipped off
-            if (agent != null && Time.frameCount % 60 == 0)
+            // Dash collisions can push enemies off the NavMesh: resnap quickly so they resume chase.
+            if (agent != null && Time.frameCount % 12 == 0)
             {
                 NavMeshHit hit;
-                if (NavMesh.SamplePosition(transform.position, out hit, 3f, NavMesh.AllAreas))
+                if (NavMesh.SamplePosition(transform.position, out hit, 8f, NavMesh.AllAreas))
+                {
                     agent.Warp(hit.position);
+                    rb.velocity = Vector3.zero;
+                }
             }
 
             // Fallback: direct movement on XZ plane (no wall avoidance, but better than standing still)
@@ -155,10 +180,50 @@ public abstract class EnemyBase : MonoBehaviour
         if (contactTimer > 0f) return;
 
         float dist = Vector3.Distance(transform.position, player.position);
-        if (dist < 1.2f)
+        if (selfCollider != null && playerCollider != null)
+            dist = Vector3.Distance(selfCollider.ClosestPoint(player.position), playerCollider.ClosestPoint(transform.position));
+
+        if (dist <= contactRange)
         {
-            player.GetComponent<PlayerHealth>()?.TakeDamage(contactDamage);
+            playerHealth?.TakeDamage(contactDamage);
             contactTimer = contactCooldown;
+        }
+    }
+
+    protected float ContactDamage
+    {
+        get => contactDamage;
+        set => contactDamage = Mathf.Max(0f, value);
+    }
+
+    public void ApplyDashKnockback(Vector3 direction, float distance)
+    {
+        if (!IsAlive || distance <= 0f) return;
+
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f) return;
+        direction.Normalize();
+
+        dashKnockbackLockTimer = 0.14f;
+        contactTimer = Mathf.Max(contactTimer, 0.1f);
+
+        if (agent != null && agent.isOnNavMesh)
+        {
+            Vector3 desired = transform.position + direction * distance;
+            if (NavMesh.SamplePosition(desired, out NavMeshHit hit, Mathf.Max(2f, distance), NavMesh.AllAreas))
+            {
+                agent.Warp(hit.position);
+                if (rb != null) rb.velocity = Vector3.zero;
+                return;
+            }
+        }
+
+        // Fallback when navmesh is unavailable: controlled impulse with velocity cap.
+        if (rb != null)
+        {
+            Vector3 knock = direction * (distance / Mathf.Max(0.01f, dashKnockbackLockTimer));
+            knock.y = rb.velocity.y;
+            rb.velocity = knock;
         }
     }
 

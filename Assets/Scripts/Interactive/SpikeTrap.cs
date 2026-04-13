@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -6,7 +7,8 @@ using UnityEngine;
 /// Works with or without a TrapSpriteAnimator child.
 /// The trap deals damage every tick while the player stays inside the active area.
 /// </summary>
-public class SpikeTrap : ArenaTrap
+[RequireComponent(typeof(Collider))]
+public class SpikeTrap : MonoBehaviour
 {
     [Header("Spike Stats")]
     [Tooltip("Damage per hit while player is inside the active radius.")]
@@ -23,61 +25,109 @@ public class SpikeTrap : ArenaTrap
     [Tooltip("Y-scale of spikeVisual when fully risen.")]
     [SerializeField] private float spikeRiseScale  = 1f;
     [SerializeField] private float riseSpeed       = 8f;
+    [Tooltip("How long before this trap can be re-activated after the player leaves.")]
+    [SerializeField] private float triggerCooldown = 1.5f;
 
     private Coroutine damageLoop;
+    private readonly HashSet<PlayerHealth> playersInTrap = new HashSet<PlayerHealth>();
+    private float cooldownTimer;
+    private bool isActive;
 
-    protected override void Start()
+    private void Awake()
     {
-        // Initialise the base cycle (randomise initial offset so traps don't all fire at once).
-        initialDelay = Random.Range(0f, cooldownDuration);
-        warnRadius   = damageRadius;
-        base.Start();
-    }
-
-    protected override void OnWarnStart()
-    {
-        // Keep sprite hidden / retracted during warning phase — only the ground ring is visible.
         if (spikeVisual != null)
             spikeVisual.localScale = Vector3.zero;
+
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(false);
     }
 
-    protected override void OnActivate()
+    private void OnTriggerEnter(Collider other)
     {
-        if (spriteAnimator != null) spriteAnimator.SetActive(true);
-        if (spikeVisual != null) StartCoroutine(RiseSpike(true));
+        if (!other.CompareTag("Player")) return;
+        if (cooldownTimer > 0f) return;
 
-        // Start ticking damage while active.
-        if (damageLoop != null) StopCoroutine(damageLoop);
+        PlayerHealth health = other.GetComponent<PlayerHealth>();
+        if (health == null) return;
+
+        playersInTrap.Add(health);
+
+        if (!isActive)
+            ActivateTrap();
+    }
+
+    private void OnTriggerExit(Collider other)
+    {
+        if (!other.CompareTag("Player")) return;
+
+        PlayerHealth health = other.GetComponent<PlayerHealth>();
+        if (health != null)
+            playersInTrap.Remove(health);
+
+        if (playersInTrap.Count == 0 && isActive)
+            DeactivateTrap();
+    }
+
+    private void Update()
+    {
+        if (cooldownTimer > 0f)
+            cooldownTimer -= Time.deltaTime;
+    }
+
+    private void ActivateTrap()
+    {
+        isActive = true;
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(true);
+        if (spikeVisual != null)
+            StartCoroutine(RiseSpike(true));
+
+        if (damageLoop != null)
+            StopCoroutine(damageLoop);
         damageLoop = StartCoroutine(DamageTick());
     }
 
-    protected override void OnDeactivate()
+    private void DeactivateTrap()
     {
-        if (spriteAnimator != null) spriteAnimator.SetActive(false);
-        if (spikeVisual != null) StartCoroutine(RiseSpike(false));
-        if (damageLoop != null) { StopCoroutine(damageLoop); damageLoop = null; }
-    }
+        isActive = false;
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(false);
+        if (spikeVisual != null)
+            StartCoroutine(RiseSpike(false));
+        if (damageLoop != null)
+        {
+            StopCoroutine(damageLoop);
+            damageLoop = null;
+        }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
+        cooldownTimer = triggerCooldown;
+    }
 
     private IEnumerator DamageTick()
     {
         while (isActive)
         {
-            DamagePlayersInRadius();
+            DamagePlayersInTrap();
             yield return new WaitForSeconds(tickInterval);
         }
     }
 
-    private void DamagePlayersInRadius()
+    private void DamagePlayersInTrap()
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, damageRadius);
-        foreach (Collider c in hits)
+        playersInTrap.RemoveWhere(p => p == null);
+        foreach (PlayerHealth player in playersInTrap)
+            player.TakeDamage(damagePerTick);
+    }
+
+    private void OnDisable()
+    {
+        playersInTrap.Clear();
+        if (damageLoop != null)
         {
-            if (!c.CompareTag("Player")) continue;
-            PlayerHealth ph = c.GetComponent<PlayerHealth>();
-            if (ph != null) ph.TakeDamage(damagePerTick);
+            StopCoroutine(damageLoop);
+            damageLoop = null;
         }
+        isActive = false;
     }
 
     private IEnumerator RiseSpike(bool rise)

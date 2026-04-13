@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -17,6 +18,8 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float dashSpeed = 20f;
     [SerializeField] private float dashDuration = 0.18f;
     [SerializeField] public float dashCooldown = 1.5f;
+    [SerializeField] private float enemyDashKnockbackDistance = 5.5f;
+    [SerializeField] private float dashHitRepeatDelay = 0.15f;
 
     // ── State ─────────────────────────────────────────────────────────────
     private CharacterController cc;
@@ -33,6 +36,7 @@ public class PlayerController : MonoBehaviour
 
     private float baseMoveSpeed;
     private float baseDashCooldown;
+    private readonly Dictionary<int, float> dashHitTimes = new Dictionary<int, float>();
 
     /// <summary>Fired when a dash finishes (used by <see cref="GhostStepPassive"/>).</summary>
     public event Action OnDashEnd;
@@ -153,6 +157,27 @@ public class PlayerController : MonoBehaviour
             dashTimer = dashDuration;
             dashCooldownTimer = dashCooldown;
         }
+    }
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
+    {
+        if (!isDashing || hit.collider == null) return;
+
+        EnemyBase enemy = hit.collider.GetComponent<EnemyBase>() ?? hit.collider.GetComponentInParent<EnemyBase>();
+        if (enemy == null || !enemy.IsAlive) return;
+
+        int enemyId = enemy.GetInstanceID();
+        float now = Time.time;
+        if (dashHitTimes.TryGetValue(enemyId, out float lastHitTime) && now - lastHitTime < dashHitRepeatDelay)
+            return;
+        dashHitTimes[enemyId] = now;
+
+        Vector3 pushDir = enemy.transform.position - transform.position;
+        pushDir.y = 0f;
+        if (pushDir.sqrMagnitude < 0.0001f) pushDir = dashDirection;
+        if (pushDir.sqrMagnitude < 0.0001f) pushDir = transform.forward;
+
+        enemy.ApplyDashKnockback(pushDir.normalized, enemyDashKnockbackDistance);
     }
 
     public bool IsDashing => isDashing;
