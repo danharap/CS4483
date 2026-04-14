@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using System.Collections;
@@ -67,10 +68,10 @@ public class MainMenuManager : MonoBehaviour
 
     void Start()
     {
-        newGameButton?.onClick.AddListener(OnNewGame);
-        loadGameButton?.onClick.AddListener(OnLoadGame);
-        settingsButton?.onClick.AddListener(OnSettings);
-        playButton?.onClick.AddListener(OnNewGame);
+        WireMenuButton(newGameButton, OnNewGame);
+        WireMenuButton(loadGameButton, OnLoadGame);
+        WireMenuButton(settingsButton, OnSettings);
+        WireMenuButton(playButton, OnNewGame);
 
         bool hasSave = PlayerPrefs.GetInt("Meta_AccountLevel", 0) >= 1;
         if (loadGameButton != null)
@@ -84,6 +85,18 @@ public class MainMenuManager : MonoBehaviour
         RotateLore();
         StartCoroutine(PulseTitle());
         StartCoroutine(CycleLore());
+    }
+
+    static void WireMenuButton(Button b, UnityEngine.Events.UnityAction action)
+    {
+        if (b == null || action == null) return;
+        b.onClick.AddListener(GameAudio.PlayButtonClick);
+        b.onClick.AddListener(action);
+        EventTrigger et = b.gameObject.GetComponent<EventTrigger>();
+        if (et == null) et = b.gameObject.AddComponent<EventTrigger>();
+        var hover = new EventTrigger.Entry { eventID = EventTriggerType.PointerEnter };
+        hover.callback.AddListener(_ => GameAudio.PlayButtonHover());
+        et.triggers.Add(hover);
     }
 
     private Button FindButtonByName(string goName)

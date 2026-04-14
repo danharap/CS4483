@@ -21,7 +21,7 @@ public class PlayerWeapon : MonoBehaviour
     
     [Header("Audio")]
     [SerializeField] private AudioClip shootSound;
-    [SerializeField] [Range(0f, 1f)] private float shootVolume = 0.06f;
+    [SerializeField] [Range(0f, 1f)] private float shootVolume = 0.35f;
 
     // ── State ─────────────────────────────────────────────────────────────
     private float fireTimer;
@@ -57,6 +57,10 @@ public class PlayerWeapon : MonoBehaviour
 
     void Start()
     {
+        AudioClip weaponRes = Resources.Load<AudioClip>("SFX/WeaponEffect");
+        if (weaponRes != null)
+            shootSound = weaponRes;
+
         // Setup audio source for shooting sounds
         audioSource = gameObject.AddComponent<AudioSource>();
         audioSource.playOnAwake = false;

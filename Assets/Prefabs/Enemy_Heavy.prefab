@@ -183,7 +183,7 @@ MonoBehaviour:
   xpOrbPrefab: {fileID: 8720562913696471881, guid: 3e88ce5d175b2554db27ef7457434388, type: 3}
   healthPackPrefab: {fileID: 3177712733745365332, guid: 9c26492b5f450c643b666f1c147d5f5b, type: 3}
   healthPackDropChance: 0.1
-  deathSound: {fileID: 8300000, guid: fc6f79d2f98db4596b98804d2a93b5ca, type: 3}
+  deathSound: {fileID: 8300000, guid: 64ad3ceb12b61b80204a3b7bc0cc58bf, type: 3}
   deathVolume: 0.5
   damageNumberPrefab: {fileID: 7687715987023145794, guid: 6ffd80c52447ca049bdcf42f0fc7a4ec, type: 3}
 --- !u!114 &5580873534754896022

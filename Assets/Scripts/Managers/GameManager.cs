@@ -35,8 +35,10 @@ public class GameManager : MonoBehaviour
     public PlayerXP PlayerXP { get; private set; }
 
     // ── State ─────────────────────────────────────────────────────────────
-    public enum GameState { Playing, PausedForUpgrade, GameOver }
+    public enum GameState { Playing, Paused, PausedForUpgrade, GameOver }
     public GameState State { get; private set; } = GameState.Playing;
+
+    PauseMenu pauseMenu;
 
     // ── Stats tracked for game-over summary ──────────────────────────────
     public int TotalKills { get; private set; }
@@ -56,6 +58,13 @@ public class GameManager : MonoBehaviour
             PlayerWeapon = playerObject.GetComponent<PlayerWeapon>();
             PlayerXP = playerObject.GetComponent<PlayerXP>();
         }
+
+        if (GetComponent<GameplayMusicController>() == null)
+            gameObject.AddComponent<GameplayMusicController>();
+
+        pauseMenu = GetComponent<PauseMenu>();
+        if (pauseMenu == null)
+            pauseMenu = gameObject.AddComponent<PauseMenu>();
     }
 
     void Start()
@@ -85,6 +94,29 @@ public class GameManager : MonoBehaviour
 
         if (MainMenuManager.ShouldRunTutorial)
             StartCoroutine(AutoStartTutorial());
+
+        StartCoroutine(DeferredEntryAudio());
+    }
+
+    /// <summary>After one frame (so tutorial transition can disable lobby), play entry stinger and lobby BGM if still in lobby.</summary>
+    private IEnumerator DeferredEntryAudio()
+    {
+        yield return null;
+        GameAudio.PlayGameStart();
+        if (lobbyLevelRoot == null)
+        {
+            foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                if (root.name == "=== LEVEL (Lobby) ===")
+                {
+                    lobbyLevelRoot = root;
+                    break;
+                }
+            }
+        }
+
+        if (lobbyLevelRoot != null && lobbyLevelRoot.activeInHierarchy)
+            GameplayMusicController.Instance?.PlayLobby();
     }
 
     private IEnumerator AutoStartTutorial()
@@ -120,6 +152,23 @@ public class GameManager : MonoBehaviour
         Time.timeScale = 1f;
     }
 
+    /// <summary>Escape / pause menu: freezes gameplay (distinct from upgrade pick).</summary>
+    public void PauseGameMenu()
+    {
+        if (State != GameState.Playing) return;
+        State = GameState.Paused;
+        Time.timeScale = 0f;
+        pauseMenu?.Show();
+    }
+
+    public void ResumeGameMenu()
+    {
+        if (State != GameState.Paused) return;
+        pauseMenu?.Hide();
+        State = GameState.Playing;
+        Time.timeScale = 1f;
+    }
+
     // ── Game Over Flow ────────────────────────────────────────────────────
 
     private void HandlePlayerDeath()
@@ -131,6 +180,8 @@ public class GameManager : MonoBehaviour
 
         HighScoreManager.Instance?.SubmitRun(WavesCleared, timeSurvived, TotalKills);
         logger?.LogSummary(timeSurvived, WavesCleared, TotalKills);
+
+        GameplayMusicController.Instance?.StopMusic();
 
         // Pause time and show the respawn overlay
         Time.timeScale = 0f;
@@ -244,6 +295,8 @@ public class GameManager : MonoBehaviour
 
         // ── Refresh HUD stats ─────────────────────────────────────────────────
         hudManager?.UpdateWaveNumber(1);
+
+        GameplayMusicController.Instance?.PlayLobby();
     }
 
     /// <summary>
@@ -253,6 +306,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void ShowVictoryScreen()
     {
+        GameplayMusicController.Instance?.StopMusic();
+
         ClearTransientArenaEntities();
 
         if (victoryUI == null)

@@ -32,9 +32,17 @@ public class GameOverUI : MonoBehaviour
         {
             var label = restartButton.GetComponentInChildren<TMP_Text>();
             if (label != null) label.text = "RESPAWN";
-            restartButton.onClick.AddListener(() => GameManager.Instance?.RespawnToLobby());
+            restartButton.onClick.AddListener(() =>
+            {
+                GameAudio.PlayButtonClick();
+                GameManager.Instance?.RespawnToLobby();
+            });
         }
-        menuButton?.onClick.AddListener(() => GameManager.Instance?.GoToMainMenu());
+        menuButton?.onClick.AddListener(() =>
+        {
+            GameAudio.PlayButtonClick();
+            GameManager.Instance?.GoToMainMenu();
+        });
     }
 
     public void Show(float timeSurvived, int wavesCleared, int totalKills)

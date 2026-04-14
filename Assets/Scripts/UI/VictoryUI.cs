@@ -22,6 +22,7 @@ public class VictoryUI : MonoBehaviour
 
         returnButton?.onClick.AddListener(() =>
         {
+            GameAudio.PlayButtonClick();
             Hide();
             GameManager.Instance?.RespawnToLobby();
         });

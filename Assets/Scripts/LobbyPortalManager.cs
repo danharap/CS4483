@@ -82,6 +82,8 @@ public class LobbyPortalManager : MonoBehaviour
 
         // ── Start waves ───────────────────────────────────────────────────
         GameManager.Instance?.WaveManager?.BeginWaves();
+
+        GameplayMusicController.Instance?.PlayArena1();
     }
 
     /// <summary>

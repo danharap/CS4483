@@ -427,14 +427,13 @@ public class TutorialManager : MonoBehaviour
         ApplyDialogueSpeaker(devil: false);
 
         // Spawn demo traps in the corridor just past gate 3 (x=-10).
-        // SpikeTrap on the left, FlameTrap on the right — side by side so the
-        // player can see both warning rings at a safe distance.
+        // SpikeTrap (telegraphed ring) on the left; FlameTrap on the right for side-by-side comparison.
         float cz            = FindCz();
         Vector3 spikePos    = new Vector3(-5.5f, 0.05f, cz - 1.2f);
         Vector3 flamePos    = new Vector3(-3.0f, 0.05f, cz + 1.2f);
 
-        GameObject spikeGo  = SpawnDemoTrap<SpikeTrap>(spikePos);
-        GameObject flameGo  = SpawnDemoTrap<FlameTrap>(flamePos);
+        GameObject spikeGo  = SpawnDemoTelegraphedTrap<SpikeTrap>(spikePos);
+        GameObject flameGo  = SpawnDemoFlameTrap(flamePos);
 
         // ── Spike trap section ────────────────────────────────────────────
         SetText("Before you go — look at the floor ahead.");
@@ -472,28 +471,33 @@ public class TutorialManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Spawns a demo trap GameObject, configures its cycle to be snappier so the
-    /// player sees the warning ring and activation within a few seconds.
+    /// Spike-style demo: telegraphed warn ring + fast cycle timings.
     /// </summary>
-    private static GameObject SpawnDemoTrap<T>(Vector3 position) where T : MonoBehaviour
+    private static GameObject SpawnDemoTelegraphedTrap<T>(Vector3 position) where T : TelegraphedArenaTrap
     {
-        GameObject go = new GameObject($"DemoTrap_{typeof(T).Name}");
-        go.transform.position = position;
+        GameObject go = NewDemoTrapRoot($"DemoTrap_{typeof(T).Name}", position);
+        T trap = go.AddComponent<T>();
+        trap.SetDemoCycleTimings();
+        return go;
+    }
 
-        // Sphere trigger collider — needed by ArenaTrap damage checks but set
-        // to a tiny radius so the demo trap cannot hurt the player unless they
-        // walk directly into it.
+    /// <summary>
+    /// Flame trap in arenas is trigger-based (no telegraph base); tutorial only needs a visible instance.
+    /// </summary>
+    private static GameObject SpawnDemoFlameTrap(Vector3 position)
+    {
+        GameObject go = NewDemoTrapRoot("DemoTrap_FlameTrap", position);
+        go.AddComponent<FlameTrap>();
+        return go;
+    }
+
+    private static GameObject NewDemoTrapRoot(string objectName, Vector3 position)
+    {
+        GameObject go = new GameObject(objectName);
+        go.transform.position = position;
         SphereCollider col = go.AddComponent<SphereCollider>();
         col.isTrigger = true;
         col.radius    = 0.5f;
-
-        T trap = go.AddComponent<T>();
-
-        // Shorten initial delay and cooldown so the warn ring appears quickly.
-        // AddComponent defers Start() to the next frame, so SendMessage here
-        // fires before Start() and the updated values are used by TrapCycle().
-        trap.SendMessage("SetDemoCycleTimings", SendMessageOptions.DontRequireReceiver);
-
         return go;
     }
 

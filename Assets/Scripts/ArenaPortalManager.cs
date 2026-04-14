@@ -297,6 +297,8 @@ public class ArenaPortalManager : MonoBehaviour
         // Show arrival message
         GameManager.Instance?.HUD?.ShowTransition("You enter the Nether Colosseum…");
 
+        GameplayMusicController.Instance?.PlayArena2();
+
         // Briefly lock movement so the arrival moment reads cleanly, then unlock
         yield return new WaitForSeconds(arrivalLockDuration);
         if (pc != null) pc.enabled = true;

@@ -38,6 +38,7 @@ public static class SetupAll
     private static VictoryUI        victoryUIComp;
     private static SkillTreeUI      skillTreeUIComp;
     private static LobbyMerchant    lobbyMerchantComp;
+    private static GameplayMusicController musicComp;
     private static Transform[]      spawnPointTransforms;
 
     // UI
@@ -257,6 +258,10 @@ public static class SetupAll
         // MANAGERS object keeps it tidy and easy to find in the hierarchy.
         if (mgr.GetComponent<AccountProgression>() == null)
             mgr.AddComponent<AccountProgression>();
+        if (mgr.GetComponent<GameplayMusicController>() == null)
+            musicComp = mgr.AddComponent<GameplayMusicController>();
+        else
+            musicComp = mgr.GetComponent<GameplayMusicController>();
     }
 
     // ── Step 6: Player ────────────────────────────────────────────────────
@@ -596,6 +601,28 @@ public static class SetupAll
         Wire(gmComp, "arena1LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) ==="));
         Wire(gmComp, "arena2LevelRoot", GameObject.Find("=== LEVEL (ProBuilder) Arena2 ==="));
 
+        // ── Gameplay music (Arena 1 / 2 / mini-boss / Satan) ───────────────
+        if (musicComp == null)
+        {
+            GameObject mgrGo = GameObject.Find("=== MANAGERS ===");
+            if (mgrGo != null) musicComp = mgrGo.GetComponent<GameplayMusicController>();
+        }
+        if (musicComp != null)
+        {
+            AudioClip muLobby = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Music/LobbyMusic.mp3");
+            AudioClip muA1 = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Music/Arena1.mp3");
+            AudioClip muA2 = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Music/Arena2.mp3");
+            AudioClip muB1 = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Music/Boss1.mp3");
+            AudioClip muFB = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/Music/FinalBoss.mp3");
+            var soMu = new SerializedObject(musicComp);
+            soMu.FindProperty("lobbyMusic").objectReferenceValue     = muLobby;
+            soMu.FindProperty("arena1Music").objectReferenceValue    = muA1;
+            soMu.FindProperty("arena2Music").objectReferenceValue    = muA2;
+            soMu.FindProperty("boss1Music").objectReferenceValue     = muB1;
+            soMu.FindProperty("finalBossMusic").objectReferenceValue = muFB;
+            soMu.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         // ── WaveManager ───────────────────────────────────────────────────
         Wire(wmComp, "spawner", esComp);
 
@@ -843,8 +870,12 @@ public static class SetupAll
         GameObject xpOrbPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/XPOrb.prefab");
         GameObject healthPackPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/HealthPack.prefab");
         GameObject damageNumberPrefab = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Prefabs/DamageNumber.prefab");
-        AudioClip deathSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aDeath.wav");
-        AudioClip bulletSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aBullet.wav");
+        AudioClip deathSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/SFX/EnemyDeath.mp3");
+        if (deathSound == null)
+            deathSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aDeath.wav");
+        AudioClip bulletSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Resources/SFX/WeaponEffect.mp3");
+        if (bulletSound == null)
+            bulletSound = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/Audio/aBullet.wav");
 
         if (xpOrbPrefab == null) { Debug.LogWarning("[SetupAll] XPOrb prefab not found."); return; }
         if (healthPackPrefab == null) { Debug.LogWarning("[SetupAll] HealthPack prefab not found."); }
@@ -854,7 +885,8 @@ public static class SetupAll
             "Assets/Prefabs/Enemy_Chaser.prefab",
             "Assets/Prefabs/Enemy_Fast.prefab",
             "Assets/Prefabs/Enemy_Boss.prefab",
-            "Assets/Prefabs/Enemy_Heavy.prefab"
+            "Assets/Prefabs/Enemy_Heavy.prefab",
+            "Assets/Prefabs/Enemy_BigBat.prefab"
         };
         foreach (string path in enemyPaths)
         {

@@ -114,6 +114,8 @@ public class TutorialRoomManager : MonoBehaviour
             TutorialManager.Instance.TransitionToLobby();
         else
             Debug.LogWarning("[TutorialRoomManager] TutorialManager.Instance is null on exit.");
+
+        GameplayMusicController.Instance?.PlayLobby();
     }
 
     private void EnsureRuntimeTutorialIfMissing()
