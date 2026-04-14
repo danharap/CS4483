@@ -3,76 +3,81 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Arena 2 flame trap. When the player steps on it, they receive burn damage
-/// as repeating ticks for a short duration. Unlike the spike trap there is no
-/// stun. The flame animation plays continuously (fire is always lit).
+/// Arena flame trap. Warn ring → active window with repeating fire damage inside radius → cooldown.
+/// Fire visuals run only during the active phase (warning shows the orange ring only).
 /// Auto-initializes its TrapSpriteAnimator from Resources if one isn't wired in the Inspector.
 /// </summary>
 [RequireComponent(typeof(Collider))]
-public class FlameTrap : MonoBehaviour
+public class FlameTrap : TelegraphedArenaTrap
 {
     [Header("Burn Effect")]
-    [Tooltip("Damage applied each burn tick.")]
-    [SerializeField] private float damagePerTick  = 5f;
-    [Tooltip("Seconds between each damage tick.  Should be >= PlayerHealth.iFramesDuration.")]
-    [SerializeField] private float tickInterval   = 0.6f;
-    [Tooltip("Total seconds the player burns after stepping on the trap.")]
-    [SerializeField] private float burnDuration   = 3f;
-    [Tooltip("How long before this trap can burn the same player again.")]
-    [SerializeField] private float triggerCooldown = 4f;
+    [Tooltip("Damage applied each tick while the player stays inside the active radius.")]
+    [SerializeField] private float damagePerTick = 5f;
+    [Tooltip("Seconds between damage ticks when player stays inside.")]
+    [SerializeField] private float tickInterval  = 0.6f;
+    [Tooltip("Radius used for damage checks. Should match warnRadius.")]
+    [SerializeField] private float damageRadius  = 1.2f;
 
     [Header("Flame Animation")]
-    [SerializeField] public TrapSpriteAnimator spriteAnimator;
+    [SerializeField] private TrapSpriteAnimator spriteAnimator;
 
-    private float cooldownTimer;
-    private Coroutine burnRoutine;
+    private Coroutine damageLoop;
 
     void Awake()
     {
-        // Self-initialize if the spriteAnimator wasn't wired via the Inspector / SpriteSetup.
         if (spriteAnimator == null)
             spriteAnimator = EnsureAnimator();
     }
 
-    void Start()
+    protected override void Start()
     {
-        // Fire is always burning — start the animation immediately.
+        initialDelay = Random.Range(0f, cooldownDuration);
+        warnRadius   = damageRadius;
+        warnColor    = new Color(1f, 0.45f, 0.05f, 0.55f);
+        base.Start();
+    }
+
+    protected override void OnWarnStart()
+    {
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(false);
+    }
+
+    protected override void OnActivate()
+    {
         if (spriteAnimator != null)
             spriteAnimator.SetActive(true);
+
+        if (damageLoop != null) StopCoroutine(damageLoop);
+        damageLoop = StartCoroutine(DamageTick());
     }
 
-    void OnTriggerEnter(Collider other)
+    protected override void OnDeactivate()
     {
-        if (!other.CompareTag("Player")) return;
-        if (cooldownTimer > 0f) return;
-
-        PlayerHealth health = other.GetComponent<PlayerHealth>();
-        if (health == null) return;
-
-        if (burnRoutine != null) StopCoroutine(burnRoutine);
-        burnRoutine = StartCoroutine(BurnPlayer(health));
-        cooldownTimer = triggerCooldown;
+        if (spriteAnimator != null)
+            spriteAnimator.SetActive(false);
+        if (damageLoop != null) { StopCoroutine(damageLoop); damageLoop = null; }
     }
 
-    private IEnumerator BurnPlayer(PlayerHealth health)
+    private IEnumerator DamageTick()
     {
-        float elapsed = 0f;
-        while (elapsed < burnDuration)
+        while (isActive)
         {
-            if (health == null) yield break;
-            health.TakeDamage(damagePerTick);
-            elapsed += tickInterval;
+            DamagePlayersInRadius();
             yield return new WaitForSeconds(tickInterval);
         }
     }
 
-    void Update()
+    private void DamagePlayersInRadius()
     {
-        if (cooldownTimer > 0f)
-            cooldownTimer -= Time.deltaTime;
+        Collider[] hits = Physics.OverlapSphere(transform.position, damageRadius);
+        foreach (Collider c in hits)
+        {
+            if (!c.CompareTag("Player")) continue;
+            PlayerHealth ph = c.GetComponent<PlayerHealth>();
+            if (ph != null) ph.TakeDamage(damagePerTick);
+        }
     }
-
-    // ── Visual self-init ───────────────────────────────────────────────────
 
     private TrapSpriteAnimator EnsureAnimator()
     {

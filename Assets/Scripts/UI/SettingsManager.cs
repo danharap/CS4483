@@ -6,9 +6,8 @@ using TMPro;
 /// Settings panel — accessible from the main menu or the pause menu.
 ///
 /// Manages:
-///   • Master / SFX / Music volume sliders  (data only — no audio hookup required)
-///   • Basic key-rebinding display (read-only placeholders; actual rebinding is a
-///     future task requiring an Input System upgrade)
+///   • Master / SFX / Music volume sliders (read by <see cref="GameAudio"/>, <see cref="GameplayMusicController"/>)
+///   • Basic key-rebinding display (read-only placeholders)
 ///   • Saves / loads all values via PlayerPrefs
 ///
 /// Usage:
@@ -35,6 +34,12 @@ public class SettingsManager : MonoBehaviour
 
     [Header("Close")]
     [SerializeField] private Button   closeButton;
+
+    /// <summary>Runtime-built panel root (sibling of this component after EnsurePanel reparents the manager).</summary>
+    GameObject settingsPanelRoot;
+
+    bool slidersHooked;
+    bool closeHooksBound;
 
     // ── Defaults ──────────────────────────────────────────────────────────
     private const float DefaultMaster = 0.8f;
@@ -66,26 +71,59 @@ public class SettingsManager : MonoBehaviour
         Load();
     }
 
-    void Start()
+    void Start() => InitializeIfNeeded();
+
+    void InitializeIfNeeded()
     {
         EnsurePanel();
-        ApplyToSliders();
-        HookSliders();
-        if (closeButton != null) closeButton.onClick.AddListener(Hide);
+        if (!slidersHooked)
+        {
+            HookSliders();
+            slidersHooked = true;
+        }
+
+        BindCloseButtonIfNeeded();
+    }
+
+    void BindCloseButtonIfNeeded()
+    {
+        if (closeButton == null) return;
+        if (closeHooksBound) return;
+        closeButton.onClick.AddListener(GameAudio.PlayButtonClick);
+        closeButton.onClick.AddListener(Hide);
+        closeHooksBound = true;
     }
 
     // ── Public API ────────────────────────────────────────────────────────
 
     public void Show()
     {
+        InitializeIfNeeded();
+        ResolveSettingsPanelRoot();
+        if (settingsPanelRoot != null)
+        {
+            settingsPanelRoot.SetActive(true);
+            settingsPanelRoot.transform.SetAsLastSibling();
+        }
+
         gameObject.SetActive(true);
         ApplyToSliders();
+        BindCloseButtonIfNeeded();
     }
 
     public void Hide()
     {
         Save();
+        ResolveSettingsPanelRoot();
+        if (settingsPanelRoot != null)
+            settingsPanelRoot.SetActive(false);
         gameObject.SetActive(false);
+    }
+
+    void ResolveSettingsPanelRoot()
+    {
+        if (settingsPanelRoot != null) return;
+        settingsPanelRoot = GameObject.Find("SettingsPanel");
     }
 
     // ── Persistence ───────────────────────────────────────────────────────
@@ -138,10 +176,11 @@ public class SettingsManager : MonoBehaviour
         Canvas canvas = FindCanvas();
         if (canvas == null) return;
 
-        // Outer panel
+        // Outer panel (tall enough for key bindings + footer above close)
         GameObject panel = BuildImage(canvas.transform, "SettingsPanel",
             new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f),
-            Vector2.zero, 460f, 380f, ColPanel);
+            Vector2.zero, 480f, 560f, ColPanel);
+        settingsPanelRoot = panel;
 
         // Title
         TMP_Text title = BuildLabel(panel.transform, "SettingsTitle",
@@ -155,21 +194,21 @@ public class SettingsManager : MonoBehaviour
             new Vector2(0.05f, 1f), new Vector2(0.95f, 1f), new Vector2(0.5f, 1f),
             new Vector2(0f, -56f), 0f, 2f, ColBorder);
 
-        // Volume sliders
-        float y = -80f;
+        // Volume sliders (below title / divider)
+        float y = -88f;
         (masterSlider, masterLabel) = BuildSliderRow(panel.transform, "Master", y);
         y -= 70f;
         (sfxSlider, sfxLabel)       = BuildSliderRow(panel.transform, "SFX", y);
         y -= 70f;
         (musicSlider, musicLabel)   = BuildSliderRow(panel.transform, "Music", y);
-        y -= 70f;
+        y -= 52f; // tighter gap before key bindings so the block sits higher
 
         // Key bindings placeholder section
         TMP_Text bindTitle = BuildLabel(panel.transform, "BindTitle",
             new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f),
             new Vector2(0f, y), 16f, ColBorder, TextAlignmentOptions.Center);
         bindTitle.text = "KEY BINDINGS";
-        y -= 28f;
+        y -= 32f;
 
         string[] binds = { "Move  WASD", "Aim  Mouse", "Shoot  LMB", "Dash  Left Shift" };
         foreach (string b in binds)
@@ -178,16 +217,16 @@ public class SettingsManager : MonoBehaviour
                 new Vector2(0.1f, 1f), new Vector2(0.9f, 1f), new Vector2(0.5f, 1f),
                 new Vector2(0f, y), 13f, ColText, TextAlignmentOptions.Center);
             bt.text = b;
-            y -= 22f;
+            bt.enableWordWrapping = false;
+            y -= 24f;
         }
 
-        // Close button
+        // Close button — high enough from bottom to clear the last key line
         GameObject closeGo = BuildImage(panel.transform, "CloseButton",
             new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f),
-            new Vector2(0f, 20f), 120f, 36f, new Color(0.65f, 0.15f, 0.15f));
+            new Vector2(0f, 96f), 120f, 36f, new Color(0.65f, 0.15f, 0.15f));
         closeButton = closeGo.AddComponent<Button>();
         closeButton.targetGraphic = closeGo.GetComponent<Image>();
-        closeButton.onClick.AddListener(Hide);
         TMP_Text closeTxt = BuildLabel(closeGo.transform, "CloseTxt",
             Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
             Vector2.zero, 15f, Color.white, TextAlignmentOptions.Center);
@@ -195,49 +234,64 @@ public class SettingsManager : MonoBehaviour
 
         // Redirect refs to the panel children.
         gameObject.transform.SetParent(panel.transform.parent, false);
+
+        BindCloseButtonIfNeeded();
     }
 
     private (Slider, TMP_Text) BuildSliderRow(Transform parent, string name, float anchoredY)
     {
-        float rowW = 400f, rowH = 40f;
+        const float rowH = 48f;
+        const float labelW = 112f;
+        const float pad = 16f;
 
-        // Label
-        TMP_Text lbl = BuildLabel(parent, name + "Label",
-            new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),
-            new Vector2(24f, anchoredY), 15f, ColText, TextAlignmentOptions.Left);
+        GameObject row = new GameObject(name + "_Row");
+        row.transform.SetParent(parent, false);
+        RectTransform rowRt = row.AddComponent<RectTransform>();
+        rowRt.anchorMin = new Vector2(0f, 1f);
+        rowRt.anchorMax = new Vector2(1f, 1f);
+        rowRt.pivot = new Vector2(0.5f, 1f);
+        rowRt.anchoredPosition = new Vector2(0f, anchoredY);
+        rowRt.sizeDelta = new Vector2(-2f * pad, rowH);
+
+        TMP_Text lbl = BuildLabel(row.transform, name + "Label",
+            new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f),
+            new Vector2(pad, 0f), 15f, ColText, TextAlignmentOptions.MidlineLeft);
         lbl.text = $"{name}  0%";
+        lbl.enableWordWrapping = false;
+        lbl.rectTransform.sizeDelta = new Vector2(labelW, 28f);
 
-        // Slider
         GameObject sliderGo = new GameObject(name + "Slider");
-        sliderGo.transform.SetParent(parent, false);
+        sliderGo.transform.SetParent(row.transform, false);
         Slider s = sliderGo.AddComponent<Slider>();
         s.minValue   = 0f;
         s.maxValue   = 1f;
         s.value      = 1f;
         RectTransform sRt = sliderGo.GetComponent<RectTransform>();
-        sRt.anchorMin = new Vector2(0.05f, 1f); sRt.anchorMax = new Vector2(0.95f, 1f);
-        sRt.pivot     = new Vector2(0.5f, 1f);
-        sRt.anchoredPosition = new Vector2(0f, anchoredY - 20f);
-        sRt.sizeDelta = new Vector2(0f, 18f);
+        sRt.anchorMin = new Vector2(0f, 0.5f);
+        sRt.anchorMax = new Vector2(1f, 0.5f);
+        sRt.pivot     = new Vector2(0.5f, 0.5f);
+        sRt.anchoredPosition = Vector2.zero;
+        sRt.offsetMin = new Vector2(pad + labelW + 12f, -10f);
+        sRt.offsetMax = new Vector2(-pad, 10f);
 
-        // Background
         GameObject bg = BuildImage(sliderGo.transform, "BG",
             Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
             Vector2.zero, 0f, 0f, new Color(0.12f, 0.12f, 0.15f));
 
-        // Fill area
-        GameObject fa = new GameObject("FillArea"); fa.transform.SetParent(sliderGo.transform, false);
+        GameObject fa = new GameObject("FillArea");
+        fa.transform.SetParent(sliderGo.transform, false);
         RectTransform faRt = fa.AddComponent<RectTransform>();
-        faRt.anchorMin = Vector2.zero; faRt.anchorMax = Vector2.one;
-        faRt.offsetMin = new Vector2(2f, 2f); faRt.offsetMax = new Vector2(-2f, -2f);
+        faRt.anchorMin = Vector2.zero;
+        faRt.anchorMax = Vector2.one;
+        faRt.offsetMin = new Vector2(2f, 2f);
+        faRt.offsetMax = new Vector2(-2f, -2f);
 
-        // Fill
         GameObject fill = BuildImage(fa.transform, "Fill",
             Vector2.zero, Vector2.one, new Vector2(0.5f, 0.5f),
             Vector2.zero, 0f, 0f, ColFill);
-        s.fillRect          = fill.GetComponent<RectTransform>();
-        s.targetGraphic     = fill.GetComponent<Image>();
-        s.interactable      = true;
+        s.fillRect       = fill.GetComponent<RectTransform>();
+        s.targetGraphic  = fill.GetComponent<Image>();
+        s.interactable   = true;
 
         return (s, lbl);
     }
@@ -278,12 +332,30 @@ public class SettingsManager : MonoBehaviour
         txt.fontSize  = fontSize;
         txt.color     = color;
         txt.alignment = alignment;
+        txt.enableWordWrapping = false;
+        txt.overflowMode = TextOverflowModes.Overflow;
         RectTransform rt = txt.GetComponent<RectTransform>();
         rt.anchorMin        = anchorMin;
         rt.anchorMax        = anchorMax;
         rt.pivot            = pivot;
         rt.anchoredPosition = anchoredPos;
         rt.sizeDelta        = Vector2.zero;
+
+        // Same anchor point → zero area unless sizeDelta is set (TMP stacks one character per line).
+        if (Mathf.Approximately(anchorMin.x, anchorMax.x) && Mathf.Approximately(anchorMin.y, anchorMax.y))
+        {
+            if (rt.sizeDelta.sqrMagnitude < 0.01f)
+                rt.sizeDelta = new Vector2(Mathf.Max(140f, fontSize * 8f), fontSize + 12f);
+        }
+        else if (Mathf.Approximately(anchorMin.y, anchorMax.y) && rt.sizeDelta.y < 1f)
+        {
+            rt.sizeDelta = new Vector2(rt.sizeDelta.x, fontSize + 10f);
+        }
+        else if (Mathf.Approximately(anchorMin.x, anchorMax.x) && rt.sizeDelta.x < 1f)
+        {
+            rt.sizeDelta = new Vector2(Mathf.Max(100f, fontSize * 6f), rt.sizeDelta.y);
+        }
+
         return txt;
     }
 }

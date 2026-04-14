@@ -6,7 +6,7 @@ using UnityEngine;
 /// Works with or without a TrapSpriteAnimator child.
 /// The trap deals damage every tick while the player stays inside the active area.
 /// </summary>
-public class SpikeTrap : ArenaTrap
+public class SpikeTrap : TelegraphedArenaTrap
 {
     [Header("Spike Stats")]
     [Tooltip("Damage per hit while player is inside the active radius.")]

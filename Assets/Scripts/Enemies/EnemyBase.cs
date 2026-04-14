@@ -71,6 +71,10 @@ public abstract class EnemyBase : MonoBehaviour
 
         renderers = GetComponentsInChildren<Renderer>();
         CacheColors();
+
+        AudioClip deathRes = Resources.Load<AudioClip>("SFX/EnemyDeath");
+        if (deathRes != null)
+            deathSound = deathRes;
     }
 
     protected virtual void OnEnable()

@@ -17,6 +17,7 @@ public class RespawnUI : MonoBehaviour
 
         respawnButton?.onClick.AddListener(() =>
         {
+            GameAudio.PlayButtonClick();
             Hide();
             GameManager.Instance?.RespawnToLobby();
         });

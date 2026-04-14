@@ -46,9 +46,9 @@ public class UpgradeUI : MonoBehaviour
         
         if (upgradePanel) upgradePanel.SetActive(false);
 
-        card0Button?.onClick.AddListener(() => SelectUpgrade(0));
-        card1Button?.onClick.AddListener(() => SelectUpgrade(1));
-        card2Button?.onClick.AddListener(() => SelectUpgrade(2));
+        card0Button?.onClick.AddListener(() => { GameAudio.PlayButtonClick(); SelectUpgrade(0); });
+        card1Button?.onClick.AddListener(() => { GameAudio.PlayButtonClick(); SelectUpgrade(1); });
+        card2Button?.onClick.AddListener(() => { GameAudio.PlayButtonClick(); SelectUpgrade(2); });
     }
 
     public void Show(bool forceRare)
