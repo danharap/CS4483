@@ -97,6 +97,28 @@ using UnityEngine;
         activeEnemies = 0;
     }
 
+    /// <summary>
+    /// Restarts the wave coroutine from a saved wave index (cloud load). Does not spawn leftover enemies from before save.
+    /// </summary>
+    public void PrepareRestoreFromSave(int savedWaveIndex, bool resumeWaves)
+    {
+        StopAllCoroutines();
+        WaveIndex     = Mathf.Max(0, savedWaveIndex);
+        WaveTimer     = 0f;
+        IsBreak       = false;
+        IsBossWave    = false;
+        HasStarted    = false;
+        wavesRunning  = false;
+        activeEnemies = 0;
+
+        if (resumeWaves && CanRunCombatWaves())
+        {
+            wavesRunning = true;
+            HasStarted   = true;
+            StartCoroutine(WaveLoop());
+        }
+    }
+
     // ── Main Loop ─────────────────────────────────────────────────────────
 
     private IEnumerator WaveLoop()

@@ -39,6 +39,9 @@ public class MainMenuManager : MonoBehaviour
     /// </summary>
     public static bool ShouldRunTutorial { get; private set; }
 
+    /// <summary>Used when hydrating a cloud save so tutorial auto-start matches save data.</summary>
+    public static void SetShouldRunTutorialForLoadedSave(bool runTutorial) => ShouldRunTutorial = runTutorial;
+
     private static readonly string[] LoreLines = {
         "\"Many warriors have entered the Fractured Grounds. None have broken the cycle.\"\n-- Watcher Nara",
         "\"The Shard of Chaos shattered more than walls. It shattered time.\"\n-- Final entry, Architect's Log",
@@ -51,6 +54,9 @@ public class MainMenuManager : MonoBehaviour
 
     void Awake()
     {
+        if (GetComponent<MainMenuCloudPanel>() == null)
+            gameObject.AddComponent<MainMenuCloudPanel>();
+
         // Self-heal: find buttons by their GameObject name if serialized refs were lost
         if (newGameButton  == null) newGameButton  = FindButtonByName("NewGameButton");
         if (loadGameButton == null) loadGameButton = FindButtonByName("LoadGameButton");
@@ -121,13 +127,25 @@ public class MainMenuManager : MonoBehaviour
 
     void OnNewGame()
     {
+        CloudSaveRuntime.ActiveSaveId = null;
+        CloudSaveRuntime.PendingHydrate = null;
+        PlayerPrefs.SetInt("Meta_TutorialCompleted", 0);
+        PlayerPrefs.Save();
         ShouldRunTutorial = true;
         SceneManager.LoadScene(gameSceneName);
     }
 
     void OnLoadGame()
     {
+        CloudSaveRuntime.ActiveSaveId = null;
+        CloudSaveRuntime.PendingHydrate = null;
         ShouldRunTutorial = false;
+        SceneManager.LoadScene(gameSceneName);
+    }
+
+    /// <summary>Used by cloud saves after setting <see cref="CloudSaveRuntime.PendingHydrate"/>.</summary>
+    public void LoadMainSceneFromCloud()
+    {
         SceneManager.LoadScene(gameSceneName);
     }
 

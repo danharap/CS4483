@@ -137,4 +137,13 @@ public class PlayerHealth : MonoBehaviour
             damageOverlay.color = new Color(1f, 0f, 0f, 0f);
         OnHealthChanged?.Invoke(CurrentHP, maxHP);
     }
+
+    /// <summary>Restore HP/max from a cloud save snapshot (may differ from base after upgrades).</summary>
+    public void RestoreFromSave(float current, float max)
+    {
+        maxHP     = Mathf.Max(1f, max);
+        CurrentHP = Mathf.Clamp(current, 0f, maxHP);
+        iFramesTimer = 0f;
+        OnHealthChanged?.Invoke(CurrentHP, maxHP);
+    }
 }

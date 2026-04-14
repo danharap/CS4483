@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 /// <summary>
@@ -73,6 +74,34 @@ public class AccountProgression : MonoBehaviour
 
         Debug.Log($"[AccountProgression] Loaded: Level {AccountLevel}, MetaXP {MetaXP}, SP {SkillPoints}, Unlocked: {csv}");
     }
+
+    /// <summary>Replace meta-progression from a cloud save slot and mirror to PlayerPrefs.</summary>
+    public void OverwriteFromSave(AccountSaveBlock b)
+    {
+        if (b == null) return;
+        AccountLevel = Mathf.Max(1, b.accountLevel);
+        MetaXP       = Mathf.Max(0, b.metaXP);
+        TotalMetaXP  = Mathf.Max(0, b.totalMetaXP);
+        SkillPoints  = Mathf.Max(0, b.skillPoints);
+        UnlockedSkills = new HashSet<string>();
+        if (b.unlockedSkills != null)
+            foreach (var id in b.unlockedSkills)
+                if (!string.IsNullOrEmpty(id)) UnlockedSkills.Add(id);
+        Save();
+        FireProgressionChanged();
+    }
+
+    public AccountSaveBlock ExportSaveBlock() =>
+        new AccountSaveBlock
+        {
+            accountLevel = AccountLevel,
+            metaXP         = MetaXP,
+            totalMetaXP    = TotalMetaXP,
+            skillPoints    = SkillPoints,
+            unlockedSkills = UnlockedSkills.Count > 0
+                ? new List<string>(UnlockedSkills).ToArray()
+                : Array.Empty<string>()
+        };
 
     private void Save()
     {

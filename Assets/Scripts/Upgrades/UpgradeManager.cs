@@ -9,6 +9,13 @@ public class UpgradeManager : MonoBehaviour
 {
     public static UpgradeManager Instance { get; private set; }
 
+    /// <summary>Upgrade IDs applied during the current run (for cloud save snapshots).</summary>
+    public static IReadOnlyList<string> AppliedUpgradeIdsThisRun => _appliedThisRun;
+
+    private static readonly List<string> _appliedThisRun = new List<string>();
+
+    public static void ClearRunUpgradeHistory() => _appliedThisRun.Clear();
+
     void Awake()
     {
         if (Instance == null) Instance = this;
@@ -76,6 +83,9 @@ public class UpgradeManager : MonoBehaviour
     {
         var gm = GameManager.Instance;
         if (gm == null) return;
+
+        if (upgrade != null && !string.IsNullOrEmpty(upgrade.ID))
+            _appliedThisRun.Add(upgrade.ID);
 
         PlayerController ctrl   = gm.PlayerController;
         PlayerWeapon     weapon = gm.PlayerWeapon;

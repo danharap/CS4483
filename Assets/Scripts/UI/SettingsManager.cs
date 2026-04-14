@@ -69,7 +69,7 @@ public class SettingsManager : MonoBehaviour
     void Start()
     {
         EnsurePanel();
-        ApplyToSliders();
+        RefreshSliderDisplay();
         HookSliders();
         if (closeButton != null) closeButton.onClick.AddListener(Hide);
     }
@@ -79,7 +79,7 @@ public class SettingsManager : MonoBehaviour
     public void Show()
     {
         gameObject.SetActive(true);
-        ApplyToSliders();
+        RefreshSliderDisplay();
     }
 
     public void Hide()
@@ -105,6 +105,28 @@ public class SettingsManager : MonoBehaviour
         PlayerPrefs.Save();
     }
 
+    /// <summary>Apply per-save audio settings from cloud snapshot.</summary>
+    public static void ApplyFromSave(SettingsSaveBlock s)
+    {
+        if (s == null) return;
+        MasterVolume = Mathf.Clamp01(s.masterVolume);
+        SFXVolume    = Mathf.Clamp01(s.sfxVolume);
+        MusicVolume  = Mathf.Clamp01(s.musicVolume);
+        PlayerPrefs.SetFloat(KeyMasterVol, MasterVolume);
+        PlayerPrefs.SetFloat(KeySFXVol,    SFXVolume);
+        PlayerPrefs.SetFloat(KeyMusicVol,  MusicVolume);
+        PlayerPrefs.Save();
+        Instance?.RefreshSliderDisplay();
+    }
+
+    public static SettingsSaveBlock ExportSaveBlock() =>
+        new SettingsSaveBlock
+        {
+            masterVolume = MasterVolume,
+            sfxVolume    = SFXVolume,
+            musicVolume  = MusicVolume
+        };
+
     // ── Slider callbacks ──────────────────────────────────────────────────
 
     private void HookSliders()
@@ -114,7 +136,7 @@ public class SettingsManager : MonoBehaviour
         if (musicSlider)  musicSlider.onValueChanged.AddListener (v => { MusicVolume  = v; UpdateLabel(musicLabel,  "Music",  v); });
     }
 
-    private void ApplyToSliders()
+    public void RefreshSliderDisplay()
     {
         if (masterSlider) masterSlider.value = MasterVolume;
         if (sfxSlider)    sfxSlider.value    = SFXVolume;

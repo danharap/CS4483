@@ -59,6 +59,12 @@ public class PlayerController : MonoBehaviour
         velocity     = Vector3.zero;
     }
 
+    public void RestoreFromSave(float speed, float dashCd)
+    {
+        moveSpeed    = Mathf.Max(0.1f, speed);
+        dashCooldown = Mathf.Max(0.01f, dashCd);
+    }
+
     void Update()
     {
         if (stunTimer > 0f) stunTimer -= Time.deltaTime;
