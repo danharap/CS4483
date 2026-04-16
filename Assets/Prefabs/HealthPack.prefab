@@ -106,7 +106,7 @@ GameObject:
   - component: {fileID: 3317096542493605711}
   - component: {fileID: 840527824804904729}
   - component: {fileID: 2214958894659428990}
-  - component: {fileID: 7267894562348240231}
+  - component: {fileID: 1038484447538279767}
   m_Layer: 0
   m_Name: HealthPack
   m_TagString: Untagged
@@ -184,7 +184,7 @@ MonoBehaviour:
   pulseAmount: 0.7
   pulseSpeed: 1.6
   lightRange: 9
---- !u!114 &7267894562348240231
+--- !u!114 &1038484447538279767
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

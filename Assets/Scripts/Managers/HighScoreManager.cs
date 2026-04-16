@@ -71,6 +71,9 @@ public class HighScoreManager : MonoBehaviour
         }
 
         PlayerPrefs.Save();
+
+        if (LocalSaveRuntime.IsSignedIn)
+            LocalAccountDatabase.SaveAccountProfileFromRuntime(LocalSaveRuntime.ActiveUserId);
     }
 
     public bool HasAnyRecord() => BestWaves > 0 || BestTime > 0f || BestKills > 0;

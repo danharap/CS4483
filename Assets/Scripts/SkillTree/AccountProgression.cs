@@ -111,6 +111,9 @@ public class AccountProgression : MonoBehaviour
         PlayerPrefs.SetInt(KEY_SKILL_POINTS, SkillPoints);
         PlayerPrefs.SetString(KEY_UNLOCKED, string.Join(",", UnlockedSkills));
         PlayerPrefs.Save();
+
+        if (LocalSaveRuntime.IsSignedIn)
+            LocalAccountDatabase.SaveAccountProfileFromRuntime(LocalSaveRuntime.ActiveUserId);
     }
 
     // ── XP ────────────────────────────────────────────────────────────────

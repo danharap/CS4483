@@ -1230,7 +1230,6 @@ public static class SetupAll
 
         // Text sized to fit inside the button with padding; larger font, wraps in box
         const float textWidth = 190f;
-        const float pad = 14f;
         cardName = MakeTMP(go.transform, "CardName", new Vector2(0, 50), new Vector2(textWidth, 44), "Upgrade", 26);
         cardName.fontStyle = FontStyles.Bold;
         cardName.color = Color.black;

@@ -39,7 +39,7 @@ public class MainMenuManager : MonoBehaviour
     /// </summary>
     public static bool ShouldRunTutorial { get; private set; }
 
-    /// <summary>Used when hydrating a cloud save so tutorial auto-start matches save data.</summary>
+    /// <summary>Used when hydrating an account save so tutorial auto-start matches save data.</summary>
     public static void SetShouldRunTutorialForLoadedSave(bool runTutorial) => ShouldRunTutorial = runTutorial;
 
     private static readonly string[] LoreLines = {
@@ -54,8 +54,8 @@ public class MainMenuManager : MonoBehaviour
 
     void Awake()
     {
-        if (GetComponent<MainMenuCloudPanel>() == null)
-            gameObject.AddComponent<MainMenuCloudPanel>();
+        if (GetComponent<MainMenuLocalAccountPanel>() == null)
+            gameObject.AddComponent<MainMenuLocalAccountPanel>();
 
         // Self-heal: find buttons by their GameObject name if serialized refs were lost
         if (newGameButton  == null) newGameButton  = FindButtonByName("NewGameButton");
@@ -78,9 +78,8 @@ public class MainMenuManager : MonoBehaviour
         settingsButton?.onClick.AddListener(OnSettings);
         playButton?.onClick.AddListener(OnNewGame);
 
-        bool hasSave = PlayerPrefs.GetInt("Meta_AccountLevel", 0) >= 1;
-        if (loadGameButton != null)
-            loadGameButton.interactable = hasSave;
+        // Account gate panel unlocks these after a successful sign-in.
+        SetMainMenuLocked(true);
 
         if (titleText)    titleText.text    = "WAVE GAME";
         if (subtitleText) subtitleText.text = "Top-Down Wave Survival";
@@ -127,8 +126,8 @@ public class MainMenuManager : MonoBehaviour
 
     void OnNewGame()
     {
-        CloudSaveRuntime.ActiveSaveId = null;
-        CloudSaveRuntime.PendingHydrate = null;
+        LocalSaveRuntime.ActiveSaveId = null;
+        LocalSaveRuntime.PendingHydrate = null;
         PlayerPrefs.SetInt("Meta_TutorialCompleted", 0);
         PlayerPrefs.Save();
         ShouldRunTutorial = true;
@@ -137,16 +136,24 @@ public class MainMenuManager : MonoBehaviour
 
     void OnLoadGame()
     {
-        CloudSaveRuntime.ActiveSaveId = null;
-        CloudSaveRuntime.PendingHydrate = null;
+        LocalSaveRuntime.ActiveSaveId = null;
+        LocalSaveRuntime.PendingHydrate = null;
         ShouldRunTutorial = false;
         SceneManager.LoadScene(gameSceneName);
     }
 
-    /// <summary>Used by cloud saves after setting <see cref="CloudSaveRuntime.PendingHydrate"/>.</summary>
-    public void LoadMainSceneFromCloud()
+    /// <summary>Used after setting <see cref="LocalSaveRuntime.PendingHydrate"/>.</summary>
+    public void LoadMainSceneFromAccountSave()
     {
         SceneManager.LoadScene(gameSceneName);
+    }
+
+    public void SetMainMenuLocked(bool locked)
+    {
+        bool enabled = !locked;
+        if (newGameButton != null) newGameButton.interactable = enabled;
+        if (loadGameButton != null) loadGameButton.interactable = enabled;
+        if (playButton != null) playButton.interactable = enabled;
     }
 
     void OnSettings()

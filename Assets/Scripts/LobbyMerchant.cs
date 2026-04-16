@@ -222,7 +222,6 @@ public class LobbyMerchant : MonoBehaviour
 
         const float panelH     = 220f;
         const float panelW     = 1280f;
-        const float portraitSz = 180f;
         const float edgePad    = 20f;
 
         shownY  = edgePad;

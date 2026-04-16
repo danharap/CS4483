@@ -2,7 +2,7 @@ using System;
 using Newtonsoft.Json;
 
 /// <summary>
-/// Versioned snapshot stored in Supabase payload jsonb and used for hydrate/capture.
+/// Versioned snapshot stored in local JSON saves and used for hydrate/capture.
 /// Bump <see cref="GameSaveDocument.version"/> when adding fields; migrate in <see cref="GameSaveSerializer"/>.
 /// </summary>
 [Serializable]

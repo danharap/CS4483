@@ -221,8 +221,6 @@ public class SettingsManager : MonoBehaviour
 
     private (Slider, TMP_Text) BuildSliderRow(Transform parent, string name, float anchoredY)
     {
-        float rowW = 400f, rowH = 40f;
-
         // Label
         TMP_Text lbl = BuildLabel(parent, name + "Label",
             new Vector2(0f, 1f), new Vector2(0f, 1f), new Vector2(0f, 1f),

@@ -83,7 +83,7 @@ public class GameManager : MonoBehaviour
             accountLevelUpBound = true;
         }
 
-        if (CloudSaveRuntime.TryConsumePendingHydrate(out GameSaveDocument cloudDoc))
+        if (LocalSaveRuntime.TryConsumePendingHydrate(out GameSaveDocument cloudDoc))
             GameSaveHydrator.ApplyFromDocument(cloudDoc);
 
         if (MainMenuManager.ShouldRunTutorial)
@@ -184,7 +184,7 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void RespawnToLobby()
     {
-        CloudSaveAutoSync.TrySyncNow();
+        LocalSaveAutoSync.TrySyncNow();
 
         Time.timeScale = 1f;
         State = GameState.Playing;
@@ -367,7 +367,7 @@ public class GameManager : MonoBehaviour
 
     public void GoToMainMenu()
     {
-        CloudSaveAutoSync.TrySyncNow();
+        LocalSaveAutoSync.TrySyncNow();
         Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");
     }

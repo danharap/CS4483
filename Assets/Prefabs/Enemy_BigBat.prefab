@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 4121200551136837844}
   - component: {fileID: 2290966727063137253}
   - component: {fileID: 1460622983330070497}
-  - component: {fileID: 1708391721378870761}
+  - component: {fileID: 439577874369326979}
   m_Layer: 0
   m_Name: Enemy_BigBat
   m_TagString: Untagged
@@ -175,6 +175,7 @@ MonoBehaviour:
   maxHP: 65
   moveSpeed: 6.2
   contactDamage: 10
+  contactRange: 1.2
   contactCooldown: 1
   xpDrop: 14
   hitFlashDuration: 0.12
@@ -185,7 +186,7 @@ MonoBehaviour:
   deathVolume: 0.5
   damageNumberPrefab: {fileID: 0}
   biteCooldown: 1
---- !u!114 &1708391721378870761
+--- !u!114 &439577874369326979
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
