@@ -1,94 +1,128 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Spike trap. Hidden → warn ring → spikes rise → damage player inside radius → retract → cooldown.
-/// Works with or without a TrapSpriteAnimator child.
-/// The trap deals damage every tick while the player stays inside the active area.
+/// Spike trap behavior:
+/// - Idles on frame 1 (first sprite frame)
+/// - When player enters radius, spikes animate up once, deal damage, and stun for 1 second
+/// - Then returns to idle frame until next trigger
 /// </summary>
-public class SpikeTrap : TelegraphedArenaTrap
+[RequireComponent(typeof(Collider))]
+public class SpikeTrap : MonoBehaviour
 {
     [Header("Spike Stats")]
-    [Tooltip("Damage per hit while player is inside the active radius.")]
-    [SerializeField] private float damagePerTick   = 15f;
-    [Tooltip("Seconds between damage ticks when player stays inside.")]
-    [SerializeField] private float tickInterval    = 0.4f;
+    [SerializeField] private float damage = 15f;
+    [SerializeField] private float stunDuration = 1f;
+    [SerializeField] private float triggerCooldown = 1.0f;
+    [SerializeField] private float activeDuration = 0.35f;
+    [SerializeField] private float damageRadius = 1.2f;
 
     [Header("Spike Visuals")]
     [SerializeField] private TrapSpriteAnimator spriteAnimator;
-    [Tooltip("Optional: child GameObject to scale up/down as the spike rising effect.")]
-    [SerializeField] private Transform spikeVisual;
-    [Tooltip("Y-scale of spikeVisual when fully risen.")]
-    [SerializeField] private float spikeRiseScale  = 1f;
-    [SerializeField] private float riseSpeed       = 8f;
 
-    private Coroutine damageLoop;
+    private bool isTriggering;
+    private float cooldownTimer;
 
-    protected override void Start()
+    void Awake()
     {
-        // Initialise the base cycle (randomise initial offset so traps don't all fire at once).
-        initialDelay = Random.Range(0f, cooldownDuration);
-        warnRadius   = damageRadius;
-        base.Start();
+        if (spriteAnimator == null)
+            spriteAnimator = EnsureAnimator();
+
+        Collider col = GetComponent<Collider>();
+        if (col != null) col.isTrigger = true;
+        if (col is SphereCollider sc) sc.radius = damageRadius;
     }
 
-    protected override void OnWarnStart()
+    void Start()
     {
-        // Keep sprite hidden / retracted during warning phase — only the ground ring is visible.
-        if (spikeVisual != null)
-            spikeVisual.localScale = Vector3.zero;
-    }
-
-    protected override void OnActivate()
-    {
-        if (spriteAnimator != null) spriteAnimator.SetActive(true);
-        if (spikeVisual != null) StartCoroutine(RiseSpike(true));
-
-        // Start ticking damage while active.
-        if (damageLoop != null) StopCoroutine(damageLoop);
-        damageLoop = StartCoroutine(DamageTick());
-    }
-
-    protected override void OnDeactivate()
-    {
+        // Idle pose/frame (frame 0) until player steps in.
         if (spriteAnimator != null) spriteAnimator.SetActive(false);
-        if (spikeVisual != null) StartCoroutine(RiseSpike(false));
-        if (damageLoop != null) { StopCoroutine(damageLoop); damageLoop = null; }
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────────
-
-    private IEnumerator DamageTick()
+    void Update()
     {
-        while (isActive)
-        {
-            DamagePlayersInRadius();
-            yield return new WaitForSeconds(tickInterval);
-        }
+        if (cooldownTimer > 0f)
+            cooldownTimer -= Time.deltaTime;
     }
 
-    private void DamagePlayersInRadius()
+    void OnTriggerEnter(Collider other)
     {
-        Collider[] hits = Physics.OverlapSphere(transform.position, damageRadius);
-        foreach (Collider c in hits)
-        {
-            if (!c.CompareTag("Player")) continue;
-            PlayerHealth ph = c.GetComponent<PlayerHealth>();
-            if (ph != null) ph.TakeDamage(damagePerTick);
-        }
+        if (isTriggering || cooldownTimer > 0f) return;
+        if (!other.CompareTag("Player")) return;
+
+        PlayerHealth ph = other.GetComponent<PlayerHealth>();
+        PlayerController pc = other.GetComponent<PlayerController>();
+        if (ph == null) return;
+
+        StartCoroutine(TriggerOnce(ph, pc));
     }
 
-    private IEnumerator RiseSpike(bool rise)
+    private IEnumerator TriggerOnce(PlayerHealth ph, PlayerController pc)
     {
-        Vector3 target = rise ? new Vector3(1f, spikeRiseScale, 1f) : Vector3.zero;
-        float speed = riseSpeed;
-        while (spikeVisual != null &&
-               Vector3.Distance(spikeVisual.localScale, target) > 0.01f)
-        {
-            spikeVisual.localScale = Vector3.MoveTowards(
-                spikeVisual.localScale, target, speed * Time.deltaTime);
-            yield return null;
-        }
-        if (spikeVisual != null) spikeVisual.localScale = target;
+        isTriggering = true;
+        cooldownTimer = triggerCooldown;
+
+        if (spriteAnimator != null) spriteAnimator.SetActive(true);
+
+        ph.TakeDamage(damage);
+        if (pc != null) pc.StunFor(stunDuration);
+
+        yield return new WaitForSeconds(activeDuration);
+
+        // Return to frame 1 idle state.
+        if (spriteAnimator != null) spriteAnimator.SetActive(false);
+        isTriggering = false;
     }
+
+    private TrapSpriteAnimator EnsureAnimator()
+    {
+        TrapSpriteAnimator existing = GetComponentInChildren<TrapSpriteAnimator>(true);
+        if (existing != null)
+        {
+            existing.sortingOrder = Mathf.Max(existing.sortingOrder, 26);
+            return existing;
+        }
+
+        Transform visual = transform.Find("TrapVisual");
+        if (visual == null)
+        {
+            GameObject go = new GameObject("TrapVisual");
+            go.transform.SetParent(transform, false);
+            go.transform.localPosition = new Vector3(0f, 0.58f, 0f);
+            visual = go.transform;
+        }
+        else
+        {
+            visual.localPosition = new Vector3(visual.localPosition.x, 0.58f, visual.localPosition.z);
+        }
+
+        TrapSpriteAnimator anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
+        anim.frameRate = 16f;
+        anim.sortingOrder = 26;
+        anim.playOnAwake = false;
+        anim.enableGlow = false;
+        anim.spriteScale = new Vector3(1.8f, 1.8f, 1f);
+
+        Sprite[] frames = LoadFramesFromResources("Traps/SpikeTrap");
+        if (frames.Length > 0)
+            anim.SetFrames(frames);
+        else
+            Debug.LogWarning($"[SpikeTrap] No sprites at Resources/Traps/SpikeTrap. Object: {name}", this);
+
+        return anim;
+    }
+
+    private static Sprite[] LoadFramesFromResources(string folder)
+    {
+        var list = new List<Sprite>();
+        for (int i = 0; i < 32; i++)
+        {
+            Sprite s = Resources.Load<Sprite>($"{folder}/{i}");
+            if (s == null) break;
+            list.Add(s);
+        }
+        return list.ToArray();
+    }
+
 }

@@ -107,6 +107,7 @@ public class TutorialRoomManager : MonoBehaviour
         GameManager.Instance?.PlayerWeapon?.SetShootingEnabled(false);
 
         TeleportPlayer(lobbyReturnSpawnPosition);
+        ResetPlayerHealthAfterTutorial();
 
         // TransitionToLobby shows the "speak with the Guide" message briefly instead
         // of just silently hiding the tutorial UI.
@@ -118,6 +119,17 @@ public class TutorialRoomManager : MonoBehaviour
         GameplayMusicController.Instance?.PlayLobby();
         PlayerPrefs.SetInt("Meta_TutorialCompleted", 1);
         PlayerPrefs.Save();
+        LocalSaveAutoSync.TrySyncNow();
+    }
+
+    private void ResetPlayerHealthAfterTutorial()
+    {
+        PlayerHealth ph = GameManager.Instance?.PlayerController?.GetComponent<PlayerHealth>();
+        if (ph == null)
+            ph = FindFirstObjectByType<PlayerHealth>();
+        if (ph == null) return;
+
+        ph.ResetHealthToMax();
     }
 
     private void EnsureRuntimeTutorialIfMissing()

@@ -203,7 +203,6 @@ MonoBehaviour:
   waitForFallenKillBeforeAwakening: 0
   autoAwakenDelay: 1.5
   satanArenaTopZ: 14
-  satanXRange: 4
   fakeDeathPause: 1.5
   riseOffScreenTime: 2.5
   throneWatchMode: 0

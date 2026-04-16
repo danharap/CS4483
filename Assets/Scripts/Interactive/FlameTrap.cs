@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// Arena flame trap. Warn ring → active window with repeating fire damage inside radius → cooldown.
-/// Fire visuals run only during the active phase (warning shows the orange ring only).
-/// Auto-initializes its TrapSpriteAnimator from Resources if one isn't wired in the Inspector.
+/// Arena flame trap:
+/// - Always active visual (continuous hazard)
+/// - No warning circle / telegraph
+/// - Applies repeating damage while player stays inside the trigger radius
 /// </summary>
 [RequireComponent(typeof(Collider))]
-public class FlameTrap : TelegraphedArenaTrap
+public class FlameTrap : MonoBehaviour
 {
     [Header("Burn Effect")]
     [Tooltip("Damage applied each tick while the player stays inside the active radius.")]
@@ -21,62 +22,42 @@ public class FlameTrap : TelegraphedArenaTrap
     [Header("Flame Animation")]
     [SerializeField] private TrapSpriteAnimator spriteAnimator;
 
-    private Coroutine damageLoop;
+    private readonly Dictionary<int, float> nextDamageAt = new Dictionary<int, float>();
 
     void Awake()
     {
         if (spriteAnimator == null)
             spriteAnimator = EnsureAnimator();
+
+        Collider col = GetComponent<Collider>();
+        if (col != null) col.isTrigger = true;
+        if (col is SphereCollider sc) sc.radius = damageRadius;
     }
 
-    protected override void Start()
-    {
-        initialDelay = Random.Range(0f, cooldownDuration);
-        warnRadius   = damageRadius;
-        warnColor    = new Color(1f, 0.45f, 0.05f, 0.55f);
-        base.Start();
-    }
-
-    protected override void OnWarnStart()
-    {
-        if (spriteAnimator != null)
-            spriteAnimator.SetActive(false);
-    }
-
-    protected override void OnActivate()
+    void Start()
     {
         if (spriteAnimator != null)
             spriteAnimator.SetActive(true);
-
-        if (damageLoop != null) StopCoroutine(damageLoop);
-        damageLoop = StartCoroutine(DamageTick());
     }
 
-    protected override void OnDeactivate()
+    void OnTriggerStay(Collider other)
     {
-        if (spriteAnimator != null)
-            spriteAnimator.SetActive(false);
-        if (damageLoop != null) { StopCoroutine(damageLoop); damageLoop = null; }
+        if (!other.CompareTag("Player")) return;
+        PlayerHealth ph = other.GetComponent<PlayerHealth>();
+        if (ph == null) return;
+
+        int id = other.GetInstanceID();
+        if (!nextDamageAt.TryGetValue(id, out float t))
+            t = 0f;
+        if (Time.time < t) return;
+
+        ph.TakeDamage(damagePerTick);
+        nextDamageAt[id] = Time.time + tickInterval;
     }
 
-    private IEnumerator DamageTick()
+    void OnTriggerExit(Collider other)
     {
-        while (isActive)
-        {
-            DamagePlayersInRadius();
-            yield return new WaitForSeconds(tickInterval);
-        }
-    }
-
-    private void DamagePlayersInRadius()
-    {
-        Collider[] hits = Physics.OverlapSphere(transform.position, damageRadius);
-        foreach (Collider c in hits)
-        {
-            if (!c.CompareTag("Player")) continue;
-            PlayerHealth ph = c.GetComponent<PlayerHealth>();
-            if (ph != null) ph.TakeDamage(damagePerTick);
-        }
+        nextDamageAt.Remove(other.GetInstanceID());
     }
 
     private TrapSpriteAnimator EnsureAnimator()
@@ -90,8 +71,12 @@ public class FlameTrap : TelegraphedArenaTrap
         {
             GameObject go = new GameObject("TrapVisual");
             go.transform.SetParent(transform, false);
-            go.transform.localPosition = Vector3.zero;
+            go.transform.localPosition = new Vector3(0f, 0.58f, 0f);
             visual = go.transform;
+        }
+        else
+        {
+            visual.localPosition = new Vector3(visual.localPosition.x, 0.58f, visual.localPosition.z);
         }
 
         TrapSpriteAnimator anim = visual.gameObject.AddComponent<TrapSpriteAnimator>();
@@ -99,6 +84,7 @@ public class FlameTrap : TelegraphedArenaTrap
         anim.sortingOrder  = 25;
         anim.playOnAwake   = true;
         anim.enableGlow    = true;
+        anim.spriteScale   = new Vector3(1.8f, 1.8f, 1f);
         anim.glowColor     = new Color(1f, 0.45f, 0.05f);
         anim.glowIntensity = 2.0f;
         anim.glowRange     = 3.0f;

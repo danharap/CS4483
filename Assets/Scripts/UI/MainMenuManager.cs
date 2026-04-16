@@ -34,6 +34,7 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private float pulseMax    = 1.0f;
 
     Button _profileFooterButton;
+    TMP_Text _accountMetaText;
 
     /// <summary>
     /// Static flag read by GameManager/TutorialRoomManager after MainScene loads.
@@ -137,6 +138,7 @@ public class MainMenuManager : MonoBehaviour
                 Destroy(_profileFooterButton.gameObject);
                 _profileFooterButton = null;
             }
+            RefreshAccountMetaDisplay();
             return;
         }
 
@@ -145,6 +147,62 @@ public class MainMenuManager : MonoBehaviour
         _profileFooterButton = CreateFooterTextButton("Pit_ProfileButton", "Profile & saves", new Vector2(-18f, 58f));
         PitMenuUiTheme.ApplyGoldGhostButton(_profileFooterButton, _profileFooterButton.GetComponent<Image>());
         WireMenuButton(_profileFooterButton, OnProfileSaves);
+        RefreshAccountMetaDisplay();
+    }
+
+    public void RefreshAccountMetaDisplay()
+    {
+        EnsureAccountMetaText();
+        if (_accountMetaText == null) return;
+
+        if (!LocalSaveRuntime.IsSignedIn)
+        {
+            _accountMetaText.gameObject.SetActive(false);
+            return;
+        }
+
+        _accountMetaText.gameObject.SetActive(true);
+        if (LocalAccountDatabase.TryLoadAccountProfile(LocalSaveRuntime.ActiveUserId, out var acc, out _, out _))
+        {
+            _accountMetaText.text = $"Account Lv {Mathf.Max(1, acc.accountLevel)}   •   Skill Points: {Mathf.Max(0, acc.skillPoints)}";
+            return;
+        }
+
+        // Fallback if profile is not available for any reason.
+        var ap = AccountProgression.Instance;
+        if (ap != null)
+            _accountMetaText.text = $"Account Lv {ap.AccountLevel}   •   Skill Points: {ap.SkillPoints}";
+        else
+            _accountMetaText.text = "Account Lv 1   •   Skill Points: 0";
+    }
+
+    void EnsureAccountMetaText()
+    {
+        if (_accountMetaText != null) return;
+
+        Transform existing = transform.Find("Pit_AccountMetaText");
+        if (existing != null)
+        {
+            _accountMetaText = existing.GetComponent<TMP_Text>();
+            return;
+        }
+
+        GameObject go = new GameObject("Pit_AccountMetaText", typeof(RectTransform), typeof(TextMeshProUGUI));
+        go.transform.SetParent(transform, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 0f);
+        rt.anchorMax = new Vector2(0f, 0f);
+        rt.pivot = new Vector2(0f, 0f);
+        rt.anchoredPosition = new Vector2(18f, 22f);
+        rt.sizeDelta = new Vector2(560f, 30f);
+
+        _accountMetaText = go.GetComponent<TextMeshProUGUI>();
+        _accountMetaText.fontSize = 14f;
+        _accountMetaText.fontStyle = FontStyles.Bold;
+        _accountMetaText.color = PitMenuUiTheme.GoldSoft;
+        _accountMetaText.alignment = TextAlignmentOptions.Left;
+        _accountMetaText.text = "Account Lv 1   •   Skill Points: 0";
+        _accountMetaText.gameObject.SetActive(false);
     }
 
     void ApplyMainMenuPresentation()
@@ -407,9 +465,8 @@ public class MainMenuManager : MonoBehaviour
     {
         LocalSaveRuntime.ActiveSaveId = null;
         LocalSaveRuntime.PendingHydrate = null;
-        PlayerPrefs.SetInt("Meta_TutorialCompleted", 0);
-        PlayerPrefs.Save();
-        ShouldRunTutorial = true;
+        // Only run tutorial for players/accounts that have not completed it yet.
+        ShouldRunTutorial = PlayerPrefs.GetInt("Meta_TutorialCompleted", 0) == 0;
         SceneManager.LoadScene(gameSceneName);
     }
 

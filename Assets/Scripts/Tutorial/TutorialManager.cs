@@ -426,35 +426,35 @@ public class TutorialManager : MonoBehaviour
         ApplyDialogueSpeaker(devil: false);
 
         // Spawn demo traps in the corridor just past gate 3 (x=-10).
-        // SpikeTrap (telegraphed ring) on the left; FlameTrap on the right for side-by-side comparison.
+        // SpikeTrap idles then fires on overlap; FlameTrap is continuous.
         float cz            = FindCz();
         Vector3 spikePos    = new Vector3(-5.5f, 0.05f, cz - 1.2f);
         Vector3 flamePos    = new Vector3(-3.0f, 0.05f, cz + 1.2f);
 
-        GameObject spikeGo  = SpawnDemoTelegraphedTrap<SpikeTrap>(spikePos);
+        GameObject spikeGo  = SpawnDemoSpikeTrap(spikePos);
         GameObject flameGo  = SpawnDemoFlameTrap(flamePos);
 
         // ── Spike trap section ────────────────────────────────────────────
         SetText("Before you go — look at the floor ahead.");
         yield return new WaitForSecondsRealtime(2.2f);
 
-        SetText("That pulsing red ring on the ground is a spike trap warning.\nStep out of the circle before it closes.");
+        SetText("That spike plate sits idle until someone steps on it.");
         yield return new WaitForSecondsRealtime(3.0f);
 
-        SetText("When the ring disappears, spikes erupt. If you are still inside, you take damage.");
+        SetText("Step on it and spikes shoot up instantly — damage plus a brief stun.");
         yield return new WaitForSecondsRealtime(3.0f);
 
-        SetText("Watch it cycle. The timing is always the same — short warning, brief spike, then it resets.");
+        SetText("After firing, it retracts and returns to idle, waiting for the next target.");
         yield return new WaitForSecondsRealtime(4.5f);
 
         // ── Flame trap section ────────────────────────────────────────────
-        SetText("The orange ring beside it is a flame trap. Same idea — different danger.");
+        SetText("The flame trap beside it is a constant hazard.");
         yield return new WaitForSecondsRealtime(2.8f);
 
         SetText("Flames stay active longer than spikes. Standing inside burns you repeatedly.");
         yield return new WaitForSecondsRealtime(2.8f);
 
-        SetText("One second in the fire will not kill you. Five seconds will.\nSee the ring — move.");
+        SetText("One second in the fire will not kill you. Five seconds will.\nStay out of its radius.");
         yield return new WaitForSecondsRealtime(3.0f);
 
         SetText("The arena is full of them. Watch the ground, not just the enemies.");
@@ -469,14 +469,10 @@ public class TutorialManager : MonoBehaviour
         StartCoroutine(PlaySkillTreeDialogue());
     }
 
-    /// <summary>
-    /// Spike-style demo: telegraphed warn ring + fast cycle timings.
-    /// </summary>
-    private static GameObject SpawnDemoTelegraphedTrap<T>(Vector3 position) where T : TelegraphedArenaTrap
+    private static GameObject SpawnDemoSpikeTrap(Vector3 position)
     {
-        GameObject go = NewDemoTrapRoot($"DemoTrap_{typeof(T).Name}", position);
-        T trap = go.AddComponent<T>();
-        trap.SetDemoCycleTimings();
+        GameObject go = NewDemoTrapRoot("DemoTrap_SpikeTrap", position);
+        go.AddComponent<SpikeTrap>();
         return go;
     }
 

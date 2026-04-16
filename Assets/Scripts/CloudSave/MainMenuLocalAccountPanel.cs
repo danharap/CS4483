@@ -19,6 +19,7 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
     [SerializeField] private MainMenuManager mainMenu;
 
     TMP_Text _status;
+    TMP_Text _accountProgressText;
     TMP_InputField _username;
     TMP_InputField _password;
     TMP_InputField _slotName;
@@ -52,18 +53,9 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
     void Start()
     {
         mainMenu?.SetMainMenuLocked(true);
-
-        if (LocalSaveRuntime.IsSignedIn &&
-            LocalAccountDatabase.FindUser(LocalAccountDatabase.LoadOrCreate(), LocalSaveRuntime.ActiveUserId) != null)
-        {
-            ApplySignedInProfile();
-            RefreshLoggedInUiStartup();
-        }
-        else
-        {
-            LocalSaveRuntime.SignOut();
-            PresentAuthGate();
-        }
+        // Always require sign-in on app launch so local sessions do not carry across teammates/machines.
+        LocalSaveRuntime.SignOut();
+        PresentAuthGate();
     }
 
     /// <summary>Re-opens the account / save overlay from the main menu footer.</summary>
@@ -91,13 +83,17 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         ShowGate(true);
         SetAuthVisible(true);
         SetSignedVisible(false);
+        if (_signIn != null) _signIn.gameObject.SetActive(true);
+        if (_signUp != null) _signUp.gameObject.SetActive(true);
+        if (_logout != null) _logout.gameObject.SetActive(false);
         if (_continueToMenu != null) _continueToMenu.gameObject.SetActive(false);
+        SetAccountProgressTextVisible(false);
         SetStatus("Sign in with a local profile to manage saves and play.", false);
     }
 
     void BuildUi()
     {
-        Canvas canvas = Object.FindFirstObjectByType<Canvas>();
+        Canvas canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
         if (canvas == null) return;
 
         _gateOverlay = CreateUi("LocalAccountGateOverlay", canvas.transform);
@@ -111,10 +107,11 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
 
         GameObject root = CreateUi("LocalAccountPanel", _gateOverlay.transform);
         _gatePanelRt = root.GetComponent<RectTransform>();
-        _gatePanelRt.anchorMin = new Vector2(0.06f, 0.06f);
-        _gatePanelRt.anchorMax = new Vector2(0.94f, 0.94f);
-        _gatePanelRt.offsetMin = Vector2.zero;
-        _gatePanelRt.offsetMax = Vector2.zero;
+        _gatePanelRt.anchorMin = new Vector2(0.5f, 0.5f);
+        _gatePanelRt.anchorMax = new Vector2(0.5f, 0.5f);
+        _gatePanelRt.pivot = new Vector2(0.5f, 0.5f);
+        _gatePanelRt.sizeDelta = new Vector2(980f, 620f);
+        _gatePanelRt.anchoredPosition = Vector2.zero;
         root.AddComponent<Image>().color = PitMenuUiTheme.PanelBase;
         var outline = root.AddComponent<Outline>();
         outline.effectColor = PitMenuUiTheme.PanelRim;
@@ -145,6 +142,13 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         stLe.minHeight = 40f;
         stLe.preferredHeight = 44f;
 
+        _accountProgressText = AddTmp(root.transform, "AccountProgress", 13f, PitMenuUiTheme.GoldSoft, TextAlignmentOptions.TopLeft);
+        _accountProgressText.enableWordWrapping = false;
+        var apLe = _accountProgressText.gameObject.AddComponent<LayoutElement>();
+        apLe.minHeight = 24f;
+        apLe.preferredHeight = 24f;
+        _accountProgressText.gameObject.SetActive(false);
+
         _authRoot = new GameObject("AuthSection", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
         _authRoot.transform.SetParent(root.transform, false);
         var authImg = _authRoot.GetComponent<Image>();
@@ -160,6 +164,8 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         authV.childForceExpandWidth = true;
         var authLe = _authRoot.AddComponent<LayoutElement>();
         authLe.flexibleWidth = 1f;
+        authLe.minHeight = 210f;
+        authLe.preferredHeight = 210f;
 
         var signLab = AddTmp(_authRoot.transform, "SignInLabel", 14f, PitMenuUiTheme.GoldSoft, TextAlignmentOptions.Left);
         PitMenuUiTheme.StyleSectionHeader(signLab);
@@ -176,9 +182,12 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         hAuth.spacing = 12f;
         hAuth.childAlignment = TextAnchor.MiddleLeft;
         hAuth.childForceExpandWidth = false;
+        hAuth.childForceExpandHeight = false;
         hAuth.childControlWidth = true;
+        hAuth.childControlHeight = true;
         var authBtnLe = authBtnRow.AddComponent<LayoutElement>();
         authBtnLe.minHeight = 40f;
+        authBtnLe.preferredHeight = 40f;
 
         _signIn = AddLayoutButton(authBtnRow.transform, "SignIn", "Sign in", 140f);
         _signUp = AddLayoutButton(authBtnRow.transform, "SignUp", "Create profile", 160f);
@@ -219,7 +228,11 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         var hCr = createRow.GetComponent<HorizontalLayoutGroup>();
         hCr.spacing = 10f;
         hCr.childAlignment = TextAnchor.MiddleLeft;
-        createRow.AddComponent<LayoutElement>().minHeight = 40f;
+        hCr.childForceExpandHeight = false;
+        hCr.childControlHeight = true;
+        var createLe = createRow.AddComponent<LayoutElement>();
+        createLe.minHeight = 40f;
+        createLe.preferredHeight = 40f;
         _createSave = AddLayoutButton(createRow.transform, "CreateSave", "New save slot", 160f);
         _refresh = AddLayoutButton(createRow.transform, "Refresh", "Refresh list", 120f);
         PitMenuUiTheme.ApplyPrimaryRunButton(_createSave, _createSave.GetComponent<Image>());
@@ -228,12 +241,17 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         PitMenuUiTheme.WireMenuButton(_refresh, OnClickRefresh);
 
         var bottomRow = new GameObject("BottomRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-        bottomRow.transform.SetParent(root.transform, false);
+        bottomRow.transform.SetParent(_signedRoot.transform, false);
         var hBot = bottomRow.GetComponent<HorizontalLayoutGroup>();
         hBot.spacing = 10f;
         hBot.childAlignment = TextAnchor.MiddleCenter;
         hBot.childForceExpandWidth = false;
-        bottomRow.AddComponent<LayoutElement>().minHeight = 42f;
+        hBot.childForceExpandHeight = false;
+        hBot.childControlWidth = true;
+        hBot.childControlHeight = true;
+        var bottomLe = bottomRow.AddComponent<LayoutElement>();
+        bottomLe.minHeight = 42f;
+        bottomLe.preferredHeight = 42f;
 
         _logout = AddLayoutButton(bottomRow.transform, "Logout", "Log out", 120f);
         _continueToMenu = AddLayoutButton(bottomRow.transform, "Continue", "Back to menu", 160f);
@@ -416,14 +434,15 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         string name = string.IsNullOrWhiteSpace(_slotName.text) ? "Untitled descent" : _slotName.text.Trim();
         if (name.Length > 40) name = name.Substring(0, 40);
         var doc = GameSaveSerializer.CreateNewRun();
+        bool tutorialAlreadyCompleted = PlayerPrefs.GetInt("Meta_TutorialCompleted", 0) == 1;
+        if (doc.run != null)
+            doc.run.tutorialCompleted = tutorialAlreadyCompleted;
         if (LocalAccountDatabase.TryLoadAccountProfile(LocalSaveRuntime.ActiveUserId, out var acc, out var hs, out var st))
         {
             doc.account = acc;
             doc.highScore = hs;
             doc.settings = st;
         }
-        PlayerPrefs.SetInt("Meta_TutorialCompleted", 0);
-        PlayerPrefs.Save();
 
         if (!LocalAccountDatabase.TryCreateSave(LocalSaveRuntime.ActiveUserId, name, doc, out var slot, out string err))
         {
@@ -454,6 +473,8 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
             SetStatus($"{em} — no saves yet. Create a slot or pick Back to menu.", false);
         else
             SetStatus($"{em} — {rows.Count}/{MaxSaves} slots in use.", false);
+
+        RefreshAccountProgressText();
     }
 
     void RenderList(List<LocalAccountDatabase.SaveSlotRecord> rows)
@@ -613,6 +634,7 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         ShowGate(true);
         RefreshList();
         mainMenu?.RefreshFooterAfterAccount();
+        mainMenu?.RefreshAccountMetaDisplay();
     }
 
     void RefreshLoggedInUiStartup()
@@ -627,6 +649,28 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         ShowGate(false);
         RefreshList();
         mainMenu?.RefreshFooterAfterAccount();
+        mainMenu?.RefreshAccountMetaDisplay();
+    }
+
+    void RefreshAccountProgressText()
+    {
+        if (_accountProgressText == null) return;
+        if (!LocalSaveRuntime.IsSignedIn)
+        {
+            _accountProgressText.gameObject.SetActive(false);
+            return;
+        }
+
+        _accountProgressText.gameObject.SetActive(true);
+        if (LocalAccountDatabase.TryLoadAccountProfile(LocalSaveRuntime.ActiveUserId, out var acc, out _, out _))
+            _accountProgressText.text = $"Account Lv {Mathf.Max(1, acc.accountLevel)}   •   Unspent Skill Points: {Mathf.Max(0, acc.skillPoints)}";
+        else
+            _accountProgressText.text = "Account Lv 1   •   Unspent Skill Points: 0";
+    }
+
+    void SetAccountProgressTextVisible(bool visible)
+    {
+        if (_accountProgressText != null) _accountProgressText.gameObject.SetActive(visible);
     }
 
     void SetAuthVisible(bool v)
@@ -718,8 +762,12 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         var b = go.GetComponent<Button>();
         b.targetGraphic = img;
         var le = go.AddComponent<LayoutElement>();
+        le.minWidth = width;
         le.preferredWidth = width;
         le.minHeight = 36f;
+        le.preferredHeight = 36f;
+        le.flexibleWidth = 0f;
+        le.flexibleHeight = 0f;
         var txtGo = new GameObject("T", typeof(RectTransform), typeof(TextMeshProUGUI));
         txtGo.transform.SetParent(go.transform, false);
         var txt = txtGo.GetComponent<TextMeshProUGUI>();
