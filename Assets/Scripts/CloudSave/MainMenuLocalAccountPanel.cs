@@ -1,40 +1,52 @@
+using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Newtonsoft.Json;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 /// <summary>
-/// Local JSON account gate for the main menu.
-/// Username/password is required before New Game / Load Game become clickable.
+/// Local JSON account gate for the main menu: sign-in, save slots, and run hydration.
 /// </summary>
 public class MainMenuLocalAccountPanel : MonoBehaviour
 {
+    public static MainMenuLocalAccountPanel Instance { get; private set; }
+
     const int MaxSaves = LocalAccountDatabase.MaxSavesPerUser;
 
     [SerializeField] private MainMenuManager mainMenu;
 
-    private TMP_Text _status;
-    private TMP_InputField _username;
-    private TMP_InputField _password;
-    private TMP_InputField _slotName;
-    private Button _signIn;
-    private Button _signUp;
-    private Button _logout;
-    private Button _createSave;
-    private Button _refresh;
-    private Transform _listRoot;
-    private GameObject _deleteConfirm;
-    private string _pendingDeleteId;
-    private GameObject _gateOverlay;
-    private GameObject _gatePanel;
-
-    private readonly List<GameObject> _listRows = new List<GameObject>();
+    TMP_Text _status;
+    TMP_InputField _username;
+    TMP_InputField _password;
+    TMP_InputField _slotName;
+    Button _signIn;
+    Button _signUp;
+    Button _logout;
+    Button _createSave;
+    Button _refresh;
+    Button _continueToMenu;
+    Transform _scrollContent;
+    GameObject _deleteConfirm;
+    string _pendingDeleteId;
+    GameObject _gateOverlay;
+    RectTransform _gatePanelRt;
+    GameObject _authRoot;
+    GameObject _signedRoot;
+    readonly List<GameObject> _listRows = new List<GameObject>();
 
     void Awake()
     {
+        Instance = this;
         if (mainMenu == null) mainMenu = GetComponent<MainMenuManager>();
         BuildUi();
+    }
+
+    void OnDestroy()
+    {
+        if (Instance == this) Instance = null;
     }
 
     void Start()
@@ -45,130 +57,309 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
             LocalAccountDatabase.FindUser(LocalAccountDatabase.LoadOrCreate(), LocalSaveRuntime.ActiveUserId) != null)
         {
             ApplySignedInProfile();
-            RefreshLoggedInUi();
+            RefreshLoggedInUiStartup();
         }
         else
         {
             LocalSaveRuntime.SignOut();
-            ShowGate(true);
-            SetStatus("Sign in to continue.");
+            PresentAuthGate();
         }
     }
 
-    private void BuildUi()
+    /// <summary>Re-opens the account / save overlay from the main menu footer.</summary>
+    public void OpenAccountPanel()
+    {
+        if (_gateOverlay == null) return;
+        _gateOverlay.SetActive(true);
+        if (LocalSaveRuntime.IsSignedIn)
+        {
+            SetAuthVisible(false);
+            SetSignedVisible(true);
+            if (_continueToMenu != null) _continueToMenu.gameObject.SetActive(true);
+            RefreshList();
+            SetStatus($"Signed in as {LocalAccountDatabase.GetUserEmail(LocalSaveRuntime.ActiveUserId)}", false);
+            mainMenu?.SetMainMenuLocked(true);
+        }
+        else
+        {
+            PresentAuthGate();
+        }
+    }
+
+    void PresentAuthGate()
+    {
+        ShowGate(true);
+        SetAuthVisible(true);
+        SetSignedVisible(false);
+        if (_continueToMenu != null) _continueToMenu.gameObject.SetActive(false);
+        SetStatus("Sign in with a local profile to manage saves and play.", false);
+    }
+
+    void BuildUi()
     {
         Canvas canvas = Object.FindFirstObjectByType<Canvas>();
         if (canvas == null) return;
 
-        _gateOverlay = CreateUi("LocalAccountGateOverlay", canvas.transform, Vector2.zero);
-        RectTransform ovRt = _gateOverlay.GetComponent<RectTransform>();
+        _gateOverlay = CreateUi("LocalAccountGateOverlay", canvas.transform);
+        var ovRt = _gateOverlay.GetComponent<RectTransform>();
         ovRt.anchorMin = Vector2.zero;
         ovRt.anchorMax = Vector2.one;
         ovRt.offsetMin = Vector2.zero;
         ovRt.offsetMax = Vector2.zero;
-        _gateOverlay.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.75f);
+        _gateOverlay.AddComponent<Image>().color = PitMenuUiTheme.OverlayDim;
+        _gateOverlay.transform.SetAsLastSibling();
 
-        GameObject root = CreateUi("LocalAccountPanel", _gateOverlay.transform, new Vector2(480f, 560f));
-        _gatePanel = root;
-        RectTransform rt = root.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0.5f, 0.5f);
-        rt.anchorMax = new Vector2(0.5f, 0.5f);
-        rt.pivot = new Vector2(0.5f, 0.5f);
-        rt.anchoredPosition = Vector2.zero;
-        root.AddComponent<Image>().color = new Color(0.06f, 0.06f, 0.08f, 0.96f);
+        GameObject root = CreateUi("LocalAccountPanel", _gateOverlay.transform);
+        _gatePanelRt = root.GetComponent<RectTransform>();
+        _gatePanelRt.anchorMin = new Vector2(0.06f, 0.06f);
+        _gatePanelRt.anchorMax = new Vector2(0.94f, 0.94f);
+        _gatePanelRt.offsetMin = Vector2.zero;
+        _gatePanelRt.offsetMax = Vector2.zero;
+        root.AddComponent<Image>().color = PitMenuUiTheme.PanelBase;
+        var outline = root.AddComponent<Outline>();
+        outline.effectColor = PitMenuUiTheme.PanelRim;
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
 
-        float y = -20f;
-        AddText(root.transform, "Title", new Vector2(0f, y), 26f, new Color(0.95f, 0.8f, 0.2f), TextAlignmentOptions.Center).text = "ACCOUNT LOGIN";
-        y -= 44f;
-        _status = AddText(root.transform, "LocalStatus", new Vector2(12f, y), 13, Color.gray, TextAlignmentOptions.TopLeft);
-        _status.rectTransform.sizeDelta = new Vector2(456f, 72f);
-        y -= 80f;
+        var rootV = root.AddComponent<VerticalLayoutGroup>();
+        rootV.padding = new RectOffset(22, 22, 20, 18);
+        rootV.spacing = 14f;
+        rootV.childAlignment = TextAnchor.UpperCenter;
+        rootV.childControlHeight = true;
+        rootV.childForceExpandHeight = false;
+        rootV.childControlWidth = true;
+        rootV.childForceExpandWidth = true;
 
-        _username = AddInput(root.transform, "Username", new Vector2(12f, y), "username");
+        var header = AddTmp(root.transform, "AccountHeader", 22f, PitMenuUiTheme.GoldAccent, TextAlignmentOptions.Center);
+        header.fontStyle = FontStyles.Bold;
+        header.text = $"{PitMenuBranding.GameTitle} — local profile";
+        header.enableWordWrapping = true;
+        header.gameObject.AddComponent<LayoutElement>().preferredHeight = 36f;
+
+        var sub = AddTmp(root.transform, "AccountSub", 13f, PitMenuUiTheme.TextMuted, TextAlignmentOptions.Center);
+        sub.text = "Profiles and saves stay on this device (JSON). No cloud.";
+        sub.gameObject.AddComponent<LayoutElement>().preferredHeight = 40f;
+
+        _status = AddTmp(root.transform, "LocalStatus", 13f, PitMenuUiTheme.TextMuted, TextAlignmentOptions.TopLeft);
+        _status.enableWordWrapping = true;
+        var stLe = _status.gameObject.AddComponent<LayoutElement>();
+        stLe.minHeight = 40f;
+        stLe.preferredHeight = 44f;
+
+        _authRoot = new GameObject("AuthSection", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup));
+        _authRoot.transform.SetParent(root.transform, false);
+        var authImg = _authRoot.GetComponent<Image>();
+        authImg.color = PitMenuUiTheme.PanelDeep;
+        authImg.raycastTarget = false;
+        var authV = _authRoot.GetComponent<VerticalLayoutGroup>();
+        authV.padding = new RectOffset(16, 16, 14, 14);
+        authV.spacing = 10f;
+        authV.childAlignment = TextAnchor.UpperLeft;
+        authV.childControlHeight = true;
+        authV.childForceExpandHeight = false;
+        authV.childControlWidth = true;
+        authV.childForceExpandWidth = true;
+        var authLe = _authRoot.AddComponent<LayoutElement>();
+        authLe.flexibleWidth = 1f;
+
+        var signLab = AddTmp(_authRoot.transform, "SignInLabel", 14f, PitMenuUiTheme.GoldSoft, TextAlignmentOptions.Left);
+        PitMenuUiTheme.StyleSectionHeader(signLab);
+        signLab.text = "SIGN IN";
+
+        _username = AddInputRow(_authRoot.transform, "Username", "Profile name");
         if (!string.IsNullOrEmpty(LocalSaveRuntime.LoadRememberedEmail()))
             _username.text = LocalSaveRuntime.LoadRememberedEmail();
-        y -= 52f;
-        _password = AddInput(root.transform, "Password", new Vector2(12f, y), "password", true);
-        y -= 56f;
+        _password = AddInputRow(_authRoot.transform, "Password", "Password", true);
 
-        _signIn = AddButton(root.transform, "SignIn", new Vector2(12f, y), "Sign in", OnClickSignIn);
-        _signUp = AddButton(root.transform, "SignUp", new Vector2(150f, y), "Create", OnClickSignUp);
-        y -= 44f;
+        var authBtnRow = new GameObject("AuthButtons", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        authBtnRow.transform.SetParent(_authRoot.transform, false);
+        var hAuth = authBtnRow.GetComponent<HorizontalLayoutGroup>();
+        hAuth.spacing = 12f;
+        hAuth.childAlignment = TextAnchor.MiddleLeft;
+        hAuth.childForceExpandWidth = false;
+        hAuth.childControlWidth = true;
+        var authBtnLe = authBtnRow.AddComponent<LayoutElement>();
+        authBtnLe.minHeight = 40f;
 
-        _logout = AddButton(root.transform, "Logout", new Vector2(12f, y), "Log out", OnClickLogout);
-        _logout.gameObject.SetActive(false);
-        y -= 52f;
+        _signIn = AddLayoutButton(authBtnRow.transform, "SignIn", "Sign in", 140f);
+        _signUp = AddLayoutButton(authBtnRow.transform, "SignUp", "Create profile", 160f);
+        PitMenuUiTheme.ApplyPrimaryRunButton(_signIn, _signIn.GetComponent<Image>());
+        PitMenuUiTheme.ApplyGoldGhostButton(_signUp, _signUp.GetComponent<Image>());
+        PitMenuUiTheme.WireMenuButton(_signIn, OnClickSignIn);
+        PitMenuUiTheme.WireMenuButton(_signUp, OnClickSignUp);
 
-        AddText(root.transform, "SavesLabel", new Vector2(12f, y), 16, new Color(0.9f, 0.75f, 0.2f), TextAlignmentOptions.Left).text =
-            "SAVE SLOTS (max 3)";
-        y -= 28f;
+        _signedRoot = new GameObject("SignedSection", typeof(RectTransform), typeof(VerticalLayoutGroup));
+        _signedRoot.transform.SetParent(root.transform, false);
+        var sigV = _signedRoot.GetComponent<VerticalLayoutGroup>();
+        sigV.padding = new RectOffset(0, 0, 0, 0);
+        sigV.spacing = 12f;
+        sigV.childAlignment = TextAnchor.UpperLeft;
+        sigV.childControlHeight = true;
+        sigV.childForceExpandHeight = false;
+        sigV.childControlWidth = true;
+        sigV.childForceExpandWidth = true;
+        var sigLe = _signedRoot.AddComponent<LayoutElement>();
+        sigLe.flexibleWidth = 1f;
+        sigLe.minHeight = 200f;
 
-        GameObject listPanel = CreateUi("SaveList", root.transform, new Vector2(396f, 200f));
-        RectTransform listRt = listPanel.GetComponent<RectTransform>();
-        listRt.anchorMin = new Vector2(0f, 1f);
-        listRt.anchorMax = new Vector2(0f, 1f);
-        listRt.pivot = new Vector2(0f, 1f);
-        listRt.anchoredPosition = new Vector2(12f, y);
-        listPanel.AddComponent<Image>().color = new Color(0.12f, 0.12f, 0.16f, 0.6f);
+        var savesHdr = AddTmp(_signedRoot.transform, "SavesHeader", 14f, PitMenuUiTheme.GoldSoft, TextAlignmentOptions.Left);
+        PitMenuUiTheme.StyleSectionHeader(savesHdr);
+        savesHdr.text = "SAVE SLOTS (3 max)";
 
-        GameObject content = CreateUi("Content", listPanel.transform, new Vector2(384f, 188f));
-        RectTransform cRt = content.GetComponent<RectTransform>();
-        cRt.anchorMin = new Vector2(0f, 1f);
-        cRt.anchorMax = new Vector2(0f, 1f);
-        cRt.pivot = new Vector2(0f, 1f);
-        cRt.anchoredPosition = new Vector2(6f, -6f);
-        var layout = content.AddComponent<VerticalLayoutGroup>();
-        layout.childAlignment = TextAnchor.UpperLeft;
-        layout.childControlHeight = true;
-        layout.childForceExpandHeight = false;
-        layout.childControlWidth = true;
-        layout.childForceExpandWidth = true;
-        layout.spacing = 4f;
-        _listRoot = content.transform;
+        BuildSaveScroll(_signedRoot.transform);
 
-        y -= 212f;
-        _slotName = AddInput(root.transform, "SlotNameInput", new Vector2(12f, y), "new save name");
-        y -= 48f;
-        _createSave = AddButton(root.transform, "CreateSave", new Vector2(12f, y), "Create save", OnClickCreateSave);
-        _refresh = AddButton(root.transform, "Refresh", new Vector2(150f, y), "Refresh", OnClickRefresh);
+        var capNote = AddTmp(_signedRoot.transform, "CapNote", 12f, PitMenuUiTheme.TextMuted, TextAlignmentOptions.TopLeft);
+        capNote.enableWordWrapping = true;
+        capNote.text = "At three saves you must delete one before starting another run in a new slot.";
+        var capLe = capNote.gameObject.AddComponent<LayoutElement>();
+        capLe.preferredHeight = 36f;
 
-        BuildDeleteConfirm(root.transform);
+        _slotName = AddInputRow(_signedRoot.transform, "SlotNameInput", "Name for new save slot");
+        var createRow = new GameObject("CreateRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        createRow.transform.SetParent(_signedRoot.transform, false);
+        var hCr = createRow.GetComponent<HorizontalLayoutGroup>();
+        hCr.spacing = 10f;
+        hCr.childAlignment = TextAnchor.MiddleLeft;
+        createRow.AddComponent<LayoutElement>().minHeight = 40f;
+        _createSave = AddLayoutButton(createRow.transform, "CreateSave", "New save slot", 160f);
+        _refresh = AddLayoutButton(createRow.transform, "Refresh", "Refresh list", 120f);
+        PitMenuUiTheme.ApplyPrimaryRunButton(_createSave, _createSave.GetComponent<Image>());
+        PitMenuUiTheme.ApplyNeutralPanelButton(_refresh, _refresh.GetComponent<Image>());
+        PitMenuUiTheme.WireMenuButton(_createSave, OnClickCreateSave);
+        PitMenuUiTheme.WireMenuButton(_refresh, OnClickRefresh);
+
+        var bottomRow = new GameObject("BottomRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        bottomRow.transform.SetParent(root.transform, false);
+        var hBot = bottomRow.GetComponent<HorizontalLayoutGroup>();
+        hBot.spacing = 10f;
+        hBot.childAlignment = TextAnchor.MiddleCenter;
+        hBot.childForceExpandWidth = false;
+        bottomRow.AddComponent<LayoutElement>().minHeight = 42f;
+
+        _logout = AddLayoutButton(bottomRow.transform, "Logout", "Log out", 120f);
+        _continueToMenu = AddLayoutButton(bottomRow.transform, "Continue", "Back to menu", 160f);
+        PitMenuUiTheme.ApplyNeutralPanelButton(_logout, _logout.GetComponent<Image>());
+        PitMenuUiTheme.ApplySecondarySteelButton(_continueToMenu, _continueToMenu.GetComponent<Image>());
+        PitMenuUiTheme.WireMenuButton(_logout, OnClickLogout);
+        PitMenuUiTheme.WireMenuButton(_continueToMenu, OnContinueToMenu);
+
+        _signedRoot.SetActive(false);
+        BuildDeleteConfirm(_gateOverlay.transform);
     }
 
-    private void BuildDeleteConfirm(Transform parent)
+    void BuildSaveScroll(Transform parent)
     {
-        _deleteConfirm = CreateUi("DeleteConfirm", parent, Vector2.zero);
+        var scrollGo = new GameObject("SaveScroll", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+        scrollGo.transform.SetParent(parent, false);
+        var scrollRt = scrollGo.GetComponent<RectTransform>();
+        var scrollBg = scrollGo.GetComponent<Image>();
+        scrollBg.color = new Color(0.04f, 0.045f, 0.055f, 0.9f);
+        scrollBg.raycastTarget = true;
+        var scroll = scrollGo.GetComponent<ScrollRect>();
+        scroll.horizontal = false;
+        scroll.vertical = true;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.scrollSensitivity = 24f;
+        var scrollLe = scrollGo.AddComponent<LayoutElement>();
+        scrollLe.minHeight = 200f;
+        scrollLe.preferredHeight = 240f;
+        scrollLe.flexibleHeight = 1f;
+
+        var viewport = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+        viewport.transform.SetParent(scrollGo.transform, false);
+        var vpRt = viewport.GetComponent<RectTransform>();
+        vpRt.anchorMin = Vector2.zero;
+        vpRt.anchorMax = Vector2.one;
+        vpRt.offsetMin = new Vector2(4f, 4f);
+        vpRt.offsetMax = new Vector2(-4f, -4f);
+        viewport.GetComponent<Image>().color = new Color(0, 0, 0, 0.15f);
+        viewport.GetComponent<Image>().raycastTarget = true;
+
+        var content = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+        content.transform.SetParent(viewport.transform, false);
+        var cRt = content.GetComponent<RectTransform>();
+        cRt.anchorMin = new Vector2(0f, 1f);
+        cRt.anchorMax = new Vector2(1f, 1f);
+        cRt.pivot = new Vector2(0.5f, 1f);
+        cRt.anchoredPosition = Vector2.zero;
+        cRt.sizeDelta = new Vector2(0f, 0f);
+        var v = content.GetComponent<VerticalLayoutGroup>();
+        v.padding = new RectOffset(6, 6, 6, 6);
+        v.spacing = 8f;
+        v.childAlignment = TextAnchor.UpperCenter;
+        v.childControlHeight = true;
+        v.childForceExpandHeight = false;
+        v.childControlWidth = true;
+        v.childForceExpandWidth = true;
+        content.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        scroll.content = cRt;
+        scroll.viewport = vpRt;
+
+        _scrollContent = content.transform;
+    }
+
+    void BuildDeleteConfirm(Transform parent)
+    {
+        _deleteConfirm = CreateUi("DeleteConfirm", parent);
         var rt = _deleteConfirm.GetComponent<RectTransform>();
         rt.anchorMin = Vector2.zero;
         rt.anchorMax = Vector2.one;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
-        _deleteConfirm.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.75f);
+        _deleteConfirm.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.82f);
         _deleteConfirm.SetActive(false);
 
-        var box = CreateUi("Box", _deleteConfirm.transform, new Vector2(320f, 160f));
+        var box = CreateUi("Box", _deleteConfirm.transform);
         var boxRt = box.GetComponent<RectTransform>();
         boxRt.anchorMin = new Vector2(0.5f, 0.5f);
         boxRt.anchorMax = new Vector2(0.5f, 0.5f);
-        box.AddComponent<Image>().color = new Color(0.12f, 0.1f, 0.14f, 1f);
+        boxRt.sizeDelta = new Vector2(400f, 200f);
+        box.AddComponent<Image>().color = PitMenuUiTheme.PanelDeep;
+        var bo = box.AddComponent<Outline>();
+        bo.effectColor = PitMenuUiTheme.Danger;
+        bo.effectDistance = new Vector2(1f, -1f);
 
-        var txt = AddText(box.transform, "Q", Vector2.zero, 18, Color.white, TextAlignmentOptions.Center);
-        txt.rectTransform.anchorMin = new Vector2(0f, 0.45f);
-        txt.rectTransform.anchorMax = new Vector2(1f, 1f);
-        txt.text = "Delete this save permanently?";
+        var txt = AddTmp(box.transform, "Q", 17f, PitMenuUiTheme.TextPrimary, TextAlignmentOptions.Center);
+        txt.enableWordWrapping = true;
+        txt.text = "Erase this save slot forever?\n<size=12><color=#AAAAAA>This cannot be undone.</color></size>";
+        var tr = txt.rectTransform;
+        tr.anchorMin = new Vector2(0.05f, 0.38f);
+        tr.anchorMax = new Vector2(0.95f, 0.95f);
+        tr.offsetMin = tr.offsetMax = Vector2.zero;
 
-        AddButton(box.transform, "Yes", new Vector2(40f, 24f), "Delete", ConfirmDeleteYes);
-        AddButton(box.transform, "No", new Vector2(180f, 24f), "Cancel", ConfirmDeleteNo);
+        var row = new GameObject("DelRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+        row.transform.SetParent(box.transform, false);
+        var rr = row.GetComponent<RectTransform>();
+        rr.anchorMin = new Vector2(0.1f, 0.08f);
+        rr.anchorMax = new Vector2(0.9f, 0.32f);
+        rr.offsetMin = rr.offsetMax = Vector2.zero;
+        var hr = row.GetComponent<HorizontalLayoutGroup>();
+        hr.spacing = 16f;
+        hr.childAlignment = TextAnchor.MiddleCenter;
+
+        var del = AddLayoutButton(row.transform, "Yes", "Delete save", 140f);
+        var no = AddLayoutButton(row.transform, "No", "Cancel", 120f);
+        PitMenuUiTheme.ApplyDangerButton(del, del.GetComponent<Image>());
+        PitMenuUiTheme.ApplyNeutralPanelButton(no, no.GetComponent<Image>());
+        PitMenuUiTheme.WireMenuButton(del, ConfirmDeleteYes);
+        PitMenuUiTheme.WireMenuButton(no, ConfirmDeleteNo);
     }
 
-    private void OnClickRefresh()
+    void OnContinueToMenu()
+    {
+        ShowGate(false);
+        mainMenu?.SetMainMenuLocked(false);
+    }
+
+    void OnClickRefresh()
     {
         if (!LocalSaveRuntime.IsSignedIn) return;
         LocalAccountDatabase.SaveAccountProfileFromRuntime(LocalSaveRuntime.ActiveUserId);
         RefreshList();
+        SetStatus("Save list refreshed.", false);
     }
 
-    private void OnClickSignIn()
+    void OnClickSignIn()
     {
         string uid = LocalAccountDatabase.SignIn(_username.text, _password.text, out string err);
         if (uid == null)
@@ -179,10 +370,10 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         LocalSaveRuntime.ActiveUserId = uid;
         LocalSaveRuntime.SetRememberedEmail(_username.text.Trim());
         ApplySignedInProfile();
-        RefreshLoggedInUi();
+        PresentSignedInAfterAuth();
     }
 
-    private void OnClickSignUp()
+    void OnClickSignUp()
     {
         string uid = LocalAccountDatabase.Register(_username.text, _password.text, out string err);
         if (uid == null)
@@ -193,24 +384,21 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         LocalSaveRuntime.ActiveUserId = uid;
         LocalSaveRuntime.SetRememberedEmail(_username.text.Trim());
         ApplySignedInProfile();
-        RefreshLoggedInUi();
+        PresentSignedInAfterAuth();
     }
 
-    private void OnClickLogout()
+    void OnClickLogout()
     {
         if (LocalSaveRuntime.IsSignedIn)
             LocalAccountDatabase.SaveAccountProfileFromRuntime(LocalSaveRuntime.ActiveUserId);
         LocalSaveRuntime.SignOut();
         mainMenu?.SetMainMenuLocked(true);
-        ShowGate(true);
-        _logout.gameObject.SetActive(false);
-        if (_signIn != null) _signIn.gameObject.SetActive(true);
-        if (_signUp != null) _signUp.gameObject.SetActive(true);
         ClearList();
-        SetStatus("Signed out. Data file is kept on disk.");
+        PresentAuthGate();
+        mainMenu?.RefreshFooterAfterAccount();
     }
 
-    private void OnClickCreateSave()
+    void OnClickCreateSave()
     {
         if (!LocalSaveRuntime.IsSignedIn)
         {
@@ -221,11 +409,11 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         var list = LocalAccountDatabase.ListSaves(LocalSaveRuntime.ActiveUserId);
         if (list.Count >= MaxSaves)
         {
-            SetStatus("3/3 saves — delete one before creating another.", true);
+            SetStatus("All three save slots are full. Delete a slot below, then try again.", true);
             return;
         }
 
-        string name = string.IsNullOrWhiteSpace(_slotName.text) ? "Save" : _slotName.text.Trim();
+        string name = string.IsNullOrWhiteSpace(_slotName.text) ? "Untitled descent" : _slotName.text.Trim();
         if (name.Length > 40) name = name.Substring(0, 40);
         var doc = GameSaveSerializer.CreateNewRun();
         if (LocalAccountDatabase.TryLoadAccountProfile(LocalSaveRuntime.ActiveUserId, out var acc, out var hs, out var st))
@@ -252,81 +440,115 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         mainMenu?.LoadMainSceneFromAccountSave();
     }
 
-    private void RefreshList()
+    void RefreshList()
     {
-        if (_listRoot == null) return;
+        if (_scrollContent == null) return;
         var rows = LocalAccountDatabase.ListSaves(LocalSaveRuntime.ActiveUserId);
         RenderList(rows);
         bool atCap = rows.Count >= MaxSaves;
         if (_createSave != null) _createSave.interactable = !atCap;
         string em = LocalAccountDatabase.GetUserEmail(LocalSaveRuntime.ActiveUserId);
         if (atCap)
-            SetStatus($"{em} — 3/3 saves. Delete one to create another.");
+            SetStatus($"{em} — using all {MaxSaves} slots. Delete one to start a new file.", false);
+        else if (rows.Count == 0)
+            SetStatus($"{em} — no saves yet. Create a slot or pick Back to menu.", false);
         else
-            SetStatus($"{em} — {rows.Count}/3 saves.\n{Application.persistentDataPath}/CS4483/");
+            SetStatus($"{em} — {rows.Count}/{MaxSaves} slots in use.", false);
     }
 
-    private void RenderList(List<LocalAccountDatabase.SaveSlotRecord> rows)
+    void RenderList(List<LocalAccountDatabase.SaveSlotRecord> rows)
     {
         ClearList();
         if (rows == null || rows.Count == 0)
         {
-            var t = AddText(_listRoot, "Empty", Vector2.zero, 14, Color.gray, TextAlignmentOptions.Center);
-            t.text = "No saves yet. Create one below.";
+            var t = AddTmp(_scrollContent, "Empty", 14f, PitMenuUiTheme.TextMuted, TextAlignmentOptions.Center);
+            t.text = "No saves yet.\nCreate a named slot below, or load an existing slot after you make one.";
             _listRows.Add(t.gameObject);
             return;
         }
 
         foreach (var row in rows)
         {
-            string label = row.slotLabel;
-            string updated = row.updatedAtIso ?? "";
+            string progress = "Fresh run";
             if (row.payload?.run != null)
             {
-                int wave = row.payload.run.waveIndex;
+                int wave = row.payload.run.waveIndex + 1;
                 int world = row.payload.run.activeWorld;
-                label = $"{row.slotLabel}  ·  W{wave + 1}  ·  world {world}";
+                progress = $"Wave {wave} · Arena {world}";
             }
 
-            var rowGo = CreateUi("Row_" + row.id, _listRoot, new Vector2(380f, 42f));
-            var h = rowGo.AddComponent<HorizontalLayoutGroup>();
+            string when = FormatLastPlayed(row.updatedAtIso);
+            string title = string.IsNullOrEmpty(row.slotLabel) ? "Unnamed slot" : row.slotLabel;
+
+            var rowGo = new GameObject("Row_" + row.id, typeof(RectTransform), typeof(Image), typeof(HorizontalLayoutGroup), typeof(SaveSlotRowChrome));
+            rowGo.transform.SetParent(_scrollContent, false);
+            var bg = rowGo.GetComponent<Image>();
+            bg.color = PitMenuUiTheme.SlotRow;
+            bg.raycastTarget = true;
+            var chrome = rowGo.GetComponent<SaveSlotRowChrome>();
+            chrome.Background = bg;
+            var h = rowGo.GetComponent<HorizontalLayoutGroup>();
+            h.padding = new RectOffset(12, 12, 10, 10);
+            h.spacing = 12f;
             h.childAlignment = TextAnchor.MiddleLeft;
-            h.spacing = 6f;
             h.childForceExpandWidth = false;
-
             var le = rowGo.AddComponent<LayoutElement>();
-            le.minHeight = 36f;
-            le.preferredHeight = 36f;
+            le.minHeight = 76f;
+            le.preferredHeight = 76f;
 
-            var lt = AddText(rowGo.transform, "txt", Vector2.zero, 12, Color.white, TextAlignmentOptions.Left);
-            lt.text = $"{label}\n<size=10><color=#888>{updated}</color></size>";
-            var leT = lt.gameObject.AddComponent<LayoutElement>();
-            leT.flexibleWidth = 1f;
+            var textCol = new GameObject("TextCol", typeof(RectTransform), typeof(VerticalLayoutGroup));
+            textCol.transform.SetParent(rowGo.transform, false);
+            var tv = textCol.GetComponent<VerticalLayoutGroup>();
+            tv.spacing = 4f;
+            tv.childAlignment = TextAnchor.UpperLeft;
+            tv.childControlWidth = true;
+            tv.childForceExpandWidth = true;
+            var tLe = textCol.AddComponent<LayoutElement>();
+            tLe.flexibleWidth = 1f;
+
+            var titleTmp = AddTmp(textCol.transform, "Title", 16f, PitMenuUiTheme.TextPrimary, TextAlignmentOptions.Left);
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.text = title;
+            var subTmp = AddTmp(textCol.transform, "Sub", 12f, PitMenuUiTheme.TextMuted, TextAlignmentOptions.Left);
+            subTmp.text = $"{progress}\nLast played: {when}";
 
             string id = row.id;
-            AddSmallButton(rowGo.transform, "Load", () => LoadSave(id));
-            AddSmallButton(rowGo.transform, "Del", () => PromptDelete(id));
+            var loadBtn = AddLayoutButton(rowGo.transform, "Load", "Load", 88f);
+            var delBtn = AddLayoutButton(rowGo.transform, "Del", "Delete", 88f);
+            PitMenuUiTheme.ApplySecondarySteelButton(loadBtn, loadBtn.GetComponent<Image>());
+            PitMenuUiTheme.ApplyDangerButton(delBtn, delBtn.GetComponent<Image>());
+            PitMenuUiTheme.WireMenuButton(loadBtn, () => LoadSave(id));
+            PitMenuUiTheme.WireMenuButton(delBtn, () => PromptDelete(id));
 
             _listRows.Add(rowGo);
         }
     }
 
-    private void ClearList()
+    static string FormatLastPlayed(string iso)
+    {
+        if (string.IsNullOrEmpty(iso)) return "—";
+        if (DateTime.TryParse(iso, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dt))
+            return dt.ToLocalTime().ToString("MMM d, yyyy  h:mm tt", CultureInfo.InvariantCulture);
+        return iso;
+    }
+
+    void ClearList()
     {
         foreach (var go in _listRows)
             if (go != null) Destroy(go);
         _listRows.Clear();
-        foreach (Transform c in _listRoot)
-            Destroy(c.gameObject);
+        if (_scrollContent == null) return;
+        for (int i = _scrollContent.childCount - 1; i >= 0; i--)
+            Destroy(_scrollContent.GetChild(i).gameObject);
     }
 
-    private void LoadSave(string id)
+    void LoadSave(string id)
     {
         if (!LocalSaveRuntime.IsSignedIn) return;
         var row = LocalAccountDatabase.FindSave(LocalSaveRuntime.ActiveUserId, id);
         if (row?.payload == null)
         {
-            SetStatus("Save missing or corrupt.", true);
+            SetStatus("That save is missing or unreadable.", true);
             return;
         }
         if (!GameSaveSerializer.TryParse(JsonConvert.SerializeObject(row.payload), out var doc, out string err))
@@ -344,15 +566,15 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         mainMenu?.LoadMainSceneFromAccountSave();
     }
 
-    private void PromptDelete(string id)
+    void PromptDelete(string id)
     {
         _pendingDeleteId = id;
         _deleteConfirm.SetActive(true);
     }
 
-    private void ConfirmDeleteNo() => _deleteConfirm.SetActive(false);
+    void ConfirmDeleteNo() => _deleteConfirm.SetActive(false);
 
-    private void ConfirmDeleteYes()
+    void ConfirmDeleteYes()
     {
         _deleteConfirm.SetActive(false);
         if (!string.IsNullOrEmpty(_pendingDeleteId))
@@ -360,7 +582,7 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         _pendingDeleteId = null;
     }
 
-    private void DeleteSave(string id)
+    void DeleteSave(string id)
     {
         if (!LocalAccountDatabase.TryDeleteSave(LocalSaveRuntime.ActiveUserId, id, out string err))
         {
@@ -368,131 +590,153 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
             return;
         }
         if (LocalSaveRuntime.ActiveSaveId == id) LocalSaveRuntime.ActiveSaveId = null;
-        SetStatus("Save deleted.");
+        SetStatus("Save slot removed.", false);
         RefreshList();
     }
 
-    private void SetStatus(string msg, bool error = false)
+    void SetStatus(string msg, bool error)
     {
         if (_status == null) return;
         _status.text = msg;
-        _status.color = error ? new Color(1f, 0.45f, 0.35f) : Color.gray;
+        _status.color = error ? PitMenuUiTheme.TextError : PitMenuUiTheme.TextMuted;
     }
 
-    private void RefreshLoggedInUi()
+    void PresentSignedInAfterAuth()
     {
-        string username = LocalAccountDatabase.GetUserEmail(LocalSaveRuntime.ActiveUserId);
-        SetStatus($"Signed in as {username}\nData file: {Application.persistentDataPath}/CS4483/local_accounts.json");
+        SetAuthVisible(false);
+        SetSignedVisible(true);
         if (_signIn != null) _signIn.gameObject.SetActive(false);
         if (_signUp != null) _signUp.gameObject.SetActive(false);
         if (_logout != null) _logout.gameObject.SetActive(true);
+        if (_continueToMenu != null) _continueToMenu.gameObject.SetActive(true);
+        mainMenu?.SetMainMenuLocked(true);
+        ShowGate(true);
+        RefreshList();
+        mainMenu?.RefreshFooterAfterAccount();
+    }
+
+    void RefreshLoggedInUiStartup()
+    {
+        SetAuthVisible(false);
+        SetSignedVisible(true);
+        if (_signIn != null) _signIn.gameObject.SetActive(false);
+        if (_signUp != null) _signUp.gameObject.SetActive(false);
+        if (_logout != null) _logout.gameObject.SetActive(true);
+        if (_continueToMenu != null) _continueToMenu.gameObject.SetActive(false);
         mainMenu?.SetMainMenuLocked(false);
         ShowGate(false);
         RefreshList();
+        mainMenu?.RefreshFooterAfterAccount();
     }
 
-    private void ShowGate(bool show)
+    void SetAuthVisible(bool v)
+    {
+        if (_authRoot != null) _authRoot.SetActive(v);
+    }
+
+    void SetSignedVisible(bool v)
+    {
+        if (_signedRoot != null) _signedRoot.SetActive(v);
+    }
+
+    void ShowGate(bool show)
     {
         if (_gateOverlay != null) _gateOverlay.SetActive(show);
     }
 
-    private static GameObject CreateUi(string name, Transform parent, Vector2 size)
+    static GameObject CreateUi(string name, Transform parent)
     {
         var go = new GameObject(name, typeof(RectTransform));
         go.transform.SetParent(parent, false);
-        var rt = (RectTransform)go.transform;
-        rt.sizeDelta = size;
         return go;
     }
 
-    private static TMP_InputField AddInput(Transform parent, string name, Vector2 pos, string placeholder, bool password = false)
+    static TMP_InputField AddInputRow(Transform parent, string name, string placeholder, bool password = false)
     {
-        var go = CreateUi(name, parent, new Vector2(456f, 36f));
+        var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(TMP_InputField));
+        go.transform.SetParent(parent, false);
         var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
-        rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = pos;
-        go.AddComponent<Image>().color = new Color(0.15f, 0.15f, 0.18f);
-        var input = go.AddComponent<TMP_InputField>();
-        var textGo = CreateUi("Text", go.transform, Vector2.zero);
-        var text = textGo.AddComponent<TextMeshProUGUI>();
-        text.fontSize = 14;
-        text.color = Color.white;
+        var img = go.GetComponent<Image>();
+        img.color = PitMenuUiTheme.InputBg;
+        var le = go.AddComponent<LayoutElement>();
+        le.minHeight = 40f;
+        le.preferredHeight = 40f;
+        var input = go.GetComponent<TMP_InputField>();
+        var textGo = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+        textGo.transform.SetParent(go.transform, false);
+        var text = textGo.GetComponent<TextMeshProUGUI>();
+        text.fontSize = 15f;
+        text.color = PitMenuUiTheme.TextPrimary;
         var trt = text.GetComponent<RectTransform>();
         trt.anchorMin = Vector2.zero;
         trt.anchorMax = Vector2.one;
-        trt.offsetMin = new Vector2(8f, 4f);
-        trt.offsetMax = new Vector2(-8f, -4f);
+        trt.offsetMin = new Vector2(10f, 6f);
+        trt.offsetMax = new Vector2(-10f, -6f);
         input.textComponent = text;
         input.textViewport = trt;
         if (password) input.contentType = TMP_InputField.ContentType.Password;
-        var phGo = CreateUi("Placeholder", go.transform, Vector2.zero);
-        var ph = phGo.AddComponent<TextMeshProUGUI>();
-        ph.fontSize = 14;
-        ph.color = new Color(1f, 1f, 1f, 0.35f);
+        var phGo = new GameObject("Placeholder", typeof(RectTransform), typeof(TextMeshProUGUI));
+        phGo.transform.SetParent(go.transform, false);
+        var ph = phGo.GetComponent<TextMeshProUGUI>();
+        ph.fontSize = 15f;
+        ph.color = new Color(PitMenuUiTheme.TextMuted.r, PitMenuUiTheme.TextMuted.g, PitMenuUiTheme.TextMuted.b, 0.5f);
         ph.text = placeholder;
         var prt = ph.GetComponent<RectTransform>();
         prt.anchorMin = Vector2.zero;
         prt.anchorMax = Vector2.one;
-        prt.offsetMin = new Vector2(8f, 4f);
-        prt.offsetMax = new Vector2(-8f, -4f);
+        prt.offsetMin = new Vector2(10f, 6f);
+        prt.offsetMax = new Vector2(-10f, -6f);
         input.placeholder = ph;
+        PitMenuUiTheme.StyleInputField(input);
         return input;
     }
 
-    private static TMP_Text AddText(Transform parent, string name, Vector2 pos, float size, Color c, TextAlignmentOptions align)
+    static TMP_Text AddTmp(Transform parent, string name, float size, Color c, TextAlignmentOptions align)
     {
-        var go = CreateUi(name, parent, Vector2.zero);
-        var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(1f, 1f);
-        rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = pos;
-        var t = go.AddComponent<TextMeshProUGUI>();
+        var go = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
+        go.transform.SetParent(parent, false);
+        var t = go.GetComponent<TextMeshProUGUI>();
         t.fontSize = size;
         t.color = c;
         t.alignment = align;
+        t.enableWordWrapping = true;
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 1f);
+        rt.anchorMax = new Vector2(1f, 1f);
+        rt.pivot = new Vector2(0.5f, 1f);
+        rt.sizeDelta = new Vector2(0f, size + 10f);
         return t;
     }
 
-    private static Button AddButton(Transform parent, string name, Vector2 pos, string label, UnityEngine.Events.UnityAction onClick)
+    static Button AddLayoutButton(Transform parent, string name, string label, float width)
     {
-        var go = CreateUi(name, parent, new Vector2(120f, 32f));
+        var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(parent, false);
         var rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = new Vector2(0f, 1f);
-        rt.anchorMax = new Vector2(0f, 1f);
-        rt.pivot = new Vector2(0f, 1f);
-        rt.anchoredPosition = pos;
-        var img = go.AddComponent<Image>();
-        img.color = new Color(0.25f, 0.22f, 0.35f);
-        var b = go.AddComponent<Button>();
+        rt.sizeDelta = new Vector2(width, 36f);
+        var img = go.GetComponent<Image>();
+        var b = go.GetComponent<Button>();
         b.targetGraphic = img;
-        b.onClick.AddListener(onClick);
-        var txt = AddText(go.transform, "T", Vector2.zero, 13, Color.white, TextAlignmentOptions.Center);
-        txt.rectTransform.anchorMin = Vector2.zero;
-        txt.rectTransform.anchorMax = Vector2.one;
+        var le = go.AddComponent<LayoutElement>();
+        le.preferredWidth = width;
+        le.minHeight = 36f;
+        var txtGo = new GameObject("T", typeof(RectTransform), typeof(TextMeshProUGUI));
+        txtGo.transform.SetParent(go.transform, false);
+        var txt = txtGo.GetComponent<TextMeshProUGUI>();
         txt.text = label;
+        txt.fontSize = 13f;
+        txt.fontStyle = FontStyles.Bold;
+        txt.color = PitMenuUiTheme.TextPrimary;
+        txt.alignment = TextAlignmentOptions.Center;
+        var tr = txt.GetComponent<RectTransform>();
+        tr.anchorMin = Vector2.zero;
+        tr.anchorMax = Vector2.one;
+        tr.offsetMin = Vector2.zero;
+        tr.offsetMax = Vector2.zero;
         return b;
     }
 
-    private static void AddSmallButton(Transform parent, string label, UnityEngine.Events.UnityAction onClick)
-    {
-        var go = CreateUi("Btn_" + label, parent, new Vector2(52f, 28f));
-        var img = go.AddComponent<Image>();
-        img.color = new Color(0.3f, 0.25f, 0.4f);
-        var b = go.AddComponent<Button>();
-        b.targetGraphic = img;
-        b.onClick.AddListener(onClick);
-        var le = go.AddComponent<LayoutElement>();
-        le.preferredWidth = 52f;
-        var t = AddText(go.transform, "t", Vector2.zero, 11, Color.white, TextAlignmentOptions.Center);
-        t.rectTransform.anchorMin = Vector2.zero;
-        t.rectTransform.anchorMax = Vector2.one;
-        t.text = label;
-    }
-
-    private void ApplySignedInProfile()
+    void ApplySignedInProfile()
     {
         if (!LocalSaveRuntime.IsSignedIn) return;
         if (!LocalAccountDatabase.TryLoadAccountProfile(LocalSaveRuntime.ActiveUserId, out var acc, out var hs, out var settings))
@@ -500,5 +744,20 @@ public class MainMenuLocalAccountPanel : MonoBehaviour
         AccountProgression.Instance?.OverwriteFromSave(acc);
         HighScoreManager.Instance?.ApplyFromSave(hs);
         SettingsManager.ApplyFromSave(settings);
+    }
+
+    sealed class SaveSlotRowChrome : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        public Image Background;
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (Background != null) Background.color = PitMenuUiTheme.SlotRowHover;
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (Background != null) Background.color = PitMenuUiTheme.SlotRow;
+        }
     }
 }

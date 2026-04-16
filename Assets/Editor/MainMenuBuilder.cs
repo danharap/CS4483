@@ -211,12 +211,12 @@ public static class MainMenuBuilder
 
         // ── Title ─────────────────────────────────────────────────────────
         TMP_Text title = MakeTMP(root, "Title",
-            new Vector2(0, 200), new Vector2(900, 160), "WAVE GAME", 80);
+            new Vector2(0, 200), new Vector2(900, 160), PitMenuBranding.GameTitle, 80);
         title.fontStyle = FontStyles.Bold;
         title.color     = new Color(1f, 0.88f, 0.3f);
 
         TMP_Text subtitle = MakeTMP(root, "Subtitle",
-            new Vector2(0, 110), new Vector2(600, 40), "Top-Down Wave Survival", 22);
+            new Vector2(0, 110), new Vector2(600, 40), PitMenuBranding.GameSubtitle, 22);
         subtitle.color = new Color(0.65f, 0.65f, 0.75f);
 
         // Decorative separator
@@ -276,7 +276,7 @@ public static class MainMenuBuilder
         // ── Version / credits ─────────────────────────────────────────────
         TMP_Text version = MakeTMP(root, "VersionText",
             new Vector2(0, -490), new Vector2(600, 24),
-            "CS4483 · Group 21  |  Karmali · Harapiak · Yuan · Goodman", 13);
+            PitMenuBranding.VersionFooter, 13);
         version.color = new Color(0.4f, 0.4f, 0.4f);
 
         // ── Wire MainMenuManager ──────────────────────────────────────────

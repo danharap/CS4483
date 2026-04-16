@@ -1,4 +1,4 @@
-# CS4483 — Wave Game (Unity)
+# CS4483 — The Pit (Unity)
 
 ## Local accounts & saves (JSON)
 

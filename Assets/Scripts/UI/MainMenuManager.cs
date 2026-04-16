@@ -29,9 +29,11 @@ public class MainMenuManager : MonoBehaviour
     [SerializeField] private Button    playButton;
 
     [Header("Title Pulse")]
-    [SerializeField] private float pulseSpeed  = 1.2f;
-    [SerializeField] private float pulseMin    = 0.7f;
+    [SerializeField] private float pulseSpeed  = 1.05f;
+    [SerializeField] private float pulseMin    = 0.82f;
     [SerializeField] private float pulseMax    = 1.0f;
+
+    Button _profileFooterButton;
 
     /// <summary>
     /// Static flag read by GameManager/TutorialRoomManager after MainScene loads.
@@ -44,11 +46,11 @@ public class MainMenuManager : MonoBehaviour
     public static void SetShouldRunTutorialForLoadedSave(bool runTutorial) => ShouldRunTutorial = runTutorial;
 
     private static readonly string[] LoreLines = {
-        "\"Many warriors have entered the Fractured Grounds. None have broken the cycle.\"\n-- Watcher Nara",
-        "\"The Shard of Chaos shattered more than walls. It shattered time.\"\n-- Final entry, Architect's Log",
-        "\"Thorn was the greatest of us. Now it is the worst of us.\"\n-- Watcher Drak",
-        "\"Survive the waves. Grow stronger. Face the Corrupted Champion.\nRepeat. Unless you can end it.\"",
-        "\"The Grounds remember every warrior. Their echoes become your enemies.\"\n-- Watcher Vex",
+        "\"Many warriors have entered the Fractured Grounds. None have broken the cycle.\"\n— Watcher Nara",
+        "\"The Shard of Chaos shattered more than walls. It shattered time.\"\n— Architect's final log",
+        "\"Thorn was the greatest of us. Now it is the worst of us.\"\n— Watcher Drak",
+        "\"Survive the descent. Grow stronger. Face what waits below.\nRepeat—unless you can end it.\"",
+        "\"The Pit remembers every challenger. Their echoes become your enemies.\"\n— Watcher Vex",
     };
 
     private int loreIndex;
@@ -74,6 +76,8 @@ public class MainMenuManager : MonoBehaviour
 
     void Start()
     {
+        ApplyMainMenuPresentation();
+
         WireMenuButton(newGameButton, OnNewGame);
         WireMenuButton(loadGameButton, OnLoadGame);
         WireMenuButton(settingsButton, OnSettings);
@@ -82,14 +86,274 @@ public class MainMenuManager : MonoBehaviour
         // Account gate panel unlocks these after a successful sign-in.
         SetMainMenuLocked(true);
 
-        if (titleText)    titleText.text    = "WAVE GAME";
-        if (subtitleText) subtitleText.text = "Top-Down Wave Survival";
-        if (versionText)  versionText.text  = "CS4483 · Group 21";
+        if (titleText)
+        {
+            titleText.text = PitMenuBranding.GameTitle;
+            titleText.color = PitMenuUiTheme.GoldAccent;
+            titleText.fontStyle = FontStyles.Bold;
+            titleText.characterSpacing = 3f;
+            titleText.enableAutoSizing = true;
+            titleText.fontSizeMin = 40f;
+            titleText.fontSizeMax = 108f;
+            titleText.outlineWidth = 0.22f;
+            titleText.outlineColor = new Color(0f, 0f, 0f, 0.88f);
+        }
+        if (subtitleText)
+        {
+            subtitleText.text = PitMenuBranding.GameSubtitle;
+            subtitleText.color = PitMenuUiTheme.TextMuted;
+            subtitleText.fontSize = Mathf.Max(subtitleText.fontSize, 20f);
+        }
+        if (versionText) versionText.text = PitMenuBranding.VersionFooter;
 
         UpdateBestRun();
         RotateLore();
         StartCoroutine(PulseTitle());
         StartCoroutine(CycleLore());
+
+        StartCoroutine(DeferredFooterRefresh());
+    }
+
+    IEnumerator DeferredFooterRefresh()
+    {
+        yield return null;
+        RefreshFooterAfterAccount();
+    }
+
+    /// <summary>Call when sign-in state changes so footer buttons match the session.</summary>
+    public void RefreshFooterAfterAccount()
+    {
+        if (settingsButton == null)
+        {
+            settingsButton = CreateFooterTextButton("Pit_SettingsButton", "Settings", new Vector2(-18f, 18f));
+            PitMenuUiTheme.ApplyNeutralPanelButton(settingsButton, settingsButton.GetComponent<Image>());
+            WireMenuButton(settingsButton, OnSettings);
+        }
+
+        if (!LocalSaveRuntime.IsSignedIn)
+        {
+            if (_profileFooterButton != null)
+            {
+                Destroy(_profileFooterButton.gameObject);
+                _profileFooterButton = null;
+            }
+            return;
+        }
+
+        if (_profileFooterButton != null) return;
+
+        _profileFooterButton = CreateFooterTextButton("Pit_ProfileButton", "Profile & saves", new Vector2(-18f, 58f));
+        PitMenuUiTheme.ApplyGoldGhostButton(_profileFooterButton, _profileFooterButton.GetComponent<Image>());
+        WireMenuButton(_profileFooterButton, OnProfileSaves);
+    }
+
+    void ApplyMainMenuPresentation()
+    {
+        var canvas = GetComponent<Canvas>();
+        if (canvas != null)
+        {
+            var scaler = canvas.GetComponent<CanvasScaler>();
+            if (scaler != null) scaler.matchWidthOrHeight = 0.52f;
+        }
+
+        var vig = transform.Find("Vignette")?.GetComponent<Image>();
+        if (vig != null)
+            vig.color = new Color(0f, 0f, 0f, 0.58f);
+
+        EnsureAtmosphereOverlay();
+        EnsureEdgeVignetteBars();
+
+        if (bestRunText != null)
+        {
+            bestRunText.color = PitMenuUiTheme.TextPrimary;
+            bestRunText.fontStyle = FontStyles.Bold;
+            bestRunText.alignment = TextAlignmentOptions.Center;
+        }
+
+        Transform bestBox = bestRunText != null ? bestRunText.transform.parent : null;
+        if (bestBox != null)
+        {
+            var boxImg = bestBox.GetComponent<Image>();
+            if (boxImg != null)
+            {
+                boxImg.color = new Color(0.04f, 0.045f, 0.055f, 0.82f);
+                var o = bestBox.GetComponent<Outline>();
+                if (o == null) o = bestBox.gameObject.AddComponent<Outline>();
+                o.effectColor = new Color(PitMenuUiTheme.GoldAccent.r, PitMenuUiTheme.GoldAccent.g, PitMenuUiTheme.GoldAccent.b, 0.35f);
+                o.effectDistance = new Vector2(1f, -1f);
+            }
+            var rt = bestBox.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.sizeDelta = new Vector2(640f, 88f);
+                rt.anchoredPosition = new Vector2(0f, 8f);
+            }
+        }
+
+        if (flavorText != null)
+        {
+            flavorText.color = new Color(0.62f, 0.68f, 0.78f, 0.92f);
+            flavorText.fontStyle = FontStyles.Italic;
+            flavorText.fontSize = Mathf.Max(flavorText.fontSize, 17f);
+            flavorText.lineSpacing = 4f;
+        }
+
+        if (versionText != null)
+        {
+            versionText.color = new Color(0.42f, 0.45f, 0.52f, 1f);
+            versionText.fontSize = Mathf.Clamp(versionText.fontSize, 12f, 14f);
+        }
+
+        var sep = transform.Find("Separator")?.GetComponent<Image>();
+        if (sep != null)
+            sep.color = new Color(PitMenuUiTheme.GoldAccent.r, PitMenuUiTheme.GoldAccent.g, PitMenuUiTheme.GoldAccent.b, 0.55f);
+
+        StylePrimaryGameButton(newGameButton);
+        StyleSecondaryGameButton(loadGameButton);
+
+        var titleRt = titleText != null ? titleText.rectTransform : null;
+        if (titleRt != null)
+        {
+            titleRt.anchoredPosition = new Vector2(0f, 220f);
+            titleRt.sizeDelta = new Vector2(920f, 180f);
+        }
+        if (subtitleText != null)
+        {
+            var srt = subtitleText.rectTransform;
+            srt.anchoredPosition = new Vector2(0f, 128f);
+            srt.sizeDelta = new Vector2(720f, 48f);
+        }
+        if (sep != null)
+        {
+            var ert = sep.rectTransform;
+            ert.sizeDelta = new Vector2(420f, 2f);
+            ert.anchoredPosition = new Vector2(0f, 92f);
+        }
+        if (flavorText != null)
+        {
+            var frt = flavorText.rectTransform;
+            frt.anchoredPosition = new Vector2(0f, -58f);
+            frt.sizeDelta = new Vector2(760f, 96f);
+        }
+        if (newGameButton != null)
+        {
+            var nrt = newGameButton.GetComponent<RectTransform>();
+            nrt.sizeDelta = new Vector2(400f, 56f);
+            nrt.anchoredPosition = new Vector2(0f, -148f);
+        }
+        if (loadGameButton != null)
+        {
+            var lrt = loadGameButton.GetComponent<RectTransform>();
+            lrt.sizeDelta = new Vector2(400f, 56f);
+            lrt.anchoredPosition = new Vector2(0f, -218f);
+        }
+        if (versionText != null)
+        {
+            var vrt = versionText.rectTransform;
+            vrt.anchorMin = new Vector2(0.5f, 0f);
+            vrt.anchorMax = new Vector2(0.5f, 0f);
+            vrt.pivot = new Vector2(0.5f, 0f);
+            vrt.anchoredPosition = new Vector2(0f, 28f);
+            vrt.sizeDelta = new Vector2(900f, 36f);
+        }
+    }
+
+    void EnsureAtmosphereOverlay()
+    {
+        if (transform.Find("Pit_AtmosphereWash") != null) return;
+        var go = new GameObject("Pit_AtmosphereWash", typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(transform, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.SetAsFirstSibling();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = rt.offsetMax = Vector2.zero;
+        go.GetComponent<Image>().color = new Color(0.02f, 0.04f, 0.08f, 0.28f);
+        go.GetComponent<Image>().raycastTarget = false;
+    }
+
+    void EnsureEdgeVignetteBars()
+    {
+        if (transform.Find("Pit_VignetteEdge") != null) return;
+        const float t = 72f;
+        void Bar(string n, Vector2 aMin, Vector2 aMax, Vector2 pivot, Vector2 size)
+        {
+            var go = new GameObject(n, typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(transform, false);
+            var rt = go.GetComponent<RectTransform>();
+            rt.anchorMin = aMin;
+            rt.anchorMax = aMax;
+            rt.pivot = pivot;
+            rt.sizeDelta = size;
+            rt.anchoredPosition = Vector2.zero;
+            go.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.55f);
+            go.GetComponent<Image>().raycastTarget = false;
+        }
+        int idx = transform.Find("Vignette") != null ? 1 : 0;
+        Bar("Pit_VignetteEdge_T", new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(0.5f, 1f), new Vector2(0f, t));
+        Bar("Pit_VignetteEdge_B", new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, t));
+        Bar("Pit_VignetteEdge_L", new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(0f, 0.5f), new Vector2(t, 0f));
+        Bar("Pit_VignetteEdge_R", new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(1f, 0.5f), new Vector2(t, 0f));
+        int insert = transform.Find("Pit_AtmosphereWash") != null ? 1 : 0;
+        foreach (Transform c in transform)
+        {
+            if (c != null && c.name.StartsWith("Pit_VignetteEdge", System.StringComparison.Ordinal))
+                c.SetSiblingIndex(Mathf.Clamp(insert, 0, transform.childCount - 1));
+        }
+    }
+
+    Button CreateFooterTextButton(string objName, string label, Vector2 anchoredPos)
+    {
+        var go = new GameObject(objName, typeof(RectTransform), typeof(Image), typeof(Button));
+        go.transform.SetParent(transform, false);
+        var rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = rt.anchorMax = new Vector2(1f, 0f);
+        rt.pivot = new Vector2(1f, 0f);
+        rt.sizeDelta = new Vector2(200f, 34f);
+        rt.anchoredPosition = anchoredPos;
+        var img = go.GetComponent<Image>();
+        img.color = new Color(0.12f, 0.13f, 0.16f, 0.85f);
+        var b = go.GetComponent<Button>();
+        b.targetGraphic = img;
+        var txtGo = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        txtGo.transform.SetParent(go.transform, false);
+        var tmp = txtGo.GetComponent<TextMeshProUGUI>();
+        tmp.text = label;
+        tmp.fontSize = 13f;
+        tmp.color = PitMenuUiTheme.TextPrimary;
+        tmp.alignment = TextAlignmentOptions.Center;
+        var tr = txtGo.GetComponent<RectTransform>();
+        tr.anchorMin = Vector2.zero;
+        tr.anchorMax = Vector2.one;
+        tr.offsetMin = Vector2.zero;
+        tr.offsetMax = Vector2.zero;
+        return b;
+    }
+
+    void OnProfileSaves()
+    {
+        var panel = GetComponent<MainMenuLocalAccountPanel>();
+        panel?.OpenAccountPanel();
+    }
+
+    static void StylePrimaryGameButton(Button b)
+    {
+        if (b == null) return;
+        var img = b.GetComponent<Image>();
+        if (img == null) return;
+        PitMenuUiTheme.ApplyPrimaryRunButton(b, img);
+        var label = b.GetComponentInChildren<TMP_Text>();
+        if (label != null) label.color = PitMenuUiTheme.TextPrimary;
+    }
+
+    static void StyleSecondaryGameButton(Button b)
+    {
+        if (b == null) return;
+        var img = b.GetComponent<Image>();
+        if (img == null) return;
+        PitMenuUiTheme.ApplySecondarySteelButton(b, img);
+        var label = b.GetComponentInChildren<TMP_Text>();
+        if (label != null) label.color = PitMenuUiTheme.TextPrimary;
     }
 
     static void WireMenuButton(Button b, UnityEngine.Events.UnityAction action)
@@ -125,16 +389,18 @@ public class MainMenuManager : MonoBehaviour
     {
         if (bestRunText == null) return;
         var hs = HighScoreManager.Instance;
+        string gold = ColorUtility.ToHtmlStringRGB(PitMenuUiTheme.GoldAccent);
+        string dim = ColorUtility.ToHtmlStringRGB(PitMenuUiTheme.TextMuted);
         if (hs == null || !hs.HasAnyRecord())
         {
-            bestRunText.text = "No runs recorded yet.\nBe the first to enter the Grounds.";
+            bestRunText.text = $"<size=15><color=#{dim}>PERSONAL BEST</color></size>\n<size=14>No recorded descent yet. Survive your first run to claim a record.</size>";
             return;
         }
         bestRunText.text =
-            $"BEST RUN\n" +
-            $"Waves: <color=#FFD700>{hs.BestWaves}</color>   " +
-            $"Time: <color=#FFD700>{HighScoreManager.FormatTime(hs.BestTime)}</color>   " +
-            $"Kills: <color=#FFD700>{hs.BestKills}</color>";
+            $"<size=15><color=#{dim}>PERSONAL BEST</color></size>\n" +
+            $"<color=#{gold}>{hs.BestWaves}</color> <size=13><color=#{dim}>waves</color></size>   " +
+            $"<color=#{gold}>{HighScoreManager.FormatTime(hs.BestTime)}</color> <size=13><color=#{dim}>time</color></size>   " +
+            $"<color=#{gold}>{hs.BestKills}</color> <size=13><color=#{dim}>strikes</color></size>";
     }
 
     void OnNewGame()
