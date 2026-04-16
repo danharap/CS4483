@@ -17,7 +17,6 @@ public class TutorialManager : MonoBehaviour
     [SerializeField] private TMP_Text   tutorialText;
     [SerializeField] private GameObject tutorialTextRoot;
     [SerializeField] private TMP_Text   tutorialSpeakerText;
-    [SerializeField] private Image      tutorialPortraitImage;
 
     [Header("Dialogue Portrait")]
     [Tooltip("Portrait shown in the dialogue box. Auto-loaded from Resources/Portraits/TutorialNPC_Portrait if empty.")]
@@ -656,7 +655,6 @@ public class TutorialManager : MonoBehaviour
         // ── Stardew-style bottom dialogue panel ───────────────────────────
         const float panelH     = 200f;
         const float panelW     = 1260f;
-        const float portraitSz = 164f;
         const float edgePad    = 18f;
 
         tutorialTextRoot = new GameObject("TutorialDialoguePanel");
@@ -745,9 +743,6 @@ public class TutorialManager : MonoBehaviour
         }
         else
             portraitRaw.color = new Color(0.3f, 0.3f, 0.3f, 0.5f);
-
-        // tutorialPortraitImage is unused now (replaced by RawImage above).
-        tutorialPortraitImage = null;
 
         // ── Text area ─────────────────────────────────────────────────────
         float textAreaX     = edgePad + frameSz + edgePad;

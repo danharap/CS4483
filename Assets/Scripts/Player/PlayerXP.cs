@@ -38,6 +38,16 @@ public class PlayerXP : MonoBehaviour
         OnXPChanged?.Invoke(CurrentXP, XPThreshold, RunLevel);
     }
 
+    /// <summary>Restore run-level XP state from a save (does not fire level-up UI).</summary>
+    public void RestoreFromSave(float currentXp, float threshold, int level, float pickupRad)
+    {
+        CurrentXP    = Mathf.Max(0f, currentXp);
+        XPThreshold  = Mathf.Max(0.01f, threshold);
+        RunLevel     = Mathf.Max(1, level);
+        pickupRadius = Mathf.Max(0.1f, pickupRad);
+        OnXPChanged?.Invoke(CurrentXP, XPThreshold, RunLevel);
+    }
+
     public void AddXP(float amount)
     {
         CurrentXP += amount;

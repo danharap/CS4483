@@ -40,6 +40,9 @@ public class MainMenuManager : MonoBehaviour
     /// </summary>
     public static bool ShouldRunTutorial { get; private set; }
 
+    /// <summary>Used when hydrating an account save so tutorial auto-start matches save data.</summary>
+    public static void SetShouldRunTutorialForLoadedSave(bool runTutorial) => ShouldRunTutorial = runTutorial;
+
     private static readonly string[] LoreLines = {
         "\"Many warriors have entered the Fractured Grounds. None have broken the cycle.\"\n-- Watcher Nara",
         "\"The Shard of Chaos shattered more than walls. It shattered time.\"\n-- Final entry, Architect's Log",
@@ -52,6 +55,9 @@ public class MainMenuManager : MonoBehaviour
 
     void Awake()
     {
+        if (GetComponent<MainMenuLocalAccountPanel>() == null)
+            gameObject.AddComponent<MainMenuLocalAccountPanel>();
+
         // Self-heal: find buttons by their GameObject name if serialized refs were lost
         if (newGameButton  == null) newGameButton  = FindButtonByName("NewGameButton");
         if (loadGameButton == null) loadGameButton = FindButtonByName("LoadGameButton");
@@ -73,9 +79,8 @@ public class MainMenuManager : MonoBehaviour
         WireMenuButton(settingsButton, OnSettings);
         WireMenuButton(playButton, OnNewGame);
 
-        bool hasSave = PlayerPrefs.GetInt("Meta_AccountLevel", 0) >= 1;
-        if (loadGameButton != null)
-            loadGameButton.interactable = hasSave;
+        // Account gate panel unlocks these after a successful sign-in.
+        SetMainMenuLocked(true);
 
         if (titleText)    titleText.text    = "WAVE GAME";
         if (subtitleText) subtitleText.text = "Top-Down Wave Survival";
@@ -134,14 +139,34 @@ public class MainMenuManager : MonoBehaviour
 
     void OnNewGame()
     {
+        LocalSaveRuntime.ActiveSaveId = null;
+        LocalSaveRuntime.PendingHydrate = null;
+        PlayerPrefs.SetInt("Meta_TutorialCompleted", 0);
+        PlayerPrefs.Save();
         ShouldRunTutorial = true;
         SceneManager.LoadScene(gameSceneName);
     }
 
     void OnLoadGame()
     {
+        LocalSaveRuntime.ActiveSaveId = null;
+        LocalSaveRuntime.PendingHydrate = null;
         ShouldRunTutorial = false;
         SceneManager.LoadScene(gameSceneName);
+    }
+
+    /// <summary>Used after setting <see cref="LocalSaveRuntime.PendingHydrate"/>.</summary>
+    public void LoadMainSceneFromAccountSave()
+    {
+        SceneManager.LoadScene(gameSceneName);
+    }
+
+    public void SetMainMenuLocked(bool locked)
+    {
+        bool enabled = !locked;
+        if (newGameButton != null) newGameButton.interactable = enabled;
+        if (loadGameButton != null) loadGameButton.interactable = enabled;
+        if (playButton != null) playButton.interactable = enabled;
     }
 
     void OnSettings()

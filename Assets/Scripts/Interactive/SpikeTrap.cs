@@ -13,8 +13,6 @@ public class SpikeTrap : TelegraphedArenaTrap
     [SerializeField] private float damagePerTick   = 15f;
     [Tooltip("Seconds between damage ticks when player stays inside.")]
     [SerializeField] private float tickInterval    = 0.4f;
-    [Tooltip("Radius the spike occupies when active. Should match warnRadius.")]
-    [SerializeField] private float damageRadius    = 1.2f;
 
     [Header("Spike Visuals")]
     [SerializeField] private TrapSpriteAnimator spriteAnimator;

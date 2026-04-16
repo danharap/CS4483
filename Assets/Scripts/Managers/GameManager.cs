@@ -92,6 +92,9 @@ public class GameManager : MonoBehaviour
             accountLevelUpBound = true;
         }
 
+        if (LocalSaveRuntime.TryConsumePendingHydrate(out GameSaveDocument cloudDoc))
+            GameSaveHydrator.ApplyFromDocument(cloudDoc);
+
         if (MainMenuManager.ShouldRunTutorial)
             StartCoroutine(AutoStartTutorial());
 
@@ -232,6 +235,8 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void RespawnToLobby()
     {
+        LocalSaveAutoSync.TrySyncNow();
+
         Time.timeScale = 1f;
         State = GameState.Playing;
 
@@ -285,6 +290,8 @@ public class GameManager : MonoBehaviour
         PlayerWeapon?.ResetToBase();
         PlayerController?.ResetToBase();
         PlayerXP?.ResetToBase();
+
+        UpgradeManager.ClearRunUpgradeHistory();
 
         // Back in lobby: lock shooting until player enters arena again.
         PlayerWeapon?.SetShootingEnabled(false);
@@ -415,6 +422,7 @@ public class GameManager : MonoBehaviour
 
     public void GoToMainMenu()
     {
+        LocalSaveAutoSync.TrySyncNow();
         Time.timeScale = 1f;
         SceneManager.LoadScene("MainMenu");
     }

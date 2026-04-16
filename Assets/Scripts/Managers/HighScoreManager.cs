@@ -71,9 +71,32 @@ public class HighScoreManager : MonoBehaviour
         }
 
         PlayerPrefs.Save();
+
+        if (LocalSaveRuntime.IsSignedIn)
+            LocalAccountDatabase.SaveAccountProfileFromRuntime(LocalSaveRuntime.ActiveUserId);
     }
 
     public bool HasAnyRecord() => BestWaves > 0 || BestTime > 0f || BestKills > 0;
+
+    public void ApplyFromSave(HighScoreSaveBlock h)
+    {
+        if (h == null) return;
+        BestWaves = Mathf.Max(0, h.bestWaves);
+        BestTime  = Mathf.Max(0f, h.bestTime);
+        BestKills = Mathf.Max(0, h.bestKills);
+        PlayerPrefs.SetInt(KEY_WAVES, BestWaves);
+        PlayerPrefs.SetFloat(KEY_TIME, BestTime);
+        PlayerPrefs.SetInt(KEY_KILLS, BestKills);
+        PlayerPrefs.Save();
+    }
+
+    public HighScoreSaveBlock ExportSaveBlock() =>
+        new HighScoreSaveBlock
+        {
+            bestWaves = BestWaves,
+            bestTime = BestTime,
+            bestKills = BestKills
+        };
 
     public static string FormatTime(float seconds)
     {

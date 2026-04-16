@@ -60,7 +60,6 @@ public class SatanBossController : MonoBehaviour
 
     [Header("Arena Bounds")]
     [SerializeField] private float satanArenaTopZ = 14f;
-    [SerializeField] private float satanXRange    = 4f;
 
     // ── Fake-Death Transition ─────────────────────────────────────────────
 

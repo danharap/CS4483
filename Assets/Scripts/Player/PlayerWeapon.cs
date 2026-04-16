@@ -55,6 +55,15 @@ public class PlayerWeapon : MonoBehaviour
         fireTimer       = 0f;
     }
 
+    public void RestoreFromSave(float dmg, float rate, int pierce, int projCount)
+    {
+        damage          = Mathf.Max(0.01f, dmg);
+        fireRate        = Mathf.Max(0.01f, rate);
+        pierceCount     = Mathf.Max(0, pierce);
+        projectileCount = Mathf.Max(1, projCount);
+        fireTimer       = 0f;
+    }
+
     void Start()
     {
         AudioClip weaponRes = Resources.Load<AudioClip>("SFX/WeaponEffect");
