@@ -235,8 +235,6 @@ public class GameManager : MonoBehaviour
     /// </summary>
     public void RespawnToLobby()
     {
-        LocalSaveAutoSync.TrySyncNow();
-
         Time.timeScale = 1f;
         State = GameState.Playing;
 
@@ -268,6 +266,12 @@ public class GameManager : MonoBehaviour
         // Re-enable lobby colliders that EnterArenaFromLobby() disabled — critical for
         // LobbyPortal trigger to work and for lobby walls to block physics again.
         LobbyPortalManager.Instance?.ResetForRespawn();
+
+        foreach (SatanArenaIntroController intro in FindObjectsByType<SatanArenaIntroController>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            intro?.ResetForRespawn();
+        }
 
         ClearTransientArenaEntities();
 
@@ -304,6 +308,9 @@ public class GameManager : MonoBehaviour
         hudManager?.UpdateWaveNumber(1);
 
         GameplayMusicController.Instance?.PlayLobby();
+
+        // Persist the post-death reset state (never the dead snapshot).
+        LocalSaveAutoSync.TrySyncNow();
     }
 
     /// <summary>
@@ -403,6 +410,15 @@ public class GameManager : MonoBehaviour
             foreach (Renderer r in sb.GetComponentsInChildren<Renderer>(true))
                 r.enabled = false;
             Destroy(sb.gameObject);
+        }
+
+        foreach (SatanBossController satan in FindObjectsByType<SatanBossController>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (satan == null) continue;
+            foreach (Renderer r in satan.GetComponentsInChildren<Renderer>(true))
+                r.enabled = false;
+            Destroy(satan.gameObject);
         }
 
         foreach (EnemyBase enemy in FindObjectsByType<EnemyBase>(

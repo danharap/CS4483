@@ -26,6 +26,15 @@ public static class GameSaveCapture
 
         var run = new RunSaveBlock();
         doc.run = run;
+        run.tutorialCompleted = PlayerPrefs.GetInt("Meta_TutorialCompleted", 0) == 1;
+
+        // Never persist a dead/game-over combat snapshot as the next playable load.
+        if (ShouldForceRunResetSnapshot(gm))
+        {
+            ApplyFreshRunDefaults(run);
+            run.tutorialCompleted = PlayerPrefs.GetInt("Meta_TutorialCompleted", 0) == 1;
+            return doc;
+        }
 
         if (gm.PlayerController != null)
         {
@@ -63,8 +72,6 @@ public static class GameSaveCapture
             run.dashCooldown = gm.PlayerController.dashCooldown;
         }
 
-        run.tutorialCompleted = PlayerPrefs.GetInt("Meta_TutorialCompleted", 0) == 1;
-
         run.activeWorld       = ResolveActiveWorld();
         run.waveIndex         = gm.WaveManager != null ? gm.WaveManager.WaveIndex : 0;
         run.wavesHasStarted   = gm.WaveManager != null && gm.WaveManager.HasStarted;
@@ -78,6 +85,42 @@ public static class GameSaveCapture
             run.appliedUpgradeIds = System.Array.Empty<string>();
 
         return doc;
+    }
+
+    private static bool ShouldForceRunResetSnapshot(GameManager gm)
+    {
+        if (gm == null) return true;
+        if (gm.State == GameManager.GameState.GameOver) return true;
+        if (gm.PlayerHealth == null) return true;
+        return gm.PlayerHealth.CurrentHP <= 0f;
+    }
+
+    private static void ApplyFreshRunDefaults(RunSaveBlock run)
+    {
+        RunSaveBlock fresh = GameSaveSerializer.CreateNewRun().run;
+
+        run.activeWorld = fresh.activeWorld;
+        run.playerX = fresh.playerX;
+        run.playerY = fresh.playerY;
+        run.playerZ = fresh.playerZ;
+        run.healthCurrent = fresh.healthCurrent;
+        run.healthMax = fresh.healthMax;
+        run.runLevel = fresh.runLevel;
+        run.runXP = fresh.runXP;
+        run.runXPThreshold = fresh.runXPThreshold;
+        run.pickupRadius = fresh.pickupRadius;
+        run.weaponDamage = fresh.weaponDamage;
+        run.weaponFireRate = fresh.weaponFireRate;
+        run.weaponPierce = fresh.weaponPierce;
+        run.weaponProjectileCount = fresh.weaponProjectileCount;
+        run.moveSpeed = fresh.moveSpeed;
+        run.dashCooldown = fresh.dashCooldown;
+        run.waveIndex = 0;
+        run.wavesHasStarted = false;
+        run.waveIsBreak = false;
+        run.wavesClearedStat = 0;
+        run.totalKillsStat = 0;
+        run.appliedUpgradeIds = System.Array.Empty<string>();
     }
 
     private static int ResolveActiveWorld()

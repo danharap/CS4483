@@ -47,6 +47,7 @@ public class SatanArenaIntroController : MonoBehaviour
 
     private SatanBossController satanInstance;
     private bool introTriggered;
+    private bool subscribedToWaveStart;
 
     /// <summary>Throne world position (readable by EnemySpawner for F10 debug spawning).</summary>
     public Vector3 ThronePosition  => thronePosition;
@@ -55,28 +56,28 @@ public class SatanArenaIntroController : MonoBehaviour
 
     // ─────────────────────────────────────────────────────────────────────
 
-    private void Start()
+    private void OnEnable()
     {
-        // Resolve WaveManager
-        if (waveManager == null)
-            waveManager = FindFirstObjectByType<WaveManager>();
+        BindWaveManager();
+        EnsureSatanReadyForCurrentEncounter();
+    }
 
-        if (waveManager == null)
+    private void OnDisable()
+    {
+        if (waveManager != null && subscribedToWaveStart)
         {
-            Debug.LogError("[SatanArenaIntro] WaveManager not found — Satan intro will not trigger!");
-            return;
+            waveManager.OnWaveStart -= OnWaveStart;
+            subscribedToWaveStart = false;
         }
-
-        waveManager.OnWaveStart += OnWaveStart;
-
-        // Spawn Satan on the throne immediately when Arena 2 becomes active
-        SpawnSatanOnThrone();
     }
 
     private void OnDestroy()
     {
-        if (waveManager != null)
+        if (waveManager != null && subscribedToWaveStart)
+        {
             waveManager.OnWaveStart -= OnWaveStart;
+            subscribedToWaveStart = false;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ public class SatanArenaIntroController : MonoBehaviour
         // Instantiate at the throne position; Awake() runs immediately.
         GameObject go = Instantiate(satanPrefab, thronePosition, Quaternion.identity);
         go.name = "Satan_Boss";
+        go.transform.SetParent(transform.root, true);
 
         satanInstance = go.GetComponent<SatanBossController>();
         if (satanInstance == null)
@@ -191,6 +193,70 @@ public class SatanArenaIntroController : MonoBehaviour
             introTriggered = true;
             StartCoroutine(TriggerIntroAfterDelay());
         }
+    }
+
+    #endregion
+
+    // ─────────────────────────────────────────────────────────────────────
+    #region Encounter Reset API
+
+    /// <summary>
+    /// Called by GameManager on death/respawn so the next Arena 2 entry starts clean.
+    /// </summary>
+    public void ResetForRespawn()
+    {
+        introTriggered = false;
+
+        if (satanInstance != null)
+        {
+            Destroy(satanInstance.gameObject);
+            satanInstance = null;
+        }
+
+        // Safety sweep: destroy any stale Satan instances, including old scene-root leftovers.
+        foreach (SatanBossController satan in FindObjectsByType<SatanBossController>(
+                     FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (satan != null) Destroy(satan.gameObject);
+        }
+    }
+
+    private void BindWaveManager()
+    {
+        if (waveManager == null)
+            waveManager = FindFirstObjectByType<WaveManager>();
+
+        if (waveManager == null)
+        {
+            Debug.LogError("[SatanArenaIntro] WaveManager not found — Satan intro will not trigger!");
+            return;
+        }
+
+        if (!subscribedToWaveStart)
+        {
+            waveManager.OnWaveStart += OnWaveStart;
+            subscribedToWaveStart = true;
+        }
+    }
+
+    private void EnsureSatanReadyForCurrentEncounter()
+    {
+        // If this arena root is enabled for a new run, start from a clean intro state.
+        introTriggered = false;
+
+        if (satanInstance == null)
+            satanInstance = FindFirstObjectByType<SatanBossController>(FindObjectsInactive.Include);
+
+        if (satanInstance != null)
+        {
+            // Keep any found Satan under Arena 2 root so deactivating arena cleanly hides him.
+            satanInstance.transform.SetParent(transform.root, true);
+            satanInstance.EnableThroneMode(thronePosition, landingPosition);
+            return;
+        }
+
+        // Spawn Satan on the throne immediately when Arena 2 becomes active.
+        SpawnSatanOnThrone();
     }
 
     #endregion

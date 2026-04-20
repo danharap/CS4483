@@ -142,8 +142,15 @@ public class PlayerHealth : MonoBehaviour
     public void RestoreFromSave(float current, float max)
     {
         maxHP     = Mathf.Max(1f, max);
-        CurrentHP = Mathf.Clamp(current, 0f, maxHP);
+        float safeCurrent = current;
+        if (float.IsNaN(safeCurrent) || float.IsInfinity(safeCurrent) || safeCurrent <= 0f)
+            safeCurrent = maxHP;
+
+        CurrentHP = Mathf.Clamp(safeCurrent, 1f, maxHP);
         iFramesTimer = 0f;
+        overlayAlpha = 0f;
+        if (damageOverlay != null)
+            damageOverlay.color = new Color(1f, 0f, 0f, 0f);
         OnHealthChanged?.Invoke(CurrentHP, maxHP);
     }
 }

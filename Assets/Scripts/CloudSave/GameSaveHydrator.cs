@@ -23,6 +23,13 @@ public static class GameSaveHydrator
         var run = doc.run;
         if (run == null) return;
 
+        if (IsInvalidPlayableRunSnapshot(run))
+        {
+            Debug.LogWarning("[GameSaveHydrator] Invalid/dead run snapshot detected — forcing clean lobby respawn.");
+            gm.RespawnToLobby();
+            return;
+        }
+
         // Level visibility
         GameObject lobby = FindRoot("=== LEVEL (Lobby) ===");
         GameObject tutorial = FindRoot("=== LEVEL (Tutorial) ===");
@@ -83,6 +90,16 @@ public static class GameSaveHydrator
         UpgradeManager.ClearRunUpgradeHistory();
 
         gm.ApplyMetaPassives();
+    }
+
+    private static bool IsInvalidPlayableRunSnapshot(RunSaveBlock run)
+    {
+        if (run == null) return true;
+        if (run.healthMax <= 0f) return true;
+        if (run.healthCurrent <= 0f) return true;
+        if (float.IsNaN(run.healthCurrent) || float.IsInfinity(run.healthCurrent)) return true;
+        if (float.IsNaN(run.healthMax) || float.IsInfinity(run.healthMax)) return true;
+        return false;
     }
 
     private static GameObject FindRoot(string name)
