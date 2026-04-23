@@ -1,0 +1,334 @@
+Deliverable 3 - Final Game Prototype and Showcase Report
+Course: CS 4483
+Team: Group 21
+Members: Aydan Karmali (akarma5) | Zachary Goodman (zgoodma3) | Daniel Harapiak (Dharapia) | Derek Yuan (dyuan28)
+Date: April 2026
+Game Title: The Pit
+
+Figure assets currently prepared by team:
+1) Sign-in screen
+2) Create/Load Game screen
+3) Tutorial screen
+4) Skill Tree screen
+5) Colosseum Phase 1 (before transition)
+6) Colosseum Phase 2 (after transition)
+7) Choose Upgrade screen
+8) In-game boss fight screenshot (Phase 1)
+9) In-game boss fight screenshot (Phase 2)
+
+
+================================================================================
+INTRODUCTION
+================================================================================
+
+The Pit is a top-down arena survival game where the player controls a condemned soul forced to fight through escalating waves inside Satan's colosseum. Across this final deliverable, our objective was to move from a feature-complete mid-project prototype to a stable, polished, and presentation-ready game package. We focused on five outcomes: final build reliability, stronger visual/audio cohesion, tighter narrative-mechanics integration, measurable iteration from playtesting, and submission-quality documentation.
+
+Deliverable 2 established the foundation: two-arena progression, tutorial onboarding, a multi-phase boss fight, upgrade systems, and meta progression. Deliverable 3 extends that foundation with additional polish passes and quality-of-life improvements, including audio and settings integration, upgraded menu/account UX, iteration tooling for faster testing loops, save-state reliability fixes, and boss encounter stability improvements. This report presents the final state of the project according to the Deliverable 3 rubric.
+
+[Insert Figure 1 near end of Introduction: Sign-in screen]
+[Insert Figure 2 near end of Introduction: Create/Load Game screen]
+
+
+================================================================================
+1. UNITY IMPLEMENTATION & POLISH
+================================================================================
+
+Final Build Stability and Runtime Flow
+
+The game loop is coordinated through a central state-driven architecture that transitions cleanly between gameplay, pause, upgrade selection, game-over, and victory states. The final flow from Lobby -> Arena 1 -> Arena 2 -> Boss -> End-state is deterministic and resilient to interrupted runs. Core managers now include stronger cleanup and reset behavior to prevent leftover entities or invalid state transitions between runs.
+
+A major post-Deliverable-2 effort was reliability hardening around save/load and boss lifecycle edge cases. We addressed situations where a player could quit during death or phase transitions and later load an invalid or unwinnable run. Our save capture and hydration flow now validates run state, applies safe fallbacks when a snapshot is not playable, and synchronizes key transitions so restoration stays consistent.
+
+Technical Organization and Reproducibility
+
+The Unity project remains organized for evaluation and portability, with required directories only (Assets, Packages, ProjectSettings) and a functional Windows build. We also retained one-click setup and build workflows for reproducibility and team consistency, reducing manual scene wiring and minimizing configuration drift across machines.
+
+Polish and Performance-Oriented Fixes
+
+After the mid-project milestone, we continued with steady polish rather than one-off fixes. We hardened the build and submission workflow (one-click build and packaging), fixed boss death and save-state edge cases, tightened spawn safety and cleanup so encounters stay fair and consistent, and improved robustness around tutorial transitions, portal movement, and encounter resets.
+
+Together, these improvements raised stability from "feature complete" to "submission-ready," which directly supports the Unity Implementation & Polish criterion.
+
+
+================================================================================
+2. ART, AESTHETICS & SOUND DESIGN
+================================================================================
+
+Visual Direction and Coherence
+
+The game's visual identity is intentionally consistent across menus, lobby, arenas, and combat UI. The Pit uses a dark infernal palette, high-contrast combat cues, and a retro sprite-forward presentation in a 3D space. We reinforced visual consistency through shared UI theme configuration, arena-specific environmental theming, and common feedback patterns (damage flash, low-health emphasis, trap telegraphs, dash effects).
+
+This consistency was not only aesthetic; it was functional. Visual language helps players parse danger and opportunity quickly:
+- Trap warning states communicate hazard timing.
+- Boss telegraphs and phase transitions clarify encounter readability.
+- HUD hierarchy prioritizes wave, enemy count, health, and boss HP visibility.
+- Upgrade and menu interfaces maintain consistent button/state feedback.
+
+Audio Integration and Player Feedback
+
+Deliverable 3 introduced a meaningful audio layer across gameplay and UI. The final prototype includes:
+- Contextual music transitions for lobby/combat/boss moments.
+- Sound cues for weapon fire, enemy deaths, and interface interactions.
+- In-game settings controls for master/music/SFX adjustment.
+
+These additions improve feedback and atmosphere simultaneously. Combat feels more responsive due to immediate sonic confirmation, while state changes (menu, battle escalation, boss moments) gain emotional weight through music and stingers.
+
+Art and audio were developed under project constraints, but the final package demonstrates a clear direction and cohesive experience suitable for course evaluation.
+
+[Insert Figure 3 in this section: Tutorial screen]
+[Insert Figure 8 in this section: In-game screenshot (Phase 1) showing HUD/visual readability]
+
+
+================================================================================
+3. NARRATIVE & SYSTEMS INTEGRATION
+================================================================================
+
+Narrative Through Playable Structure
+
+The core narrative premise remains: the player is a captive soul fighting for survival in Satan's arena. In the final prototype, this premise is embedded in systems rather than delivered through exposition-heavy text. Satan's throne presence before engagement, wave-gated escalation, and staged boss activation translate narrative tension directly into mechanics.
+
+Satan Encounter as Narrative-Mechanical Core
+
+The final boss sequence is the strongest example of narrative and systems integration:
+- Pre-fight surveillance phase (Satan watches from the throne).
+- Awakening trigger tied to arena progression.
+- Theatrical descent into combat phase.
+- Fake-death transition into second phase.
+- Reactive foot-stomp phase requiring pattern recognition and punish windows.
+
+This sequence gives players an authored dramatic arc while preserving mechanical clarity and fairness. It also aligns with course goals around engagement and flow by blending anticipation, challenge spikes, and readable counterplay.
+
+[Insert Figure 5 here: Colosseum Phase 1 (before transition)]
+[Insert Figure 6 here: Colosseum Phase 2 (after transition)]
+[Insert Figure 9 here: In-game boss screenshot (Phase 2) with telegraphs/punish windows]
+
+Progression Systems Supporting Theme and Motivation
+
+Run-level upgrades and persistent meta-progression remain tightly integrated with the game's survival premise. Temporary build choices create immediate run identity, while account progression and skill-tree unlocks reinforce long-term persistence against a hostile arena structure. The result is a dual loop where narrative context ("you are trapped and improving through repeated trials") aligns with both short- and long-horizon reward systems.
+
+
+================================================================================
+4. PLAYTESTING & ITERATION
+================================================================================
+
+Process and Tooling
+
+Our Deliverable 3 iteration process was evidence-driven. We used dedicated debug hotkeys and one-click setup workflows to repeatedly test late-game scenarios without full playthrough overhead. This allowed faster validation for boss intros, wave pacing, tutorial sequencing, and progression edge cases.
+
+We also integrated runtime playtest logging hooks to capture practical metrics such as early kill timing, first level-up timing, and run summary outcomes. This supported targeted tuning rather than subjective-only balancing.
+
+Concrete Improvements After the Mid-Project Build
+
+We iterated in four main areas, driven by playtesting and internal review:
+
+1) Balance and Fairness Tuning
+- Reduced upgrade power spikes so runs do not snowball out of control.
+- Adjusted collision and multishot behavior so combat reads fairly and predictably.
+- Tuned spawn pacing and wave pressure for a steadier difficulty curve.
+
+2) Encounter Reliability
+- Fixed boss intro timing so the awaken sequence and combat entry stay in sync.
+- Added safeguards when a boss instance is missing or duplicated, and hardened phase transitions.
+- Resolved boss death and save-state issues that could leave the game in a bad state.
+
+3) Tutorial and Onboarding Clarity
+- Added or expanded steps for medkits, dash, and trap hazards.
+- Clarified in-game messaging and portal and tutorial flow.
+
+4) UX and Presentation Polish
+- Reworked the main menu and local account create/load flow.
+- Integrated settings and audio controls into a single clear experience.
+- Refined the HUD and UI for readability during live combat.
+
+Impact on Final Experience
+
+These iterations improved perceived fairness, reduced confusion for first-time players, and increased confidence in build stability for evaluators. Most importantly, they show clear progression from Deliverable 2 functionality to Deliverable 3 polish and reliability.
+
+[Insert Figure 7 in this section: Choose Upgrade screen (evidence of progression/balance loop)]
+
+
+================================================================================
+5. PRESENTATION & DOCUMENTATION QUALITY
+================================================================================
+
+Report Organization
+
+This report is organized directly against the Deliverable 3 rubric categories so evaluators can map evidence to scoring criteria quickly. Each section pairs design intent with what we built and how it changed after the mid-project prototype.
+
+Showcase Video Alignment
+
+Our 3-5 minute showcase presentation is structured to mirror this report:
+- Premise and setting.
+- Guided walkthrough of gameplay loop (movement, combat, progression, boss phases).
+- Visual and audio highlights.
+- Demonstration of polished moments and final gameplay stability.
+
+Submission Readiness
+
+The final submission package includes:
+- Unity project directories required for review (Assets, Packages, ProjectSettings).
+- Functional Windows build (executable and corresponding data folder).
+- PDF report derived from this document.
+- Recorded showcase video.
+
+Files are organized in a single labeled archive for straightforward grading and playback.
+
+
+================================================================================
+6. TECHNICAL HIGHLIGHTS (FINAL PROTOTYPE)
+================================================================================
+
+State-Driven Core Architecture
+
+A central manager-based architecture coordinates game states, wave flow, combat pacing, and transition sequencing. This keeps systems synchronized and reduces unexpected cross-system behavior during resets, pauses, and end states.
+
+Boss State Machine and Phase Isolation
+
+The Satan encounter uses explicit state management and dedicated phase controllers, allowing isolated tuning of telegraphs, damage windows, and transition events without destabilizing unrelated systems.
+
+Progression Stack (Run + Meta)
+
+The project combines run-based upgrade selection with persistent account progression and skill unlocks. This layered progression supports replayability while offering meaningful long-term goals.
+
+[Insert Figure 4 in this section: Skill Tree screen]
+
+Save/Load Reliability Improvements
+
+During final polish we improved snapshot handling, state restoration, and transition synchronization. These safeguards matter for a submission build where players may quit and resume often while testing.
+
+Tooling for Team Velocity
+
+One-click setup/build utilities and debug testing hooks significantly improved iteration speed and reduced integration friction among team members.
+
+
+================================================================================
+CONCLUSION
+================================================================================
+
+Deliverable 3 for The Pit represents a complete progression from mid-project prototype to polished final submission. We preserved the core identity that scored highly in Deliverable 2 while strengthening the areas emphasized in the final rubric: implementation polish, audio-visual cohesion, integrated narrative systems, evidence-based iteration, and professional presentation.
+
+The final result is a cohesive, playable, and well-documented prototype that reflects both design intent and disciplined technical execution.
+
+
+================================================================================
+ASSETS & ATTRIBUTION
+================================================================================
+
+The following external assets were used in this project. All sprites sourced from The Spriters Resource are used for non-commercial educational purposes in a university course context.
+
+Player, Gun & Regular Enemy Sprites
+Source: "Top Down Shooter" by BlobfishDev
+URL: https://blobfishdev.itch.io/top-down-shooter
+
+Upgrade Option Buttons
+Source: "Simple Pixel Art Buttons" by gleao
+URL: https://gleao.itch.io/simple-pixel-art-buttons
+
+Fast Enemy / Small Bat Sprites
+Source: The Spriters Resource - The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/146171/
+
+Heavy Enemy Sprites
+Source: The Spriters Resource - The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/167086/
+
+Stage 2 Heavy Enemy Sprites
+Source: The Spriters Resource - The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/525030/
+
+Fat Bat Sprites
+Source: The Spriters Resource - The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/146172/
+
+First Stage Boss Sprites
+Source: The Spriters Resource - The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/269565/
+
+Merchant Sprites
+Source: The Spriters Resource - The Binding of Isaac: Rebirth
+URL: https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/276797/
+
+Final Boss (Satan) Sprites
+Source: The Spriters Resource - The Binding of Isaac: Rebirth
+URLs:
+  https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/88056/
+  https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/101199/
+  https://www.spriters-resource.com/pc_computer/bindingofisaacrebirth/asset/237573/
+
+XP Orb
+Generated using AI image generation tools.
+
+Medkit / Health Pack
+Generated using AI image generation tools.
+
+Audio Assets (Sound Effects and Music)
+Button click sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/film-special-effects-video-game-select-337214/
+
+Weapon fire sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/film-special-effects-shooting-sound-fx-159024/
+
+Start game sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/film-special-effects-cinematic-hit-159487/
+
+Satan laugh sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/horror-evil-laughter-494314/
+
+First boss scream sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/horror-zombie-screaming-207590/
+
+Lobby music sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/musical-game-music-loop-1-143979/
+
+Button hover sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/film-special-effects-ui-sounds-pack-3-7-359721/
+
+Enemy dead sound
+Source: Pixabay
+URL: https://pixabay.com/sound-effects/film-special-effects-air-blow-380645/
+
+
+================================================================================
+APPENDIX A: FIGURE PLACEMENT MAP
+================================================================================
+
+Use this exact order/captioning in the final PDF layout:
+
+Figure 1. Sign-in screen and account access entry point.
+Place in Introduction after the second paragraph.
+
+Figure 2. Create/Load Game screen showing local account flow.
+Place in Introduction immediately after Figure 1.
+
+Figure 3. Tutorial sequence screenshot demonstrating onboarding clarity.
+Place in Art, Aesthetics & Sound Design section.
+
+Figure 4. Skill Tree interface showing persistent progression tracks.
+Place in Technical Highlights (Progression Stack subsection).
+
+Figure 5. Colosseum Phase 1 before boss transition.
+Place in Narrative & Systems Integration (Satan Encounter subsection).
+
+Figure 6. Colosseum Phase 2 after transition.
+Place directly beside/under Figure 5 as a before/after pair.
+
+Figure 7. Choose Upgrade screen during run-level progression.
+Place in Playtesting & Iteration to support balancing/progression tuning claims.
+
+Figure 8. In-game combat screenshot (Phase 1) showing HUD readability.
+Place in Art, Aesthetics & Sound Design as gameplay readability evidence.
+
+Figure 9. In-game final boss screenshot (Phase 2) showing telegraphed danger and punish window.
+Place in Narrative & Systems Integration near Figures 5 and 6.
+
+Layout guidance:
+- Keep figures medium size (roughly 25-35% page width each).
+- Use two-column pairing for Figures 5 and 6 to save space.
+- Target 6-8 pages of text plus figures, staying within the 5-10 page requirement.
