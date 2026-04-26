@@ -153,25 +153,13 @@ These iterations improved perceived fairness, reduced confusion for first-time p
 
 Report Organization
 
-This report is organized directly against the Deliverable 3 rubric categories so evaluators can map evidence to scoring criteria quickly. Each section pairs design intent with what we built and how it changed after the mid-project prototype.
+This report is organized directly against the Deliverable 3 rubric categories so each topic maps cleanly to the stated evaluation areas. Every section pairs design intent with what we built and how it changed after the mid-project prototype. Screenshots are placed next to the claims they support (UI and onboarding, visual readability, boss phases, and progression systems) so the write-up and evidence stay in sync.
 
-Showcase Video Alignment
+Showcase Video
 
-Our 3-5 minute showcase presentation is structured to mirror this report:
-- Premise and setting.
-- Guided walkthrough of gameplay loop (movement, combat, progression, boss phases).
-- Visual and audio highlights.
-- Demonstration of polished moments and final gameplay stability.
+The recorded showcase (approximately 3-5 minutes) is the main visual proof of the final experience. It is structured to complement this report rather than repeat it in full: premise and setting, a guided pass through the core loop (movement, combat, run progression, and boss phases), and highlights of art, audio, and polish. The video is where viewers see pacing, telegraphs, and feedback in motion; the report explains the reasoning and iteration behind those choices.
 
-Submission Readiness
-
-The final submission package includes:
-- Unity project directories required for review (Assets, Packages, ProjectSettings).
-- Functional Windows build (executable and corresponding data folder).
-- PDF report derived from this document.
-- Recorded showcase video.
-
-Files are organized in a single labeled archive for straightforward grading and playback.
+We followed the course submission format (Unity project, Windows build, PDF, and video) as specified in the deliverable instructions; the package contents themselves are not listed here, since they are defined by the assignment brief and verified at submission time.
 
 
 ================================================================================
